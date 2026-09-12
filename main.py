@@ -130,11 +130,59 @@ def execute_and_display(agent: OSAgent, prompt: str) -> None:
         print(f"\n[!] Error during agent run: {e}")
 
 
+def interactive_voice_loop(agent: OSAgent) -> None:
+    """Continuous voice-controlled loop listening to user speech and executing commands."""
+    from voice import VoiceListener, speak
+
+    print_banner()
+    check_llm_connection(agent)
+    print("\n" + "=" * 55)
+    print("      🎙️  VOICE INTERACTION MODE ACTIVATED  🎙️")
+    print("      Speaking with: Elegant British Female Voice")
+    print("      Say 'exit', 'quit', or 'stop' to return to prompt.")
+    print("=" * 55 + "\n")
+
+    speak("Good day. I am listening for your command.")
+    listener = VoiceListener()
+    listener.calibrate_ambient_noise(duration=0.8)
+
+    while True:
+        try:
+            print("\n[🎙️ Listening for voice command... (speak into your microphone)]")
+            
+            def on_speech():
+                print("  -> Voice detected, recording...", end="", flush=True)
+
+            text = listener.listen_command(
+                timeout=8.0,
+                on_speech_detected=on_speech,
+            )
+
+            if not text:
+                print(" (No speech detected)")
+                continue
+
+            print(f"\n[Heard]: \"{text}\"")
+
+            # Check for exit commands
+            if any(w in text.lower() for w in ["exit", "quit", "goodbye", "stop voice"]):
+                print("Exiting voice mode.")
+                speak("Goodbye for now.")
+                break
+
+            execute_and_display(agent, text)
+
+        except (KeyboardInterrupt, EOFError):
+            print("\nExiting voice mode.")
+            speak("Voice mode deactivated.")
+            break
+
+
 def interactive_repl(agent: OSAgent) -> None:
     """Runs interactive command REPL loop."""
     print_banner()
     check_llm_connection(agent)
-    print("\nType your request in natural language. Type 'exit', 'quit', or 'diag' for diagnostics.\n")
+    print("\nType your request or type 'voice' to speak. Type 'exit', 'quit', or 'diag'.\n")
 
     while True:
         try:
@@ -146,6 +194,9 @@ def interactive_repl(agent: OSAgent) -> None:
                 break
             if user_input.lower() in ("diag", "diagnostic", "test"):
                 run_diagnostic()
+                continue
+            if user_input.lower() in ("voice", "listen", "mic"):
+                interactive_voice_loop(agent)
                 continue
 
             execute_and_display(agent, user_input)
@@ -160,6 +211,8 @@ def main() -> None:
     parser.add_argument("--prompt", "-p", type=str, help="Single prompt execution mode")
     parser.add_argument("--base-url", type=str, default=config.llm_base_url, help="LLM base URL")
     parser.add_argument("--model", "-m", type=str, default=config.llm_model, help="LLM model name")
+    parser.add_argument("--voice", "-v", action="store_true", help="Launch directly in voice interaction mode")
+    parser.add_argument("--no-tts", action="store_true", help="Disable voice speech feedback")
     parser.add_argument("--test-tools", action="store_true", help="Run local tool diagnostics")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
 
@@ -172,9 +225,12 @@ def main() -> None:
         run_diagnostic()
         return
 
-    agent = OSAgent(base_url=args.base_url, model=args.model)
+    enable_voice = not args.no_tts
+    agent = OSAgent(base_url=args.base_url, model=args.model, enable_voice=enable_voice)
 
-    if args.prompt:
+    if args.voice:
+        interactive_voice_loop(agent)
+    elif args.prompt:
         execute_and_display(agent, args.prompt)
     else:
         interactive_repl(agent)

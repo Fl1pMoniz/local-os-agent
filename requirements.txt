@@ -6,5 +6,9 @@ comtypes>=1.2.0
 pillow>=10.0.0
 pyautogui>=0.9.54
 vdf>=3.4
+edge-tts>=7.0.0
+sounddevice>=0.5.0
+SpeechRecognition>=3.10.0
+numpy>=2.0.0
 pywin32>=306; sys_platform == 'win32'
 

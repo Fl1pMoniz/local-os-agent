@@ -81,17 +81,24 @@ class OSAgent:
         base_url: str | None = None,
         api_key: str | None = None,
         model: str | None = None,
+        enable_voice: bool | None = None,
         confirmation_callback: Callable[[str, str, dict[str, Any]], bool] | None = None,
     ):
         self.base_url = base_url or config.llm_base_url
         self.api_key = api_key or config.llm_api_key
         self.model = model or config.llm_model
+        self.enable_voice = enable_voice if enable_voice is not None else config.enable_tts
         self.client = OpenAI(base_url=self.base_url, api_key=self.api_key)
         self.confirmation_callback = confirmation_callback or self._default_confirmation_prompt
 
     def _default_confirmation_prompt(self, thought: str, tool_name: str, args: dict[str, Any]) -> bool:
         """Contextual confirmation prompt displaying the LLM's thought alongside the sensitive action."""
         args_str = ", ".join(f"{k}={v!r}" for k, v in args.items()) if args else ""
+        prompt_text = f"Action requires confirmation: {tool_name}"
+        if self.enable_voice:
+            from voice import speak
+            speak(f"Please confirm: {thought}")
+
         print("\n" + "=" * 60)
         print(" [!] SAFETY GATEKEEPER CONFIRMATION REQUIRED")
         print(f" Thought: {thought}")
@@ -122,7 +129,14 @@ class OSAgent:
         logger.debug(f"Raw LLM output:\n{content}")
 
         parsed_json = extract_json_payload(content)
-        return AgentResponse.model_validate(parsed_json)
+        plan = AgentResponse.model_validate(parsed_json)
+
+        # Voice feedback: Speak the agent's thought with the elegant British female voice
+        if self.enable_voice and plan.thought:
+            from voice import speak
+            speak(plan.thought)
+
+        return plan
 
     def execute_plan(
         self,

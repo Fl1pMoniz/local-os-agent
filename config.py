@@ -21,6 +21,13 @@ class AgentConfig:
     # Steam Settings (auto-detected if None)
     custom_steam_path: str | None = os.getenv("STEAM_CUSTOM_PATH", None)
 
+    # Voice / Audio Feedback Settings
+    enable_tts: bool = os.getenv("ENABLE_TTS", "true").lower() in ("true", "1", "yes")
+    tts_voice: str = os.getenv("TTS_VOICE", "en-GB-SoniaNeural")
+    tts_rate: str = os.getenv("TTS_RATE", "+0%")
+    stt_language: str = os.getenv("STT_LANGUAGE", "en-US")
+    audio_cache_dir: Path = base_dir / "captures" / "audio"
+
     # Sensitive tools requiring user confirmation
     sensitive_tools: tuple[str, ...] = (
         "kill_process",
@@ -30,6 +37,7 @@ class AgentConfig:
 
     def __post_init__(self) -> None:
         self.captures_dir.mkdir(parents=True, exist_ok=True)
+        self.audio_cache_dir.mkdir(parents=True, exist_ok=True)
 
 
 config = AgentConfig()

@@ -6,28 +6,32 @@ A production-ready, modular OS-level Agentic Assistant that interfaces with loca
 
 ## Key Features
 
-1. **Exact System Prompt & JSON Enforcement**:
+1. **Voice Control & Elegant British Speech**:
+   - **Microphone Listening (STT)**: Records speech using `sounddevice` with automatic silence and energy detection, transcribing commands directly to LLM prompts.
+   - **Elegant British Voice (TTS)**: Synthesizes responses using Microsoft's high-definition `en-GB-SoniaNeural` neural voice, with background streaming via native Windows MCI (`winmm.dll`) and offline SAPI5 fallback.
+
+2. **Exact System Prompt & JSON Enforcement**:
    - Injects the strict system prompt directly into the agent.
    - Robust regex JSON extractor (`re.search(r"(\{[\s\S]*\})", text)`) isolates the JSON payload even when small local models (7B/8B/14B) prepend conversational fluff or markdown code blocks.
 
-2. **Accurate Master Volume Control (`pycaw`)**:
-   - Uses `SetMasterVolumeLevelScalar()` with a 0.0–1.0 linear float mapping directly to 0–100 percentages, avoiding logarithmic decibel math.
-   - Master mute toggle via `GetMute()` / `SetMute()`.
+3. **Master & Per-Application Volume Control (`pycaw`)**:
+   - Master volume with `SetMasterVolumeLevelScalar()` (linear 0.0–1.0 float mapping to 0–100%).
+   - Independent per-app volume slider control (`set_app_volume`, `list_app_volumes`) for Discord, Spotify, Chrome, games, etc.
 
-3. **Dynamic Steam Discovery & Fuzzy Launcher**:
+4. **Dynamic Steam Discovery & Fuzzy Launcher**:
    - Automatically resolves the Steam installation directory from the Windows Registry (`HKCU\Software\Valve\Steam\SteamPath`).
    - Uses the dedicated `vdf` library to parse `libraryfolders.vdf` and all `appmanifest_*.acf` across multiple library drives.
    - Real-time catalog mapping game names to numeric `appid`s.
    - Fuzzy string matching (`difflib` + substring scoring) to launch games via `steam://rungameid/{app_id}`.
 
-4. **Media & Application Controls**:
+5. **Media & Application Controls**:
    - Direct YouTube queries and browser search links.
    - Global media virtual keys (`play_pause`, `next_track`, `prev_track`) using Windows virtual keycodes (`0xB3`, `0xB0`, `0xB1`).
    - Native application launcher with common aliases (`calculator`, `notepad`, `terminal`, etc.).
 
-5. **Contextual Safety Gatekeeper**:
+6. **Contextual Safety Gatekeeper**:
    - Sensitive actions (`kill_process`, `shutdown`, `sleep_pc`) require user confirmation `[y/N]`.
-   - **Contextual Thought UI**: Displays the LLM's `thought` string right alongside the prompt so the user has full rationale before approving.
+   - **Contextual Thought UI & Spoken Warning**: Displays and speaks the LLM's `thought` string alongside the prompt for informed approval.
 
 ---
 
