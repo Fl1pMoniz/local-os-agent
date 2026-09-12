@@ -23,7 +23,7 @@ class AgentConfig:
 
     # Voice & Wake Word Settings
     enable_tts: bool = os.getenv("ENABLE_TTS", "true").lower() in ("true", "1", "yes")
-    tts_voice: str = os.getenv("TTS_VOICE", "en-GB-SoniaNeural")
+    tts_voice: str = os.getenv("TTS_VOICE", "en-GB-LibbyNeural")
     tts_rate: str = os.getenv("TTS_RATE", "+0%")
     stt_language: str = os.getenv("STT_LANGUAGE", "en-US")
     wake_word: str = os.getenv("WAKE_WORD", "cortana").lower()

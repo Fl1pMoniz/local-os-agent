@@ -41,15 +41,29 @@ def clean_text_for_speech(text: str) -> str:
     return cleaned
 
 
+VOICE_PRESETS: dict[str, tuple[str, str]] = {
+    "libby": ("en-GB-LibbyNeural", "Crisp, elegant & highly articulate British female (Default)"),
+    "maisie": ("en-GB-MaisieNeural", "Warm & natural conversational British female"),
+    "aria": ("en-US-AriaNeural", "Iconic Microsoft Cortana / Copilot expressive AI assistant"),
+    "ava": ("en-US-AvaMultilingualNeural", "Ultra-modern cinematic, intelligent AI assistant"),
+    "sonia": ("en-GB-SoniaNeural", "Standard British female"),
+}
+
+
 class TextToSpeech:
     """
     High-fidelity Text-to-Speech engine utilizing Microsoft Edge's Neural TTS
-    ('en-GB-SoniaNeural') with seamless native Windows MCI playback and
-    offline SAPI5 fallback.
+    with seamless native Windows MCI playback and offline SAPI5 fallback.
     """
 
     def __init__(self, voice: str | None = None, rate: str | None = None):
-        self.voice = voice or config.tts_voice
+        raw_voice = voice or config.tts_voice
+        # Resolve preset shorthand (e.g. 'libby', 'aria', 'ava')
+        if raw_voice.lower() in VOICE_PRESETS:
+            self.voice = VOICE_PRESETS[raw_voice.lower()][0]
+        else:
+            self.voice = raw_voice
+
         self.rate = rate or config.tts_rate
         self.cache_dir = config.audio_cache_dir
         self.cache_dir.mkdir(parents=True, exist_ok=True)

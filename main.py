@@ -229,12 +229,29 @@ def interactive_repl(agent: OSAgent) -> None:
             break
 
 
+def preview_all_voices() -> None:
+    """Plays a preview of all available voices so the user can select their favorite."""
+    from voice.tts import VOICE_PRESETS, TextToSpeech
+    print("\n--- Auditioning Available Cortana Voices ---")
+    for key, (voice_id, desc) in VOICE_PRESETS.items():
+        print(f"\n[*] Voice Preset: '{key}' ({voice_id})")
+        print(f"    Description : {desc}")
+        print(f"    Speaking sample now...")
+        engine = TextToSpeech(voice=voice_id)
+        phrase = f"Hello. I am Cortana, using the {key} voice profile. How do I sound to you?"
+        engine.speak(phrase, wait=True)
+    print("\n--- Finished Auditioning Voices ---")
+    print("Tip: You can select any voice permanently by launching with: --voice-name <name>")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Local OS Agent CLI")
     parser.add_argument("--prompt", "-p", type=str, help="Single prompt execution mode")
     parser.add_argument("--base-url", type=str, default=config.llm_base_url, help="LLM base URL")
     parser.add_argument("--model", "-m", type=str, default=config.llm_model, help="LLM model name")
     parser.add_argument("--voice", "-v", action="store_true", help="Launch directly in voice interaction mode")
+    parser.add_argument("--voice-name", type=str, default=None, help="TTS Voice preset or full name (libby, aria, ava, maisie)")
+    parser.add_argument("--preview-voices", action="store_true", help="Audition all available voice presets out loud")
     parser.add_argument("--no-tts", action="store_true", help="Disable voice speech feedback")
     parser.add_argument("--test-tools", action="store_true", help="Run local tool diagnostics")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
@@ -243,6 +260,16 @@ def main() -> None:
 
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
+
+    if args.preview_voices:
+        preview_all_voices()
+        return
+
+    if args.voice_name:
+        from voice.tts import VOICE_PRESETS, tts_engine
+        selected = VOICE_PRESETS.get(args.voice_name.lower(), (args.voice_name, ""))[0]
+        config.tts_voice = selected
+        tts_engine.voice = selected
 
     if args.test_tools:
         run_diagnostic()
