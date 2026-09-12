@@ -2,7 +2,7 @@
 
 import logging
 import platform
-from typing import Tuple
+from typing import Any, Tuple
 
 logger = logging.getLogger("local_os_agent.tools.audio")
 
@@ -79,6 +79,91 @@ def mute_toggle() -> Tuple[bool, str]:
         return False, f"Failed to toggle mute: {e}"
 
 
+def set_app_volume(app_name: str, level: int) -> Tuple[bool, str]:
+    """
+    Sets the volume of a specific running application (0–100) using pycaw ISimpleAudioVolume.
+    Matches the application name against active audio sessions.
+    """
+    try:
+        if not app_name or not app_name.strip():
+            return False, "Application name cannot be empty."
+
+        level = max(0, min(100, int(level)))
+        scalar_val = level / 100.0
+        app_query = app_name.strip().lower().replace(".exe", "")
+
+        if platform.system() == "Windows":
+            from pycaw.pycaw import AudioUtilities
+            import ctypes
+
+            try:
+                ctypes.windll.ole32.CoInitialize(None)
+            except Exception:
+                pass
+
+            sessions = AudioUtilities.GetAllSessions()
+            matched_sessions = []
+            available_apps = set()
+
+            for session in sessions:
+                if session.Process:
+                    p_name = session.Process.name()
+                    if p_name:
+                        base_name = p_name.lower().replace(".exe", "")
+                        available_apps.add(base_name)
+                        if app_query in base_name or app_query in p_name.lower():
+                            matched_sessions.append((p_name, session.SimpleAudioVolume))
+
+            if not matched_sessions:
+                apps_list = ", ".join(sorted(list(available_apps))[:6]) if available_apps else "None"
+                return False, f"No active audio session found for '{app_name}'. (Active audio apps: {apps_list})"
+
+            for proc_name, simple_volume in matched_sessions:
+                simple_volume.SetMasterVolume(scalar_val, None)
+
+            names = list(set(p for p, _ in matched_sessions))
+            return True, f"Set volume for {', '.join(names)} to {level}%."
+        else:
+            return False, f"Per-app audio control not implemented for {platform.system()}."
+    except Exception as e:
+        logger.exception(f"Error setting app volume for '{app_name}'")
+        return False, f"Failed to set app volume for '{app_name}': {e}"
+
+
+def list_app_volumes() -> Tuple[bool, dict[str, Any]]:
+    """
+    Returns a dictionary of currently active audio applications and their volume levels (0-100).
+    """
+    try:
+        if platform.system() == "Windows":
+            from pycaw.pycaw import AudioUtilities
+            import ctypes
+
+            try:
+                ctypes.windll.ole32.CoInitialize(None)
+            except Exception:
+                pass
+
+            sessions = AudioUtilities.GetAllSessions()
+            app_data = {}
+
+            for session in sessions:
+                if session.Process:
+                    p_name = session.Process.name()
+                    if p_name:
+                        vol = session.SimpleAudioVolume
+                        pct = int(round(vol.GetMasterVolume() * 100))
+                        muted = bool(vol.GetMute())
+                        app_data[p_name] = {"volume": pct, "muted": muted, "pid": session.Process.pid}
+
+            return True, app_data
+        else:
+            return False, {"error": f"Not implemented for {platform.system()}."}
+    except Exception as e:
+        logger.exception("Error listing app volumes")
+        return False, {"error": str(e)}
+
+
 # Register tools
 from tools import register_tool
 
@@ -93,3 +178,16 @@ register_tool(
     description="Toggles the system mute state.",
     sensitive=False,
 )(mute_toggle)
+
+register_tool(
+    name="set_app_volume",
+    description="Sets the volume for a specific application (0-100), e.g. Spotify, Discord, Chrome.",
+    sensitive=False,
+)(set_app_volume)
+
+register_tool(
+    name="list_app_volumes",
+    description="Lists active audio applications with their current volume levels and mute states.",
+    sensitive=False,
+)(list_app_volumes)
+

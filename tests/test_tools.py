@@ -10,6 +10,8 @@ class TestTools(unittest.TestCase):
         tools = list_tools()
         required = [
             "set_volume",
+            "set_app_volume",
+            "list_app_volumes",
             "mute_toggle",
             "play_youtube",
             "media_control",

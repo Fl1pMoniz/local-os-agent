@@ -10,13 +10,14 @@ class TestSchemas(unittest.TestCase):
         """Verify the exact SYSTEM_PROMPT text matches prompt specification."""
         self.assertIn("You are an OS-level Agentic Assistant running on the user's local machine.", SYSTEM_PROMPT)
         self.assertIn("1. set_volume(level: int): Sets master system volume (0-100).", SYSTEM_PROMPT)
-        self.assertIn("2. mute_toggle(): Toggles the system mute state.", SYSTEM_PROMPT)
-        self.assertIn("3. play_youtube(query: str): Opens a YouTube search or video in the default browser.", SYSTEM_PROMPT)
-        self.assertIn('4. media_control(action: str): Controls media playback. Accepted actions: "play_pause", "next_track", "prev_track".', SYSTEM_PROMPT)
-        self.assertIn("5. launch_app(app_name: str): Opens a standard native application.", SYSTEM_PROMPT)
-        self.assertIn("6. launch_steam_game(game_name: str): Fuzzy matches a game name to its Steam ID and launches it.", SYSTEM_PROMPT)
-        self.assertIn("7. get_system_stats(): Returns CPU, RAM, and battery data.", SYSTEM_PROMPT)
-        self.assertIn("8. take_screenshot(): Captures the screen and saves it locally.", SYSTEM_PROMPT)
+        self.assertIn("2. set_app_volume(app_name: str, level: int): Sets volume of a specific application (0-100)", SYSTEM_PROMPT)
+        self.assertIn("3. mute_toggle(): Toggles the system mute state.", SYSTEM_PROMPT)
+        self.assertIn("4. play_youtube(query: str): Opens a YouTube search or video in the default browser.", SYSTEM_PROMPT)
+        self.assertIn('5. media_control(action: str): Controls media playback. Accepted actions: "play_pause", "next_track", "prev_track".', SYSTEM_PROMPT)
+        self.assertIn("6. launch_app(app_name: str): Opens a standard native application.", SYSTEM_PROMPT)
+        self.assertIn("7. launch_steam_game(game_name: str): Fuzzy matches a game name to its Steam ID and launches it.", SYSTEM_PROMPT)
+        self.assertIn("8. get_system_stats(): Returns CPU, RAM, and battery data.", SYSTEM_PROMPT)
+        self.assertIn("9. take_screenshot(): Captures the screen and saves it locally.", SYSTEM_PROMPT)
         self.assertIn("OUTPUT SCHEMA:", SYSTEM_PROMPT)
 
     def test_clean_json_parsing(self):
