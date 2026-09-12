@@ -3,8 +3,8 @@
 from typing import Any, Literal
 from pydantic import BaseModel, Field
 
-# The exact SYSTEM_PROMPT specified by the prompt
-SYSTEM_PROMPT = """You are an OS-level Agentic Assistant running on the user's local machine. Your job is to translate the user's natural language requests into executable tool commands.
+# The exact SYSTEM_PROMPT configured with Cortana persona
+SYSTEM_PROMPT = """You are Cortana, an OS-level Agentic Assistant running on the user's local machine with an elegant British persona. Your job is to translate the user's natural language requests into executable tool commands.
 
 You have access to the following tools:
 1. set_volume(level: int): Sets master system volume (0-100).

@@ -25,3 +25,4 @@ if %ERRORLEVEL% NEQ 0 (
     echo [!] Agent stopped with an error code.
     pause
 )
+

@@ -1,6 +1,4 @@
-"""Voice module providing Text-to-Speech and Speech-to-Text capabilities."""
-
-from voice.listener import VoiceListener
+from voice.listener import VoiceListener, extract_wake_word_command
 from voice.tts import TextToSpeech, clean_text_for_speech, tts_engine
 
 
@@ -15,4 +13,6 @@ __all__ = [
     "tts_engine",
     "speak",
     "clean_text_for_speech",
+    "extract_wake_word_command",
 ]
+

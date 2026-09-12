@@ -195,3 +195,4 @@ class TextToSpeech:
 
 # Global singleton TTS engine
 tts_engine = TextToSpeech()
+

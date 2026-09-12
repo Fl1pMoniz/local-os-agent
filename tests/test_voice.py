@@ -25,6 +25,30 @@ class TestVoiceModule(unittest.TestCase):
         self.assertEqual(clean_text_for_speech(""), "")
         self.assertEqual(clean_text_for_speech("   "), "")
 
+    def test_extract_wake_word_command(self):
+        from voice import extract_wake_word_command
+
+        # Called with direct command
+        called, cmd = extract_wake_word_command("Hey Cortana, set volume to 50", wake_word="cortana")
+        self.assertTrue(called)
+        self.assertEqual(cmd, "set volume to 50")
+
+        # Called with just name
+        called, cmd = extract_wake_word_command("Cortana", wake_word="cortana")
+        self.assertTrue(called)
+        self.assertEqual(cmd, "")
+
+        # Called with question
+        called, cmd = extract_wake_word_command("Cortana, what is my CPU usage?", wake_word="cortana")
+        self.assertTrue(called)
+        self.assertEqual(cmd, "what is my CPU usage")
+
+        # Ambient speech without Cortana
+        called, cmd = extract_wake_word_command("Turn up the music please", wake_word="cortana")
+        self.assertFalse(called)
+        self.assertEqual(cmd, "")
+
 
 if __name__ == "__main__":
     unittest.main()
+

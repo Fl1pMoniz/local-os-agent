@@ -13,6 +13,36 @@ from config import config
 logger = logging.getLogger("local_os_agent.voice.listener")
 
 
+def extract_wake_word_command(text: str, wake_word: str | None = None) -> tuple[bool, str]:
+    """
+    Checks if the specified wake word (e.g. 'cortana' or 'hey cortana') is present in the text.
+    Returns (is_called, extracted_command).
+    """
+    if not text:
+        return False, ""
+
+    target_word = (wake_word or config.wake_word).strip().lower()
+    text_clean = text.lower().strip()
+
+    variations = [
+        f"hey {target_word}",
+        f"ok {target_word}",
+        f"hi {target_word}",
+        target_word,
+    ]
+
+    for variant in variations:
+        if variant in text_clean:
+            # Strip the wake variant while preserving original text casing
+            idx = text_clean.find(variant)
+            before = text[:idx].strip()
+            after = text[idx + len(variant):].strip()
+            command = f"{before} {after}".strip().strip(",.?! ")
+            return True, command
+
+    return False, ""
+
+
 class VoiceListener:
     """
     Microphone audio listener utilizing sounddevice for capture and
@@ -131,3 +161,4 @@ class VoiceListener:
         except Exception as e:
             logger.error(f"Transcription error: {e}")
             return None
+

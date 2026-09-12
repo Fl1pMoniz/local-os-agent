@@ -131,50 +131,73 @@ def execute_and_display(agent: OSAgent, prompt: str) -> None:
 
 
 def interactive_voice_loop(agent: OSAgent) -> None:
-    """Continuous voice-controlled loop listening to user speech and executing commands."""
-    from voice import VoiceListener, speak
+    """Continuous voice-controlled loop listening for 'Cortana' and executing commands."""
+    from voice import VoiceListener, extract_wake_word_command, speak
 
     print_banner()
     check_llm_connection(agent)
-    print("\n" + "=" * 55)
-    print("      🎙️  VOICE INTERACTION MODE ACTIVATED  🎙️")
-    print("      Speaking with: Elegant British Female Voice")
+    print("\n" + "=" * 60)
+    print("      🎙️  CORTANA VOICE INTERACTION MODE ACTIVATED  🎙️")
+    print(f"      Wake Word : '{config.wake_word.upper()}' (e.g. 'Hey Cortana...')")
+    print("      Persona   : Cortana (Elegant British Voice)")
     print("      Say 'exit', 'quit', or 'stop' to return to prompt.")
-    print("=" * 55 + "\n")
+    print("=" * 60 + "\n")
 
-    speak("Good day. I am listening for your command.")
+    speak("Good day. I am Cortana. I will be listening for whenever you call my name.")
     listener = VoiceListener()
     listener.calibrate_ambient_noise(duration=0.8)
 
     while True:
         try:
-            print("\n[🎙️ Listening for voice command... (speak into your microphone)]")
-            
+            print(f"\n[🎙️ Listening for '{config.wake_word.title()}'...]")
+
             def on_speech():
                 print("  -> Voice detected, recording...", end="", flush=True)
 
             text = listener.listen_command(
-                timeout=8.0,
+                timeout=10.0,
                 on_speech_detected=on_speech,
             )
 
             if not text:
-                print(" (No speech detected)")
                 continue
 
-            print(f"\n[Heard]: \"{text}\"")
+            # Check if Cortana was explicitly called
+            is_called, command = extract_wake_word_command(text, wake_word=config.wake_word)
+
+            if not is_called and config.require_wake_word:
+                # Ambient noise or conversation not directed to Cortana
+                print(f" (Ignored: '{text}' - '{config.wake_word.title()}' was not called)")
+                continue
+
+            # Use the remaining command or full text if wake word check was passed
+            command_to_run = command if is_called else text
+            print(f"\n[Cortana Called]: \"{text}\"")
 
             # Check for exit commands
-            if any(w in text.lower() for w in ["exit", "quit", "goodbye", "stop voice"]):
-                print("Exiting voice mode.")
+            if any(w in text.lower() for w in ["exit", "quit", "goodbye", "stop voice", "shut down voice"]):
+                print("Exiting Cortana voice mode.")
                 speak("Goodbye for now.")
                 break
 
-            execute_and_display(agent, text)
+            # If the user just called her name with no command ("Hey Cortana")
+            if not command_to_run.strip():
+                speak("Yes? I am listening.")
+                print("  -> Cortana: 'Yes? I am listening.'")
+                print("  -> Awaiting command...")
+                followup = listener.listen_command(timeout=8.0)
+                if followup:
+                    print(f"\n[Command]: \"{followup}\"")
+                    command_to_run = followup
+                else:
+                    speak("I did not catch that.")
+                    continue
+
+            execute_and_display(agent, command_to_run)
 
         except (KeyboardInterrupt, EOFError):
             print("\nExiting voice mode.")
-            speak("Voice mode deactivated.")
+            speak("Cortana standing down.")
             break
 
 
