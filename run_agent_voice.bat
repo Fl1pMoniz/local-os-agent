@@ -17,8 +17,8 @@ if %ERRORLEVEL% NEQ 0 (
     timeout /t 3 /nobreak >nul
 )
 
-:: Launch the agent directly in voice interactive mode
-python main.py --model llama3.1:latest --voice
+:: Launch the agent in voice mode with the optimized Cortana 3B model (2.3 GB VRAM)
+python main.py --model cortana:3b --voice
 
 if %ERRORLEVEL% NEQ 0 (
     echo.

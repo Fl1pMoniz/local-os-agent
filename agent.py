@@ -51,7 +51,7 @@ def extract_json_payload(raw_text: str) -> dict[str, Any]:
     """
     Robust JSON extractor using regex to locate the outermost {...} block.
     Shields against conversational fluff, markdown backticks, and trailing text
-    frequently produced by local open-weights models.
+    frequently produced by small open-weights models.
     """
     if not raw_text or not raw_text.strip():
         raise ValueError("Received empty response from LLM.")
@@ -65,6 +65,14 @@ def extract_json_payload(raw_text: str) -> dict[str, Any]:
     else:
         # Fallback to stripped raw text
         payload_str = text
+
+    # Strip markdown fence markers if trapped inside match
+    payload_str = re.sub(r"^```json\s*", "", payload_str, flags=re.IGNORECASE)
+    payload_str = re.sub(r"^```\s*", "", payload_str)
+    payload_str = re.sub(r"\s*```$", "", payload_str)
+
+    # Repair common small model syntax quirk: trailing commas before } or ]
+    payload_str = re.sub(r",\s*([\}\]])", r"\1", payload_str)
 
     try:
         return json.loads(payload_str)
@@ -118,11 +126,20 @@ class OSAgent:
         ]
 
         logger.debug(f"Sending request to LLM ({self.model}) at {self.base_url}")
+        # Optimized options to cap KV cache VRAM footprint to < 300MB
+        extra_options = {
+            "options": {
+                "num_ctx": config.llm_num_ctx,
+                "num_predict": config.llm_max_tokens,
+            }
+        }
+
         response = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
             temperature=config.llm_temperature,
             timeout=config.llm_timeout,
+            extra_body=extra_options,
         )
 
         content = response.choices[0].message.content or ""

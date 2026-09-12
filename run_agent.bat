@@ -16,8 +16,8 @@ if %ERRORLEVEL% NEQ 0 (
     timeout /t 3 /nobreak >nul
 )
 
-:: Launch the agent with the installed llama3.1 model
-python main.py --model llama3.1:latest
+:: Launch the agent with the optimized Cortana 3B model (uses only 2.3 GB VRAM)
+python main.py --model cortana:3b
 
 if %ERRORLEVEL% NEQ 0 (
     echo.

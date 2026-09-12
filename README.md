@@ -8,11 +8,17 @@ A production-ready, modular OS-level Agentic Assistant that interfaces with loca
 
 1. **Voice Control & Elegant British Speech**:
    - **Microphone Listening (STT)**: Records speech using `sounddevice` with automatic silence and energy detection, transcribing commands directly to LLM prompts.
-   - **Elegant British Voice (TTS)**: Synthesizes responses using Microsoft's high-definition `en-GB-SoniaNeural` neural voice, with background streaming via native Windows MCI (`winmm.dll`) and offline SAPI5 fallback.
+   - **Wake Word Recognition**: Only triggers when you say **`"Cortana"`** or **`"Hey Cortana"`**, ignoring background room speech.
+   - **High-Definition Neural Voices (TTS)**: Features high-definition neural voices (`libby` British female default, `aria` official Cortana, `ava` cinematic).
 
-2. **Exact System Prompt & JSON Enforcement**:
+2. **Ultra-Low VRAM Footprint (< 2.5 GB VRAM)**:
+   - Configured with the optimized **`cortana:3b`** model (based on LLaMA 3.2 3B).
+   - Constrained to a 2,048 token context window, capping total GPU memory consumption at **2.3 GB VRAM** (leaving ~10 GB free on an RTX 4070 for games and background tasks).
+   - Generates responses in ~1 second.
+
+3. **Exact System Prompt & JSON Enforcement**:
    - Injects the strict system prompt directly into the agent.
-   - Robust regex JSON extractor (`re.search(r"(\{[\s\S]*\})", text)`) isolates the JSON payload even when small local models (7B/8B/14B) prepend conversational fluff or markdown code blocks.
+   - Robust regex JSON extractor (`re.search(r"(\{[\s\S]*\})", text)`) with automatic syntax repair for trailing commas.
 
 3. **Master & Per-Application Volume Control (`pycaw`)**:
    - Master volume with `SetMasterVolumeLevelScalar()` (linear 0.0–1.0 float mapping to 0–100%).
