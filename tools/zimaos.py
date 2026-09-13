@@ -312,6 +312,7 @@ KNOWN_ZIMA_SERVICES = [
     (8096, "Jellyfin Media", "Media"),
     (9000, "Portainer", "Docker"),
     (22, "SSH Terminal", "System"),
+    (7681, "Web Terminal (ttyd)", "System"),
 ]
 
 
