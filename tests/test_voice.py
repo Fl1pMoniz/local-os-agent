@@ -43,6 +43,15 @@ class TestVoiceModule(unittest.TestCase):
         self.assertTrue(called)
         self.assertEqual(cmd, "what is my CPU usage")
 
+        # Called with phonetic variations (e.g. Glad OS, gladdos)
+        called, cmd = extract_wake_word_command("Hey Glad OS, mute volume", wake_word="glados")
+        self.assertTrue(called)
+        self.assertEqual(cmd, "mute volume")
+
+        called, cmd = extract_wake_word_command("Gladdos take a screenshot", wake_word="glados")
+        self.assertTrue(called)
+        self.assertEqual(cmd, "take a screenshot")
+
         # Ambient speech without GLaDOS
         called, cmd = extract_wake_word_command("Turn up the music please", wake_word="glados")
         self.assertFalse(called)

@@ -15,7 +15,8 @@ logger = logging.getLogger("local_os_agent.voice.listener")
 
 def extract_wake_word_command(text: str, wake_word: str | None = None) -> tuple[bool, str]:
     """
-    Checks if the specified wake word (e.g. 'cortana' or 'hey cortana') is present in the text.
+    Checks if the specified wake word (e.g. 'glados' or 'hey glados') is present in the text.
+    Includes phonetic tolerances ('glad os', 'glad-os', 'gladdos') so natural speech is recognized.
     Returns (is_called, extracted_command).
     """
     if not text:
@@ -24,12 +25,19 @@ def extract_wake_word_command(text: str, wake_word: str | None = None) -> tuple[
     target_word = (wake_word or config.wake_word).strip().lower()
     text_clean = text.lower().strip()
 
-    variations = [
-        f"hey {target_word}",
-        f"ok {target_word}",
-        f"hi {target_word}",
-        target_word,
-    ]
+    target_aliases = [target_word]
+    if target_word == "glados":
+        target_aliases.extend(["glad os", "glad-os", "gladdos", "gladoss", "gladis", "glad us"])
+
+    prefixes = ["hey", "ok", "hi", "hello", "yo"]
+    variations: list[str] = []
+    for alias in target_aliases:
+        for prefix in prefixes:
+            variations.append(f"{prefix} {alias}")
+        variations.append(alias)
+
+    # Sort variations by length descending so longer phrases match first
+    variations.sort(key=len, reverse=True)
 
     for variant in variations:
         if variant in text_clean:
@@ -205,6 +213,7 @@ class VoiceListener:
                     audio_float32,
                     language=self.language,
                     fp16=self._fp16,
+                    initial_prompt="GLaDOS, Aperture Science.",
                     verbose=False,
                 )
                 if self.whisper_device.startswith("cuda"):
