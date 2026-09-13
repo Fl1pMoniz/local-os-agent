@@ -44,4 +44,5 @@ venv.bak/
 # Project specific
 captures/*
 !captures/.gitkeep
+voice/models/**/*.onnx
 

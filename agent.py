@@ -77,7 +77,7 @@ class OSAgent:
         args_str = ", ".join(f"{k}={v!r}" for k, v in args.items()) if args else ""
         if self.enable_voice:
             from voice import speak
-            speak(f"Pardon me, but this requires confirmation: {thought}")
+            speak("Aperture Science safety protocol requires your confirmation for this action.")
 
         print("\n" + "=" * 60)
         print(" [!] SAFETY GATEKEEPER CONFIRMATION REQUIRED")
@@ -126,12 +126,6 @@ class OSAgent:
         # Update conversation history
         self.history.append({"role": "user", "content": user_prompt})
         self.history.append({"role": "assistant", "content": json.dumps(parsed_json)})
-
-        # Voice feedback: Speak the eloquent dialogue response
-        spoken_text = plan.response or plan.thought
-        if self.enable_voice and spoken_text:
-            from voice import speak
-            speak(spoken_text)
 
         return plan
 

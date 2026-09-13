@@ -11,4 +11,7 @@ sounddevice>=0.5.0
 SpeechRecognition>=3.10.0
 numpy>=2.0.0
 pywin32>=306; sys_platform == 'win32'
+piper-tts>=1.2.0
+onnxruntime>=1.15.0
+vpk>=1.4.0
 
