@@ -23,6 +23,10 @@ class AgentConfig:
     # Steam Settings (auto-detected if None)
     custom_steam_path: str | None = os.getenv("STEAM_CUSTOM_PATH", None)
 
+    # ZimaOS Server Settings
+    zimaos_host: str = os.getenv("ZIMAOS_HOST", "http://zimaos.local")
+    zimaos_api_key: str | None = os.getenv("ZIMAOS_API_KEY", None)
+
     # Voice & Wake Word Settings
     enable_tts: bool = os.getenv("ENABLE_TTS", "true").lower() in ("true", "1", "yes")
     tts_voice: str = os.getenv("TTS_VOICE", "glados")

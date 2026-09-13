@@ -16,26 +16,42 @@ VK_MEDIA_PLAY_PAUSE = 0xB3
 KEYEVENTF_KEYUP = 0x0002
 
 
-def play_youtube(query: str) -> Tuple[bool, str]:
+def play_youtube(query: str, music: bool = False, **kwargs) -> Tuple[bool, str]:
     """
-    Opens a YouTube search or video in the default browser.
-    If query is already a YouTube link, opens it directly; otherwise opens a search.
+    Opens a YouTube or YouTube Music search in the default browser.
+    If music=True or query contains 'youtube music', searches YouTube Music.
     """
     try:
         query_clean = query.strip()
         if not query_clean:
             return False, "Query cannot be empty."
 
+        # Check if YouTube Music was requested
+        is_music = music or ("youtube music" in query_clean.lower()) or ("music.youtube" in query_clean.lower())
+
+        # Clean query of common prefix fluff
+        clean_text = query_clean
+        for prefix in ("youtube music", "youtube", "play on youtube music", "play on youtube", "search youtube for", "search for", "play"):
+            if clean_text.lower().startswith(prefix):
+                clean_text = clean_text[len(prefix):].strip()
+        clean_text = clean_text.strip(" :\"'")
+        if not clean_text:
+            clean_text = query_clean
+
         if "youtube.com" in query_clean or "youtu.be" in query_clean:
             url = query_clean
             if not url.startswith("http://") and not url.startswith("https://"):
                 url = "https://" + url
+        elif is_music:
+            encoded_query = urllib.parse.quote_plus(clean_text)
+            url = f"https://music.youtube.com/search?q={encoded_query}"
         else:
-            encoded_query = urllib.parse.quote_plus(query_clean)
+            encoded_query = urllib.parse.quote_plus(clean_text)
             url = f"https://www.youtube.com/results?search_query={encoded_query}"
 
         webbrowser.open(url)
-        return True, f"Opened YouTube for query '{query_clean}': {url}"
+        service_name = "YouTube Music" if is_music else "YouTube"
+        return True, f"Opened {service_name} search for '{clean_text}'."
     except Exception as e:
         logger.exception("Error launching YouTube")
         return False, f"Failed to open YouTube: {e}"

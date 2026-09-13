@@ -109,6 +109,76 @@ class TestAgentDeterministicIntents(unittest.TestCase):
         plan = agent.query_llm("GLaDOS read clipboard aloud")
         self.assertTrue(any(a.tool == "read_clipboard_aloud" for a in plan.actions))
 
+        # Test volume relative up & down
+        plan_up = agent.query_llm("GLaDOS volume up please")
+        self.assertTrue(any(a.tool == "change_volume_relative" and a.args.get("delta") == 15 for a in plan_up.actions))
+
+        plan_down = agent.query_llm("GLaDOS turn it down")
+        self.assertTrue(any(a.tool == "change_volume_relative" and a.args.get("delta") == -15 for a in plan_down.actions))
+
+        plan_exact = agent.query_llm("GLaDOS set volume to 40%")
+        self.assertTrue(any(a.tool == "set_volume" and a.args.get("level") == 40 for a in plan_exact.actions))
+
+        # Test YouTube Music vs regular YouTube
+        plan_ytm = agent.query_llm("GLaDOS play Radiohead on youtube music")
+        self.assertTrue(any(a.tool == "play_youtube" and a.args.get("music") is True for a in plan_ytm.actions))
+
+        plan_yt = agent.query_llm("GLaDOS search portal trailer on youtube")
+        self.assertTrue(any(a.tool == "play_youtube" and a.args.get("music") is False for a in plan_yt.actions))
+
+        # Test Flightradar24 tracking intent
+        plan_flight = agent.query_llm("GLaDOS track flight AA100")
+        self.assertTrue(any(a.tool == "track_flight" and "AA100" in a.args.get("flight_query", "") for a in plan_flight.actions))
+
+        # Test ZimaOS server intent
+        plan_zima = agent.query_llm("GLaDOS check my ZimaOS server")
+        self.assertTrue(any(a.tool == "get_zimaos_status" for a in plan_zima.actions))
+
+        plan_zima_apps = agent.query_llm("GLaDOS check ZimaOS containers")
+        self.assertTrue(any(a.tool == "list_zimaos_apps" for a in plan_zima_apps.actions))
+
+        plan_zima_dash = agent.query_llm("GLaDOS open ZimaOS dashboard")
+        self.assertTrue(any(a.tool == "open_zimaos_dashboard" for a in plan_zima_dash.actions))
+
+
+class TestNewTools(unittest.TestCase):
+
+    @patch("urllib.request.urlopen")
+    def test_track_flight_mock(self, mock_urlopen):
+        from tools.flight import track_flight
+
+        # Mock FR24 JSON response with type: live
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"results": [{"id": "live_123", "type": "live", "label": "AA100 (AAL100)", "detail": {"callsign": "AAL100", "route": "JFK-LHR", "aircraft": "B772", "lat": 40.64, "lon": -73.77}}]}'
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        success, msg = track_flight("AA100", open_browser=False)
+        self.assertTrue(success)
+        self.assertIn("AA100", msg)
+
+    @patch("urllib.request.urlopen")
+    def test_zimaos_status_mock(self, mock_urlopen):
+        from tools.zimaos import get_zimaos_status
+
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"data": {"cpu": {"model_name": "Intel N100", "usage": 12}, "memory": {"total": 8589934592, "used": 2147483648}}}'
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        success, res = get_zimaos_status()
+        self.assertTrue(success)
+        self.assertIn("ZimaOS", res)
+
+    @patch("webbrowser.open")
+    def test_open_zimaos_dashboard(self, mock_open):
+        from tools.zimaos import open_zimaos_dashboard
+        mock_open.return_value = True
+        success, msg = open_zimaos_dashboard()
+        self.assertTrue(success)
+        self.assertIn("ZimaOS dashboard", msg)
+
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -120,6 +120,16 @@ GLADOS_VOICELINES: dict[str, list[str]] = {
         "Extracting textual buffer from memory registers.",
         "Clipboard data analyzed and committed to memory.",
     ],
+    "flight": [
+        "Global radar interrogation complete. Flight telemetry localized and committed to records.",
+        "Target vessel acquired on tracking telemetry. Statistically speaking, their odds of surviving turbulence are higher than yours.",
+        "Airspace radar active. Flight parameters locked.",
+    ],
+    "zimaos": [
+        "Interrogating remote mainframe ZimaOS. Telemetry link established.",
+        "ZimaOS server diagnostics gathered. Your home server is running with adequate computational precision.",
+        "Network bridge to personal server confirmed operational.",
+    ],
 }
 
 
@@ -141,6 +151,10 @@ def get_contextual_quip(tool_name: str, success: bool = True) -> str:
     tool_clean = tool_name.lower()
     if "song" in tool_clean or "sing" in tool_clean:
         return get_glados_quote("songs")
+    elif "flight" in tool_clean:
+        return get_glados_quote("flight")
+    elif "zimaos" in tool_clean or "server" in tool_clean:
+        return get_glados_quote("zimaos")
     elif "sfx" in tool_clean or "radio" in tool_clean or "turret" in tool_clean:
         return get_glados_quote("sfx")
     elif "weather" in tool_clean:

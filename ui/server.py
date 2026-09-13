@@ -39,14 +39,25 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(f.read())
             return
 
-        elif parsed.path == "/assets/glados.png":
-            img_file = UI_DIR / "assets" / "glados.png"
-            if img_file.exists():
+        elif parsed.path.startswith("/assets/"):
+            asset_name = parsed.path[len("/assets/"):]
+            asset_file = UI_DIR / "assets" / asset_name
+            if asset_file.exists() and asset_file.is_file():
+                ext = asset_file.suffix.lower()
+                content_types = {
+                    ".png": "image/png",
+                    ".jpg": "image/jpeg",
+                    ".jpeg": "image/jpeg",
+                    ".svg": "image/svg+xml",
+                    ".webp": "image/webp",
+                    ".gif": "image/gif",
+                }
+                c_type = content_types.get(ext, "application/octet-stream")
                 self.send_response(HTTPStatus.OK)
-                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Type", c_type)
                 self.send_header("Cache-Control", "public, max-age=86400")
                 self.end_headers()
-                with open(img_file, "rb") as f:
+                with open(asset_file, "rb") as f:
                     self.wfile.write(f.read())
             else:
                 self.send_error(HTTPStatus.NOT_FOUND)
@@ -158,6 +169,47 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                     from voice import speak
                     success, msg = get_weather()
                     speak(msg)
+                    response_data = {"success": success, "message": msg}
+
+                elif action == "track_flight":
+                    from tools.flight import track_flight
+                    flight_q = payload.get("flight", "AA100")
+                    open_b = payload.get("open_browser", False)
+                    success, msg = track_flight(flight_q, open_browser=open_b)
+                    response_data = {"success": success, "message": msg}
+
+                elif action == "zimaos_status":
+                    from tools.zimaos import get_zimaos_status
+                    success, msg = get_zimaos_status()
+                    response_data = {"success": success, "message": msg}
+
+                elif action == "zimaos_apps":
+                    from tools.zimaos import list_zimaos_apps
+                    success, msg = list_zimaos_apps()
+                    response_data = {"success": success, "message": msg}
+
+                elif action == "zimaos_dashboard":
+                    from tools.zimaos import open_zimaos_dashboard
+                    success, msg = open_zimaos_dashboard()
+                    response_data = {"success": success, "message": msg}
+
+                elif action == "volume_relative":
+                    from tools.audio import change_volume_relative
+                    delta = int(payload.get("delta", 10))
+                    success, msg = change_volume_relative(delta)
+                    response_data = {"success": success, "message": msg}
+
+                elif action == "volume_set":
+                    from tools.audio import set_volume
+                    level = int(payload.get("level", 50))
+                    success, msg = set_volume(level)
+                    response_data = {"success": success, "message": msg}
+
+                elif action == "youtube":
+                    from tools.media import play_youtube
+                    query = payload.get("query", "")
+                    music = payload.get("music", False)
+                    success, msg = play_youtube(query, music=music)
                     response_data = {"success": success, "message": msg}
 
                 elif action == "prompt":

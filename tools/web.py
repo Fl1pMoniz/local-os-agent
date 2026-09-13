@@ -132,3 +132,4 @@ def wikipedia_lookup(query: str) -> Tuple[bool, str]:
     except Exception as e:
         logger.error("Wikipedia search failed: %s", e)
         return False, f"Failed to search Wikipedia: {e}"
+

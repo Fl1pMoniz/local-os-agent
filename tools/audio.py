@@ -39,15 +39,26 @@ def _get_windows_volume_endpoint():
     raise RuntimeError("Unable to acquire IAudioEndpointVolume from audio device.")
 
 
-def set_volume(level: int) -> Tuple[bool, str]:
+def get_current_volume() -> int:
+    """Returns current system master volume percentage (0-100)."""
+    try:
+        if platform.system() == "Windows":
+            endpoint = _get_windows_volume_endpoint()
+            return int(round(endpoint.GetMasterVolumeLevelScalar() * 100))
+    except Exception as e:
+        logger.debug(f"Error reading current volume: {e}")
+    return 50
+
+
+def set_volume(level: int = 50, volume: int | None = None, value: int | None = None, **kwargs) -> Tuple[bool, str]:
     """
     Sets master system volume (0–100).
-    Uses SetMasterVolumeLevelScalar() to directly map 0-100 linear percentage
-    to a 0.0-1.0 float without logarithmic decibel math.
+    Accepts synonyms: level, volume, value.
     """
     try:
-        level = int(level)
-        clamped_level = max(0, min(100, level))
+        raw_val = volume if volume is not None else (value if value is not None else level)
+        target_level = int(raw_val)
+        clamped_level = max(0, min(100, target_level))
         scalar_val = clamped_level / 100.0
 
         if platform.system() == "Windows":
@@ -60,6 +71,19 @@ def set_volume(level: int) -> Tuple[bool, str]:
     except Exception as e:
         logger.exception("Error setting volume")
         return False, f"Failed to set volume: {e}"
+
+
+def change_volume_relative(delta: int = 10, **kwargs) -> Tuple[bool, str]:
+    """
+    Increases or decreases system volume relatively by delta percent (e.g. +15, -15).
+    """
+    try:
+        current = get_current_volume()
+        new_level = max(0, min(100, current + int(delta)))
+        return set_volume(level=new_level)
+    except Exception as e:
+        logger.exception("Error adjusting relative volume")
+        return False, f"Failed to adjust volume: {e}"
 
 
 def mute_toggle() -> Tuple[bool, str]:
@@ -172,6 +196,12 @@ register_tool(
     description="Sets master system volume (0-100).",
     sensitive=False,
 )(set_volume)
+
+register_tool(
+    name="change_volume_relative",
+    description="Adjusts system volume up or down by a relative percentage (e.g. +15 or -15).",
+    sensitive=False,
+)(change_volume_relative)
 
 register_tool(
     name="mute_toggle",

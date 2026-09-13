@@ -100,3 +100,4 @@ def roast_user() -> Tuple[bool, str]:
     roast = random.choice(ROAST_CATEGORIES[category])
     logger.info(f"Delivering GLaDOS roast for {category} ('{title}'): {roast}")
     return True, roast
+
