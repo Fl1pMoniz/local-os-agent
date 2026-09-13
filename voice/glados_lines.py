@@ -123,3 +123,4 @@ def get_contextual_quip(tool_name: str, success: bool = True) -> str:
         return get_glados_quote("screenshot")
     else:
         return get_glados_quote("success")
+

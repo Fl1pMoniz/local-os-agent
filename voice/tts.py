@@ -44,15 +44,27 @@ def clean_text_for_speech(text: str) -> str:
 VOICE_PRESETS: dict[str, dict[str, str]] = {
     "glados": {
         "voice": "en-US-AvaMultilingualNeural",
+        "pitch": "+4Hz",
+        "rate": "-4%",
+        "desc": "Portal 2 GLaDOS voice profile (Ellen McLain emulation: calm, measured, clinical & deadpan)",
+    },
+    "glados_portal2": {
+        "voice": "en-US-AvaMultilingualNeural",
+        "pitch": "+4Hz",
+        "rate": "-4%",
+        "desc": "Portal 2 authentic GLaDOS (measured -4% rate, +4Hz pitch lift)",
+    },
+    "glados_jenny": {
+        "voice": "en-US-JennyNeural",
         "pitch": "+3Hz",
-        "rate": "+5%",
-        "desc": "Aperture Science GLaDOS voice profile (coldly polite, synthetic & clinical)",
+        "rate": "-5%",
+        "desc": "Crisp American synthetic GLaDOS variant",
     },
     "glados_robot": {
         "voice": "en-US-AnaNeural",
-        "pitch": "+4Hz",
-        "rate": "+4%",
-        "desc": "High-synthetic robotic GLaDOS variant",
+        "pitch": "-6Hz",
+        "rate": "-4%",
+        "desc": "High-synthetic deeper robotic GLaDOS variant",
     },
     "libby": {
         "voice": "en-GB-LibbyNeural",
@@ -125,11 +137,36 @@ class TextToSpeech:
                 if self._current_alias == alias:
                     self._current_alias = None
 
+    def _format_glados_ssml(self, text: str) -> str:
+        """Wraps text in SSML with deliberate Aperture pauses between sentences and clauses."""
+        import xml.sax.saxutils as saxutils
+
+        escaped = saxutils.escape(text)
+        # Add slight clinical pause after sentence terminators
+        spaced = re.sub(r"([.?!])\s+", r'\1 <break time="250ms"/> ', escaped)
+        # Add micro-pause after commas
+        spaced = re.sub(r"(,)\s+", r'\1 <break time="150ms"/> ', spaced)
+
+        return (
+            f"<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>"
+            f"<voice name='{self.voice}'>"
+            f"<prosody pitch='{self.pitch}' rate='{self.rate}'>"
+            f"{spaced}"
+            f"</prosody></voice></speak>"
+        )
+
     async def _synthesize_edge(self, text: str, output_path: Path) -> None:
-        """Synthesizes text to an MP3 file using edge-tts with dynamic pitch and rate."""
+        """Synthesizes text to an MP3 file using edge-tts with dynamic pitch, rate, and deliberate pacing."""
         import edge_tts
-        communicate = edge_tts.Communicate(text, voice=self.voice, rate=self.rate, pitch=self.pitch)
-        await communicate.save(str(output_path))
+
+        try:
+            ssml = self._format_glados_ssml(text)
+            communicate = edge_tts.Communicate(ssml, voice=self.voice)
+            await communicate.save(str(output_path))
+        except Exception as e:
+            logger.debug(f"SSML synthesis failed, falling back to standard synthesis: {e}")
+            communicate = edge_tts.Communicate(text, voice=self.voice, rate=self.rate, pitch=self.pitch)
+            await communicate.save(str(output_path))
 
     def _speak_offline_sapi(self, text: str) -> None:
         """Offline fallback using Windows native SAPI.SpVoice with a female voice if available."""
