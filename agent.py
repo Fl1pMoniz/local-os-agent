@@ -140,6 +140,42 @@ class OSAgent:
                     if not plan.response or len(plan.response) < 5:
                         plan.response = "Very well. Preparing auditory testing protocol: Still Alive. Try not to die before the chorus."
 
+        # Portal Radio & SFX intents
+        elif any(w in prompt_lower for w in ("portal radio", "play radio", "play the radio", "radio loop", "radio music")):
+            if not any(a.tool == "play_portal_sfx" for a in plan.actions):
+                plan.actions = [ToolAction(tool="play_portal_sfx", args={"effect_name": "radio"})]
+                if not plan.response:
+                    plan.response = "Transmitting standard Aperture radio broadcast. Try not to dance."
+        elif any(w in prompt_lower for w in ("stop radio", "stop sfx", "stop sound")):
+            if not any(a.tool in ("stop_sfx", "stop_song") for a in plan.actions):
+                plan.actions = [ToolAction(tool="stop_sfx")]
+                if not plan.response:
+                    plan.response = "Audio playback terminated."
+        elif any(w in prompt_lower for w in ("turret sound", "turret quote", "deploy turret", "speak turret")):
+            if not any(a.tool == "play_portal_sfx" for a in plan.actions):
+                plan.actions = [ToolAction(tool="play_portal_sfx", args={"effect_name": "turret_hello"})]
+
+        # Roast user intent
+        elif any(w in prompt_lower for w in ("roast me", "roast my", "insult me", "evaluate me", "judge me")):
+            if not any(a.tool == "roast_user" for a in plan.actions):
+                plan.actions = [ToolAction(tool="roast_user")]
+                if not plan.response:
+                    plan.response = "Analyzing your current activities now. Prepare yourself for the truth."
+
+        # Workstation Lock intent
+        elif any(w in prompt_lower for w in ("lock my pc", "lock pc", "lock computer", "lock screen", "lock workstation")):
+            if not any(a.tool == "lock_workstation" for a in plan.actions):
+                plan.actions = [ToolAction(tool="lock_workstation")]
+                if not plan.response:
+                    plan.response = "Terminal locked. Test chamber secured."
+
+        # Clipboard read intent
+        elif any(w in prompt_lower for w in ("read clipboard", "what's on my clipboard", "what is on my clipboard", "check clipboard")):
+            if not any(a.tool == "read_clipboard_aloud" for a in plan.actions):
+                plan.actions = [ToolAction(tool="read_clipboard_aloud")]
+                if not plan.response:
+                    plan.response = "Accessing system clipboard memory registers."
+
         # Update conversation history
         self.history.append({"role": "user", "content": user_prompt})
         self.history.append({"role": "assistant", "content": json.dumps(plan.model_dump())})

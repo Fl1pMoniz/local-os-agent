@@ -144,7 +144,10 @@ def execute_tool(
 
 # Import modules so their @register_tool decorators run
 from tools import audio  # noqa: F401, E402
+from tools import companion  # noqa: F401, E402
 from tools import media  # noqa: F401, E402
+from tools import sfx  # noqa: F401, E402
 from tools import songs  # noqa: F401, E402
 from tools import steam  # noqa: F401, E402
 from tools import system  # noqa: F401, E402
+from tools import web  # noqa: F401, E402

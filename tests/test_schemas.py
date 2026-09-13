@@ -16,7 +16,7 @@ class TestSchemas(unittest.TestCase):
         self.assertIn('5. media_control(action: str): Controls media playback. Accepted actions: "play_pause", "next_track", "prev_track".', SYSTEM_PROMPT)
         self.assertIn("6. launch_app(app_name: str): Opens a standard native application.", SYSTEM_PROMPT)
         self.assertIn("7. launch_steam_game(game_name: str): Fuzzy matches a game name to its Steam ID and launches it.", SYSTEM_PROMPT)
-        self.assertIn("8. get_system_stats(): Returns CPU, RAM, and battery data.", SYSTEM_PROMPT)
+        self.assertIn("8. get_system_stats(): Returns CPU, RAM, GPU, and battery data.", SYSTEM_PROMPT)
         self.assertIn("9. take_screenshot(): Captures the screen and saves it locally.", SYSTEM_PROMPT)
         self.assertIn("OUTPUT SCHEMA:", SYSTEM_PROMPT)
 

@@ -118,11 +118,22 @@ def _fallback_vdf_parse(filepath: Path) -> dict[str, Any]:
     return result
 
 
-def discover_installed_steam_games() -> dict[str, int]:
+_games_cache: dict[str, int] = {}
+_cache_timestamp: float = 0.0
+CACHE_TTL: float = 300.0  # Cache game catalog for 5 minutes
+
+
+def discover_installed_steam_games(force_refresh: bool = False) -> dict[str, int]:
     """
     Scans the local Steam installation and all library folders to construct
-    a real-time mapping of game names to numeric appids.
+    a real-time mapping of game names to numeric appids. Cached for 5 minutes.
     """
+    global _games_cache, _cache_timestamp
+    import time
+    now = time.time()
+    if not force_refresh and _games_cache and (now - _cache_timestamp) < CACHE_TTL:
+        return dict(_games_cache)
+
     games: dict[str, int] = {}
     steam_root = _find_steam_root()
     if not steam_root:
@@ -167,6 +178,8 @@ def discover_installed_steam_games() -> dict[str, int]:
             except Exception as e:
                 logger.debug(f"Could not read manifest {manifest_file.name}: {e}")
 
+    _games_cache = games
+    _cache_timestamp = time.time()
     return games
 
 

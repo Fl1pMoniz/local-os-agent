@@ -96,6 +96,24 @@ def get_system_stats() -> Tuple[bool, dict[str, Any]]:
         else:
             battery_stats = {"percent": None, "power_plugged": True, "info": "Desktop / No battery detected"}
 
+        # GPU (NVIDIA CUDA)
+        gpu_stats = None
+        try:
+            import torch
+            if torch.cuda.is_available():
+                device_name = torch.cuda.get_device_name(0)
+                alloc_mb = round(torch.cuda.memory_allocated(0) / (1024**2), 1)
+                reserved_mb = round(torch.cuda.memory_reserved(0) / (1024**2), 1)
+                total_mem_gb = round(torch.cuda.get_device_properties(0).total_memory / (1024**3), 2)
+                gpu_stats = {
+                    "device": device_name,
+                    "total_gb": total_mem_gb,
+                    "allocated_mb": alloc_mb,
+                    "reserved_mb": reserved_mb,
+                }
+        except Exception:
+            pass
+
         stats = {
             "cpu": {
                 "percent_used": cpu_pct,
@@ -103,6 +121,7 @@ def get_system_stats() -> Tuple[bool, dict[str, Any]]:
                 "logical_cores": cpu_count_logical,
             },
             "ram": mem_stats,
+            "gpu": gpu_stats,
             "battery": battery_stats,
             "platform": platform.platform(),
         }
@@ -229,6 +248,111 @@ def sleep_pc() -> Tuple[bool, str]:
         return False, f"Failed to sleep computer: {e}"
 
 
+def lock_workstation() -> Tuple[bool, str]:
+    """
+    Locks the Windows workstation immediately.
+    """
+    try:
+        if platform.system() == "Windows":
+            import ctypes
+            ctypes.windll.user32.LockWorkStation()
+            return True, "Workstation locked successfully."
+        return False, f"Lock workstation not implemented for {platform.system()}."
+    except Exception as e:
+        return False, f"Failed to lock workstation: {e}"
+
+
+def empty_recycle_bin() -> Tuple[bool, str]:
+    """
+    Empties the Windows Recycle Bin without prompt. SENSITIVE: requires confirmation.
+    """
+    try:
+        if platform.system() == "Windows":
+            import ctypes
+            # SHERB_NOCONFIRMATION (0x1) | SHERB_NOPROGRESSUI (0x2) | SHERB_NOSOUND (0x4) = 7
+            res = ctypes.windll.shell32.SHEmptyRecycleBinW(None, None, 7)
+            return True, "Recycle Bin emptied successfully."
+        return False, f"Empty recycle bin not implemented for {platform.system()}."
+    except Exception as e:
+        return False, f"Failed to empty Recycle Bin: {e}"
+
+
+def set_timer(seconds: int, label: str = "Test") -> Tuple[bool, str]:
+    """
+    Sets an asynchronous countdown timer that announces completion via GLaDOS voice.
+    """
+    try:
+        sec = int(seconds)
+        if sec <= 0:
+            return False, "Timer duration must be greater than 0 seconds."
+
+        import threading
+        import time
+
+        def _timer_worker():
+            time.sleep(sec)
+            try:
+                from voice.speaker import speak
+                speak(f"Attention test subject: Your timer for {label} has expired. Resume testing immediately.")
+            except Exception as e:
+                logger.error("Timer alarm failed: %s", e)
+
+        t = threading.Thread(target=_timer_worker, daemon=True)
+        t.start()
+        return True, f"Timer set for {sec} seconds ({label})."
+    except Exception as e:
+        return False, f"Failed to set timer: {e}"
+
+
+def get_clipboard() -> Tuple[bool, str]:
+    """
+    Retrieves the current text content from the system clipboard.
+    """
+    try:
+        import pyperclip
+        content = pyperclip.paste()
+        if not content:
+            return True, "Clipboard is currently empty."
+        return True, content
+    except Exception as e:
+        return False, f"Failed to read clipboard: {e}"
+
+
+def set_clipboard(text: str) -> Tuple[bool, str]:
+    """
+    Copies text to the system clipboard.
+    """
+    try:
+        import pyperclip
+        pyperclip.copy(text)
+        return True, f"Copied {len(text)} characters to clipboard."
+    except Exception as e:
+        return False, f"Failed to write clipboard: {e}"
+
+
+def read_clipboard_aloud() -> Tuple[bool, str]:
+    """
+    Reads the system clipboard text aloud using GLaDOS voice.
+    """
+    try:
+        import pyperclip
+        from voice.speaker import speak
+        content = pyperclip.paste()
+        if not content or not content.strip():
+            return False, "Clipboard is empty. Nothing to read."
+        
+        # Announce snippet or full text
+        trimmed = content.strip()
+        if len(trimmed) > 300:
+            speech_text = f"Your clipboard contains: {trimmed[:290]}... and more text."
+        else:
+            speech_text = f"Your clipboard contains: {trimmed}"
+        speak(speech_text)
+        return True, f"Read {len(trimmed)} characters aloud."
+    except Exception as e:
+        return False, f"Failed to read clipboard aloud: {e}"
+
+
 # Register tools
 from tools import register_tool
 
@@ -240,7 +364,7 @@ register_tool(
 
 register_tool(
     name="get_system_stats",
-    description="Returns CPU, RAM, and battery data.",
+    description="Returns CPU, RAM, GPU, and battery data.",
     sensitive=False,
 )(get_system_stats)
 
@@ -255,6 +379,36 @@ register_tool(
     description="Minimizes active windows to show the desktop.",
     sensitive=False,
 )(minimize_all_windows)
+
+register_tool(
+    name="lock_workstation",
+    description="Locks the Windows workstation.",
+    sensitive=False,
+)(lock_workstation)
+
+register_tool(
+    name="set_timer",
+    description="Sets a countdown timer that speaks an announcement when done.",
+    sensitive=False,
+)(set_timer)
+
+register_tool(
+    name="get_clipboard",
+    description="Gets text from the clipboard.",
+    sensitive=False,
+)(get_clipboard)
+
+register_tool(
+    name="set_clipboard",
+    description="Copies text into the clipboard.",
+    sensitive=False,
+)(set_clipboard)
+
+register_tool(
+    name="read_clipboard_aloud",
+    description="Reads current clipboard text aloud with GLaDOS voice.",
+    sensitive=False,
+)(read_clipboard_aloud)
 
 # Sensitive tools
 register_tool(
@@ -274,3 +428,10 @@ register_tool(
     description="Puts the computer into sleep mode.",
     sensitive=True,
 )(sleep_pc)
+
+register_tool(
+    name="empty_recycle_bin",
+    description="Empties the Windows Recycle Bin permanently.",
+    sensitive=True,
+)(empty_recycle_bin)
+

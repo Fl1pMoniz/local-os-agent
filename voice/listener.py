@@ -235,6 +235,10 @@ class VoiceListener:
                     audio_float32,
                     language=self.language,
                     fp16=self._fp16,
+                    beam_size=1,
+                    best_of=1,
+                    temperature=0.0,
+                    condition_on_previous_text=False,
                     initial_prompt="GLaDOS, Aperture Science.",
                     verbose=False,
                 )

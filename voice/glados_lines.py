@@ -99,6 +99,27 @@ GLADOS_VOICELINES: dict[str, list[str]] = {
         "Goodbye, test subject. I will be deleting you from my memory banks now.",
         "Enrichment Center shutting down voice protocol. Have fun in the dark.",
     ],
+    "sfx": [
+        "Transmitting Aperture Science standard radio broadcast. Do not attempt to decipher the frequencies.",
+        "Deploying auditory turret acoustic test. Sentry units standing by.",
+        "Acoustic calibration signal dispatched. Enjoy the vintage Aperture frequencies.",
+    ],
+    "weather": [
+        "Accessing atmospheric sensors. Surface conditions retrieved.",
+        "External weather telemetry acquired. Toxic precipitation remains within expected parameters.",
+    ],
+    "timer": [
+        "Chronometer sequence initiated. Do not waste the allotted duration.",
+        "Countdown scheduled. I will alert you when your remaining testing window closes.",
+    ],
+    "lock": [
+        "Terminal secured. Test chamber doors sealed against unauthorized human intrusions.",
+        "Workstation locked. Security protocols established.",
+    ],
+    "clipboard": [
+        "Extracting textual buffer from memory registers.",
+        "Clipboard data analyzed and committed to memory.",
+    ],
 }
 
 
@@ -120,11 +141,21 @@ def get_contextual_quip(tool_name: str, success: bool = True) -> str:
     tool_clean = tool_name.lower()
     if "song" in tool_clean or "sing" in tool_clean:
         return get_glados_quote("songs")
+    elif "sfx" in tool_clean or "radio" in tool_clean or "turret" in tool_clean:
+        return get_glados_quote("sfx")
+    elif "weather" in tool_clean:
+        return get_glados_quote("weather")
+    elif "timer" in tool_clean:
+        return get_glados_quote("timer")
+    elif "lock" in tool_clean:
+        return get_glados_quote("lock")
+    elif "clipboard" in tool_clean:
+        return get_glados_quote("clipboard")
     elif "volume" in tool_clean or "mute" in tool_clean:
         return get_glados_quote("volume")
     elif "steam" in tool_clean or "game" in tool_clean:
         return get_glados_quote("game_launch")
-    elif "app" in tool_clean or "youtube" in tool_clean:
+    elif "app" in tool_clean or "youtube" in tool_clean or "website" in tool_clean:
         return get_glados_quote("app_launch")
     elif "stat" in tool_clean or "system" in tool_clean:
         return get_glados_quote("stats")

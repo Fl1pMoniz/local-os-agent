@@ -131,6 +131,35 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                     speak(quip)
                     response_data = {"success": True, "message": quip}
 
+                elif action == "roast":
+                    from tools.companion import roast_user
+                    from voice import speak
+                    success, msg = roast_user()
+                    speak(msg)
+                    response_data = {"success": success, "message": msg}
+
+                elif action == "radio":
+                    from tools.sfx import play_portal_sfx
+                    success, msg = play_portal_sfx("radio")
+                    response_data = {"success": success, "message": msg}
+
+                elif action == "turret":
+                    from tools.sfx import play_portal_sfx
+                    success, msg = play_portal_sfx("turret_hello")
+                    response_data = {"success": success, "message": msg}
+
+                elif action == "stop_sfx":
+                    from tools.sfx import stop_sfx
+                    success, msg = stop_sfx()
+                    response_data = {"success": success, "message": msg}
+
+                elif action == "weather":
+                    from tools.web import get_weather
+                    from voice import speak
+                    success, msg = get_weather()
+                    speak(msg)
+                    response_data = {"success": success, "message": msg}
+
                 elif action == "prompt":
                     user_prompt = payload.get("prompt", "")
                     if user_prompt:
