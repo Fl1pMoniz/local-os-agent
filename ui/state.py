@@ -18,6 +18,7 @@ class AgentUIState:
         self.text: str = ""
         self.song: str | None = None
         self.thought: str = ""
+        self.tracked_flight: dict[str, Any] | None = None
         self.subscribers: list[queue.Queue] = []
 
     def get_state(self) -> dict[str, Any]:
@@ -27,6 +28,7 @@ class AgentUIState:
                 "text": self.text,
                 "song": self.song,
                 "thought": self.thought,
+                "tracked_flight": self.tracked_flight,
             }
 
     def update(
@@ -35,6 +37,7 @@ class AgentUIState:
         text: str | None = None,
         song: str | None = None,
         thought: str | None = None,
+        tracked_flight: dict[str, Any] | None = None,
     ) -> None:
         with self._lock:
             if state is not None:
@@ -45,12 +48,15 @@ class AgentUIState:
                 self.song = song if song != "" else None
             if thought is not None:
                 self.thought = thought
+            if tracked_flight is not None:
+                self.tracked_flight = tracked_flight
 
             snapshot = {
                 "state": self.state,
                 "text": self.text,
                 "song": self.song,
                 "thought": self.thought,
+                "tracked_flight": self.tracked_flight,
             }
 
             # Broadcast to SSE subscribers

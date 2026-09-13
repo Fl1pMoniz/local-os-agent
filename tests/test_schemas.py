@@ -18,6 +18,7 @@ class TestSchemas(unittest.TestCase):
         self.assertIn("get_zimaos_status", SYSTEM_PROMPT)
         self.assertIn("list_zimaos_apps", SYSTEM_PROMPT)
         self.assertIn("open_zimaos_dashboard", SYSTEM_PROMPT)
+        self.assertIn("launch_zimaos_app", SYSTEM_PROMPT)
         self.assertIn("OUTPUT SCHEMA:", SYSTEM_PROMPT)
 
     def test_clean_json_parsing(self):

@@ -148,6 +148,29 @@ def track_flight(flight_query: str, open_browser: bool = False, **kwargs) -> Tup
             f"at {alt_str} at {spd_str}."
         )
 
+        # Broadcast structured telemetry to UI
+        flight_data = {
+            "callsign": clean,
+            "flight_number": flight_num,
+            "model": model,
+            "origin": orig,
+            "dest": dest,
+            "altitude_ft": alt,
+            "speed_kts": spd,
+            "speed_kmh": spd_kmh,
+            "heading": hdg,
+            "reg": reg,
+            "status": status_desc,
+            "lat": lat,
+            "lon": lon,
+            "fr24_url": f"https://www.flightradar24.com/{clean}"
+        }
+        try:
+            from ui.state import ui_state
+            ui_state.update(tracked_flight=flight_data)
+        except Exception:
+            pass
+
         if open_browser:
             webbrowser.open(f"https://www.flightradar24.com/{clean}")
 
@@ -155,3 +178,4 @@ def track_flight(flight_query: str, open_browser: bool = False, **kwargs) -> Tup
     except Exception as e:
         logger.exception(f"Failed to track flight '{flight_query}': {e}")
         return False, f"Aperture Science airspace radar telemetry failed: {e}"
+

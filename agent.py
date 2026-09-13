@@ -191,9 +191,14 @@ class OSAgent:
             plan.actions = [ToolAction(tool="track_flight", args={"flight_query": flight_code, "open_browser": True})]
             plan.response = f"Accessing Flightradar telemetry for flight {flight_code}. Let us hope gravity behaves."
 
-        # 4. ZimaOS Server
+        # 4. ZimaOS Server & App Launcher
         elif any(w in prompt_lower for w in ("zimaos", "zima os", "casaos", "home server", "meu servidor", "servidor")):
-            if any(w in prompt_lower for w in ("dashboard", "painel", "web", "gui", "open", "abrir", "interface")):
+            launch_match = re.search(r"\b(?:launch|open|start|run|iniciar|abrir)\s+(?:app\s+)?([A-Za-z0-9_\-\s]+?)\s+(?:on|in|no|na)?\s*(?:zimaos|zima os|casaos|home server|servidor)\b", prompt_lower)
+            if launch_match and launch_match.group(1).strip() not in ("dashboard", "painel", "web", "gui", "interface", "server", "servidor"):
+                target_app = launch_match.group(1).strip()
+                plan.actions = [ToolAction(tool="launch_zimaos_app", args={"app_name": target_app})]
+                plan.response = f"Accessing ZimaOS node to initialize container: {target_app}."
+            elif any(w in prompt_lower for w in ("dashboard", "painel", "web", "gui", "open", "abrir", "interface")):
                 plan.actions = [ToolAction(tool="open_zimaos_dashboard")]
                 plan.response = "Opening ZimaOS management dashboard."
             elif any(w in prompt_lower for w in ("apps", "app", "container", "containers", "docker", "dockers", "aplicativos")):

@@ -3,35 +3,52 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Aperture Science - GLaDOS AI Interface</title>
+  <title>Aperture Science - GLaDOS AI Mainframe Terminal</title>
+  <!-- Three.js and GLTFLoader for real 3D GLaDOS rendering -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <style>
     :root {
-      --aperture-bg: #090c10;
-      --aperture-panel: #161b22;
-      --aperture-card: rgba(22, 27, 34, 0.85);
-      --aperture-border: #30363d;
-      --aperture-border-glow: #e6a100;
-      --aperture-amber: #ff9d00;
-      --aperture-amber-glow: rgba(255, 157, 0, 0.45);
-      --aperture-blue: #00b4d8;
-      --aperture-blue-glow: rgba(0, 180, 216, 0.45);
-      --aperture-cyan: #06d6a0;
-      --aperture-red: #ef476f;
-      --text-main: #f0f6fc;
-      --text-dim: #8b949e;
-      --font-mono: 'Consolas', 'Courier New', monospace;
+      /* Modern High-Contrast Aperture Palette */
+      --bg-base: #0b0f17;
+      --bg-surface: #131b26;
+      --bg-surface-elevated: #1a2332;
+      --bg-card: rgba(22, 31, 46, 0.92);
+      
+      --border-subtle: #243042;
+      --border-medium: #334155;
+      --border-accent: #f58220;
+      
+      --text-bright: #f8fafc;
+      --text-main: #e2e8f0;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      
+      /* Aperture & Portal Color System */
+      --aperture-amber: #f58220;
+      --aperture-amber-glow: rgba(245, 130, 32, 0.4);
+      --portal-blue: #0284c7;
+      --portal-blue-light: #38bdf8;
+      --portal-blue-glow: rgba(56, 189, 248, 0.4);
+      --status-green: #10b981;
+      --status-green-glow: rgba(16, 185, 129, 0.35);
+      --status-red: #ef4444;
+      
+      --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: "Consolas", "Courier New", monospace;
     }
 
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: var(--font-mono);
     }
 
     body {
-      background: radial-gradient(circle at 50% 12%, #1a2332 0%, #0d121a 50%, #05080c 100%);
+      background: radial-gradient(circle at 50% 10%, #172338 0%, #0d1420 50%, #070a10 100%);
       color: var(--text-main);
+      font-family: var(--font-ui);
       height: 100vh;
       overflow: hidden;
       display: flex;
@@ -39,52 +56,45 @@
       user-select: none;
     }
 
-    /* Aperture CRT scanlines overlay */
+    /* Aperture CRT subtle scanlines */
     .scanlines {
       position: fixed;
       inset: 0;
       pointer-events: none;
-      background: linear-gradient(
-        rgba(18, 16, 16, 0) 50%, 
-        rgba(0, 0, 0, 0.28) 50%
-      ), linear-gradient(
-        90deg,
-        rgba(255, 157, 0, 0.02),
-        rgba(0, 180, 216, 0.02),
-        rgba(255, 255, 255, 0.01)
-      );
-      background-size: 100% 3px, 3px 100%;
+      background: linear-gradient(rgba(18, 24, 38, 0) 50%, rgba(0, 0, 0, 0.2) 50%);
+      background-size: 100% 3px;
       z-index: 100;
+      opacity: 0.6;
     }
 
-    /* Top Facility Header */
+    /* Facility Header */
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding: 12px 28px;
-      border-bottom: 2px solid var(--aperture-border);
-      background: rgba(13, 17, 23, 0.9);
-      backdrop-filter: blur(10px);
-      z-index: 20;
+      background: rgba(13, 20, 32, 0.95);
+      border-bottom: 2px solid var(--border-subtle);
+      backdrop-filter: blur(12px);
+      z-index: 30;
     }
 
-    .header-logo {
+    .header-branding {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 16px;
     }
 
-    .aperture-icon {
-      width: 30px;
-      height: 30px;
+    .aperture-logo {
+      width: 32px;
+      height: 32px;
       border: 3px solid var(--aperture-amber);
       border-radius: 50%;
       position: relative;
-      animation: spin-slow 30s linear infinite;
+      animation: spin-aperture 30s linear infinite;
     }
 
-    .aperture-icon::after {
+    .aperture-logo::after {
       content: '';
       position: absolute;
       inset: 4px;
@@ -93,403 +103,375 @@
       border-radius: 50%;
     }
 
-    @keyframes spin-slow {
+    @keyframes spin-aperture {
       100% { transform: rotate(360deg); }
     }
 
-    .header-title {
-      font-size: 14px;
+    .header-title-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header-main-title {
+      font-size: 15px;
       font-weight: 700;
-      letter-spacing: 2px;
-      color: #ffffff;
-      text-transform: uppercase;
-    }
-
-    .header-title span {
-      color: var(--aperture-amber);
-    }
-
-    .header-widgets {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .telemetry-status {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 11px;
       letter-spacing: 1.5px;
+      color: var(--text-bright);
       text-transform: uppercase;
-      padding: 6px 14px;
-      background: rgba(22, 27, 34, 0.95);
-      border: 1px solid var(--aperture-border);
-      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
-    .status-dot {
+    .header-sub-title {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      letter-spacing: 0.5px;
+    }
+
+    .header-telemetry {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      padding: 6px 14px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-medium);
+      border-radius: 6px;
+      color: var(--text-bright);
+    }
+
+    .status-pill-dot {
       width: 9px;
       height: 9px;
       border-radius: 50%;
-      background: var(--aperture-amber);
-      box-shadow: 0 0 10px var(--aperture-amber);
+      background: var(--status-green);
+      box-shadow: 0 0 10px var(--status-green-glow);
       transition: all 0.3s ease;
     }
 
-    .status-dot.active {
-      background: var(--aperture-cyan);
-      box-shadow: 0 0 14px var(--aperture-cyan);
+    .status-pill-dot.speaking {
+      background: var(--aperture-amber);
+      box-shadow: 0 0 12px var(--aperture-amber-glow);
     }
 
-    .status-dot.singing {
-      background: var(--aperture-blue);
-      box-shadow: 0 0 14px var(--aperture-blue);
+    .status-pill-dot.singing {
+      background: var(--portal-blue-light);
+      box-shadow: 0 0 12px var(--portal-blue-glow);
     }
 
-    /* Main Stage */
+    /* Main Tri-Panel Layout */
     main {
       flex: 1;
-      position: relative;
-      display: flex;
-      flex-direction: row;
-      align-items: stretch;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: 340px 1fr 340px;
+      gap: 16px;
+      padding: 16px 24px;
       overflow: hidden;
-      padding: 10px 24px;
+      position: relative;
     }
 
-    /* Left Sidebar: Telemetry Panels (ZimaOS & Flight Radar) */
-    .sidebar-panel {
-      width: 280px;
+    /* Side Panels Container */
+    .facility-panel {
       display: flex;
       flex-direction: column;
       gap: 14px;
+      overflow-y: auto;
       z-index: 10;
-      pointer-events: auto;
     }
 
-    .telemetry-card {
-      background: var(--aperture-card);
-      border: 1px solid var(--aperture-border);
-      border-radius: 6px;
-      padding: 12px;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
-      transition: border-color 0.2s;
+    /* Modern Card Component */
+    .modern-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-medium);
+      border-radius: 8px;
+      padding: 14px 16px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
 
-    .telemetry-card:hover {
-      border-color: var(--aperture-amber);
+    .modern-card:hover {
+      border-color: rgba(245, 130, 32, 0.45);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid var(--border-subtle);
     }
 
     .card-title {
-      font-size: 11px;
+      font-size: 13px;
       font-weight: 700;
-      letter-spacing: 1.5px;
-      color: var(--aperture-amber);
+      letter-spacing: 1px;
       text-transform: uppercase;
+      color: var(--text-bright);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tag-blue {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 7px;
+      border-radius: 4px;
+      background: rgba(2, 132, 199, 0.2);
+      color: var(--portal-blue-light);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+
+    .tag-amber {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 7px;
+      border-radius: 4px;
+      background: rgba(245, 130, 32, 0.18);
+      color: var(--aperture-amber);
+      border: 1px solid rgba(245, 130, 32, 0.35);
+    }
+
+    .tag-green {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 7px;
+      border-radius: 4px;
+      background: rgba(16, 185, 129, 0.18);
+      color: var(--status-green);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    /* Readable Data Pairs */
+    .data-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .data-row .data-label {
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .data-row .data-value {
+      color: var(--text-bright);
+      font-weight: 600;
+      font-family: var(--font-mono);
+    }
+
+    /* Flight Route Banner */
+    .flight-route-banner {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin: 10px 0;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      padding-bottom: 4px;
     }
 
-    .card-title span.badge {
-      font-size: 9px;
-      padding: 2px 6px;
-      border-radius: 3px;
-      background: rgba(255, 157, 0, 0.2);
-      color: var(--aperture-amber);
+    .airport-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
-    .card-body {
-      font-size: 11px;
-      line-height: 1.5;
-      color: var(--text-dim);
+    .airport-code {
+      font-size: 18px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      color: var(--portal-blue-light);
     }
 
-    .card-row {
+    .airport-city {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .route-arrow {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 10px;
+      color: var(--portal-blue-light);
+      font-size: 14px;
+    }
+
+    .route-line {
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, var(--portal-blue) 0%, var(--aperture-amber) 100%);
+      margin-top: 4px;
+      border-radius: 1px;
+    }
+
+    /* ZimaOS App Grid */
+    .app-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .app-card-item {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .app-card-item:hover {
+      border-color: var(--portal-blue-light);
+      background: #1c2738;
+    }
+
+    .app-card-top {
       display: flex;
       justify-content: space-between;
-      margin: 4px 0;
+      align-items: center;
     }
 
-    .card-row strong {
-      color: var(--text-main);
+    .app-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-bright);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .card-actions {
-      margin-top: 8px;
-      display: flex;
-      gap: 6px;
-    }
-
-    .card-btn {
-      flex: 1;
-      padding: 5px 8px;
+    .app-btn-launch {
+      padding: 4px 8px;
       font-size: 10px;
-      font-weight: 600;
-      background: #21262d;
-      border: 1px solid var(--aperture-border);
-      color: var(--text-main);
+      font-weight: 700;
+      background: rgba(2, 132, 199, 0.2);
+      border: 1px solid var(--portal-blue);
+      color: var(--portal-blue-light);
       border-radius: 4px;
       cursor: pointer;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      text-align: center;
       transition: all 0.2s;
     }
 
-    .card-btn:hover {
-      border-color: var(--aperture-amber);
-      color: var(--aperture-amber);
-      background: #30363d;
+    .app-btn-launch:hover {
+      background: var(--portal-blue);
+      color: #ffffff;
     }
 
-    /* Central GLaDOS Chamber */
-    .chamber-center {
-      flex: 1;
+    /* Central Viewport Stage */
+    .center-viewport {
       position: relative;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: flex-start;
+      border-radius: 8px;
       overflow: hidden;
+      background: radial-gradient(circle at 50% 30%, #192538 0%, #0e1624 60%, #080d14 100%);
+      border: 1px solid var(--border-medium);
     }
 
-    /* Overhead Gantry & Cables */
-    .ceiling-gantry {
-      position: absolute;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 260px;
-      height: 28px;
-      background: linear-gradient(180deg, #374151 0%, #1f2937 100%);
-      border-bottom: 3px solid #111827;
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.9);
-      z-index: 5;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .ceiling-gantry::before {
-      content: '';
-      width: 140px;
-      height: 4px;
-      background: var(--aperture-amber);
-      box-shadow: 0 0 10px var(--aperture-amber);
-      border-radius: 2px;
-    }
-
-    /* GLaDOS Hanging Rig */
-    .glados-rig {
-      position: absolute;
-      top: 20px;
-      left: 50%;
-      margin-left: -240px;
-      width: 480px;
-      height: 520px;
-      transform-origin: 50% 0%;
-      z-index: 4;
-      will-change: transform;
-    }
-
-    .glados-rig-inner {
+    /* 3D WebGL Canvas Container */
+    #gladosCanvasContainer {
       width: 100%;
-      height: 100%;
-      transform-origin: 50% 0%;
-    }
-
-    .glados-img-wrapper {
+      flex: 1;
       position: relative;
-      width: 100%;
-      height: 100%;
+      cursor: grab;
     }
 
-    .glados-img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      filter: drop-shadow(0 20px 35px rgba(0, 0, 0, 0.95));
-      user-select: none;
-      -webkit-user-drag: none;
+    #gladosCanvasContainer:active {
+      cursor: grabbing;
     }
 
-    /* Calibrated Optic Eye Flare */
-    .glados-eye-flare {
+    /* 3D Viewport Controls Overlay */
+    .viewport-controls-overlay {
       position: absolute;
-      left: 58.5%;
-      top: 47.5%;
-      width: 18px;
-      height: 18px;
-      margin-left: -9px;
-      margin-top: -9px;
-      border-radius: 50%;
-      background: radial-gradient(circle, #ffffff 15%, #ffb703 60%, #fb8500 100%);
-      box-shadow: 0 0 18px #ffb703, 0 0 36px #fb8500, 0 0 54px rgba(251, 133, 0, 0.4);
-      opacity: 0.9;
-      pointer-events: none;
-      transition: all 0.15s ease;
-      z-index: 6;
+      top: 14px;
+      right: 14px;
+      display: flex;
+      gap: 8px;
+      z-index: 15;
     }
 
-    .glados-eye-flare::after {
-      content: '';
-      position: absolute;
-      inset: -8px;
-      border-radius: 50%;
-      border: 1px solid rgba(255, 183, 3, 0.4);
-      box-shadow: 0 0 16px rgba(255, 183, 3, 0.3);
+    .btn-vp-action {
+      background: rgba(19, 27, 38, 0.85);
+      border: 1px solid var(--border-medium);
+      color: var(--text-main);
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 4px;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      transition: all 0.2s;
     }
 
-    /* KINEMATIC ANIMATION MODES */
-    /* 1. Idle: Natural Inverted Pendulum Sway (Portal 1/2 Physics) */
-    .state-idle .glados-rig-inner {
-      animation: glados-idle-kinematics 7.5s ease-in-out infinite;
-    }
-    .state-idle .glados-eye-flare {
-      animation: eye-idle-pulse 4s ease-in-out infinite;
+    .btn-vp-action:hover {
+      border-color: var(--aperture-amber);
+      color: var(--aperture-amber);
     }
 
-    @keyframes glados-idle-kinematics {
-      0% { transform: rotate(0deg) translateY(0px); }
-      20% { transform: rotate(1.4deg) translateY(4px); }
-      45% { transform: rotate(-1.1deg) translateY(7px); }
-      70% { transform: rotate(-1.8deg) translateY(3px); }
-      85% { transform: rotate(0.8deg) translateY(5px); }
-      100% { transform: rotate(0deg) translateY(0px); }
-    }
-
-    @keyframes eye-idle-pulse {
-      0%, 100% { opacity: 0.85; transform: scale(1); }
-      50% { opacity: 1; transform: scale(1.15); box-shadow: 0 0 24px #ffb703, 0 0 45px #fb8500; }
-    }
-
-    /* 2. Speaking: Mechanical Servo Twitches & Actuator Steps */
-    .state-speaking .glados-rig-inner {
-      animation: glados-speaking-actuators 0.95s cubic-bezier(0.25, 1, 0.5, 1) infinite alternate;
-    }
-    .state-speaking .glados-eye-flare {
-      animation: eye-speaking-flare 0.16s ease-in-out infinite alternate;
-    }
-
-    @keyframes glados-speaking-actuators {
-      0%   { transform: rotate(-2.2deg) translateY(4px); }
-      18%  { transform: rotate(2.8deg) translateY(9px); }
-      38%  { transform: rotate(-3.4deg) translateY(12px); }
-      55%  { transform: rotate(1.2deg) translateY(5px); }
-      75%  { transform: rotate(-2.6deg) translateY(11px); }
-      100% { transform: rotate(2.2deg) translateY(6px); }
-    }
-
-    @keyframes eye-speaking-flare {
-      0% {
-        opacity: 0.85;
-        transform: scale(1.05);
-        box-shadow: 0 0 22px #ffe699, 0 0 44px #ff9d00;
-      }
-      100% {
-        opacity: 1;
-        transform: scale(1.6);
-        box-shadow: 0 0 40px #ffffff, 0 0 75px #ff9d00, 0 0 110px #ff5500;
-      }
-    }
-
-    /* 3. Singing: Expressive Theatrical Sway with Cyan Optic Iris */
-    .state-singing .glados-rig-inner {
-      animation: glados-singing-arc 2.8s ease-in-out infinite alternate;
-    }
-    .state-singing .glados-eye-flare {
-      animation: eye-singing-glow 0.7s ease-in-out infinite alternate;
-      background: radial-gradient(circle, #e0f2fe 20%, #38bdf8 65%, #0284c7 100%);
-      box-shadow: 0 0 30px #38bdf8, 0 0 70px #0284c7, 0 0 100px rgba(56, 189, 248, 0.4);
-    }
-
-    @keyframes glados-singing-arc {
-      0%   { transform: rotate(-4.2deg) translateY(5px) scale(0.99); }
-      50%  { transform: rotate(1.5deg) translateY(12px) scale(1.015); }
-      100% { transform: rotate(4.8deg) translateY(6px) scale(1.01); }
-    }
-
-    @keyframes eye-singing-glow {
-      0%   { opacity: 0.85; transform: scale(1.1); }
-      100% { opacity: 1; transform: scale(1.65); }
-    }
-
-    /* 4. Listening: Inquisitive 8-deg Tilt */
-    .state-listening .glados-rig-inner {
-      transform: rotate(3.5deg) translateY(10px);
-      transition: transform 0.4s ease-out;
-    }
-    .state-listening .glados-eye-flare {
-      transform: scale(1.25);
-      box-shadow: 0 0 25px var(--aperture-cyan), 0 0 50px var(--aperture-cyan);
-    }
-
-    /* 5. Thinking: Rapid Optic Recalibration */
-    .state-thinking .glados-rig-inner {
-      animation: glados-thinking-jitter 0.3s steps(2, start) infinite;
-    }
-    .state-thinking .glados-eye-flare {
-      animation: eye-thinking-strobe 0.2s steps(2, start) infinite;
-    }
-
-    @keyframes glados-thinking-jitter {
-      0% { transform: rotate(-0.5deg) translateY(2px); }
-      50% { transform: rotate(0.8deg) translateY(4px); }
-      100% { transform: rotate(-0.2deg) translateY(1px); }
-    }
-
-    @keyframes eye-thinking-strobe {
-      0% { opacity: 0.4; transform: scale(0.9); }
-      100% { opacity: 1; transform: scale(1.3); }
-    }
-
-    /* Dialogue & Auditory Console */
-    .telemetry-console {
-      position: absolute;
-      bottom: 12px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 90%;
-      max-width: 680px;
-      background: var(--aperture-card);
-      border: 1px solid var(--aperture-border);
-      border-radius: 6px;
-      padding: 12px 18px;
+    /* Subtitle & Audio Dialogue Deck */
+    .vocal-console {
+      width: 92%;
+      max-width: 720px;
+      margin-bottom: 16px;
+      background: rgba(15, 23, 36, 0.95);
+      border: 1px solid var(--border-medium);
+      border-radius: 8px;
+      padding: 14px 18px;
       backdrop-filter: blur(12px);
-      box-shadow: 0 6px 25px rgba(0, 0, 0, 0.85);
-      z-index: 10;
+      box-shadow: 0 6px 25px rgba(0, 0, 0, 0.75);
+      z-index: 15;
     }
 
-    .console-header {
+    .vocal-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      margin-bottom: 8px;
       font-size: 11px;
       font-weight: 700;
-      letter-spacing: 1.5px;
+      letter-spacing: 1px;
       color: var(--aperture-amber);
       text-transform: uppercase;
-      margin-bottom: 8px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      font-family: var(--font-mono);
+      border-bottom: 1px solid var(--border-subtle);
       padding-bottom: 4px;
     }
 
-    .console-text {
-      font-size: 13px;
+    .vocal-text {
+      font-size: 14px;
       line-height: 1.5;
-      color: #ffffff;
-      min-height: 38px;
+      color: var(--text-bright);
+      min-height: 42px;
       display: flex;
       align-items: center;
     }
 
-    .eq-bar-container {
+    .eq-bar-group {
       display: flex;
       align-items: flex-end;
       gap: 3px;
@@ -504,209 +486,284 @@
       transition: height 0.08s ease;
     }
 
-    /* Right Sidebar: Audio / Media Controls */
-    .audio-panel {
-      width: 280px;
+    /* Form Controls & Inputs */
+    .modern-input {
+      width: 100%;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-bright);
+      padding: 8px 12px;
+      font-size: 12px;
+      border-radius: 6px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .modern-input:focus {
+      border-color: var(--aperture-amber);
+      box-shadow: 0 0 8px var(--aperture-amber-glow);
+    }
+
+    .input-action-row {
       display: flex;
-      flex-direction: column;
-      gap: 14px;
-      z-index: 10;
-      pointer-events: auto;
+      gap: 8px;
+      margin-top: 8px;
     }
 
-    .volume-slider-box {
-      margin: 8px 0;
+    .btn-action-submit {
+      padding: 8px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-medium);
+      color: var(--text-bright);
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
     }
 
-    .volume-slider {
+    .btn-action-submit:hover {
+      border-color: var(--aperture-amber);
+      background: rgba(245, 130, 32, 0.15);
+      color: var(--aperture-amber);
+    }
+
+    .btn-action-primary {
+      background: rgba(245, 130, 32, 0.2);
+      border-color: var(--aperture-amber);
+      color: var(--aperture-amber);
+    }
+
+    .btn-action-primary:hover {
+      background: var(--aperture-amber);
+      color: #000000;
+    }
+
+    /* Master Volume Slider */
+    .slider-container {
+      margin: 10px 0;
+    }
+
+    .modern-slider {
       width: 100%;
       accent-color: var(--aperture-amber);
       cursor: pointer;
     }
 
-    /* Bottom Cockpit Control Deck */
-    footer.control-deck {
-      padding: 10px 24px;
-      border-top: 2px solid var(--aperture-border);
-      background: rgba(13, 17, 23, 0.95);
-      backdrop-filter: blur(10px);
+    /* Bottom Control Bar */
+    footer {
+      padding: 12px 28px;
+      background: rgba(13, 20, 32, 0.96);
+      border-top: 2px solid var(--border-subtle);
       display: flex;
-      flex-direction: row;
-      justify-content: space-between;
       align-items: center;
-      gap: 16px;
-      z-index: 20;
+      justify-content: space-between;
+      gap: 20px;
+      z-index: 30;
+      backdrop-filter: blur(12px);
     }
 
-    .quick-actions {
+    .quick-actions-bar {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
       flex: 1;
     }
 
-    button {
-      background: #21262d;
-      border: 1px solid var(--aperture-border);
+    .btn-pill {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
       color: var(--text-main);
-      padding: 8px 12px;
-      font-size: 11px;
+      padding: 8px 14px;
+      font-size: 12px;
       font-weight: 600;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      border-radius: 4px;
+      letter-spacing: 0.5px;
+      border-radius: 6px;
       cursor: pointer;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 6px;
-      transition: all 0.2s ease;
+      transition: all 0.2s;
     }
 
-    button:hover {
-      background: #30363d;
+    .btn-pill:hover {
+      background: var(--bg-surface-elevated);
       border-color: var(--aperture-amber);
+      color: var(--text-bright);
+    }
+
+    .btn-pill-song {
+      border-color: rgba(56, 189, 248, 0.4);
+      color: var(--portal-blue-light);
+    }
+
+    .btn-pill-song:hover {
+      background: var(--portal-blue);
       color: #ffffff;
-      box-shadow: 0 0 10px var(--aperture-amber-glow);
+      box-shadow: 0 0 12px var(--portal-blue-glow);
     }
 
-    button.btn-primary {
-      background: rgba(255, 157, 0, 0.15);
-      border-color: var(--aperture-amber);
-      color: var(--aperture-amber);
+    .btn-pill-danger {
+      border-color: rgba(239, 68, 68, 0.4);
+      color: var(--status-red);
     }
 
-    button.btn-primary:hover {
-      background: var(--aperture-amber);
-      color: #000000;
-    }
-
-    button.btn-song {
-      background: rgba(0, 180, 216, 0.15);
-      border-color: var(--aperture-blue);
-      color: var(--aperture-blue);
-    }
-
-    button.btn-song:hover {
-      background: var(--aperture-blue);
-      color: #000000;
-      box-shadow: 0 0 12px var(--aperture-blue-glow);
-    }
-
-    button.btn-danger {
-      border-color: var(--aperture-red);
-      color: var(--aperture-red);
-    }
-
-    button.btn-danger:hover {
-      background: var(--aperture-red);
+    .btn-pill-danger:hover {
+      background: var(--status-red);
       color: #ffffff;
     }
 
-    .command-input-container {
-      width: 400px;
+    .terminal-form {
+      width: 440px;
       display: flex;
       gap: 8px;
     }
 
-    .command-input {
+    .terminal-input {
       flex: 1;
-      background: #090c10;
-      border: 1px solid var(--aperture-border);
+      background: #070b12;
+      border: 1px solid var(--border-medium);
       color: #ffffff;
-      padding: 8px 12px;
-      font-size: 12px;
-      border-radius: 4px;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-family: var(--font-mono);
+      border-radius: 6px;
       outline: none;
-      transition: border-color 0.2s ease;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
 
-    .command-input:focus {
+    .terminal-input:focus {
       border-color: var(--aperture-amber);
-      box-shadow: 0 0 8px var(--aperture-amber-glow);
+      box-shadow: 0 0 10px var(--aperture-amber-glow);
     }
   </style>
 </head>
-<body class="state-idle" id="stage">
+<body>
   <div class="scanlines"></div>
 
   <!-- Header -->
   <header>
-    <div class="header-logo">
-      <div class="aperture-icon"></div>
-      <div class="header-title">Aperture Laboratories // <span>GLaDOS v3.12</span></div>
+    <div class="header-branding">
+      <div class="aperture-logo"></div>
+      <div class="header-title-group">
+        <div class="header-main-title">Aperture Laboratories // <span>GLaDOS Mainframe</span></div>
+        <div class="header-sub-title">Computer-Aided Enrichment Center Protocol v3.12</div>
+      </div>
     </div>
-    <div class="header-widgets">
-      <div class="telemetry-status">
-        <div class="status-dot" id="statusDot"></div>
-        <span id="statusText">IDLE - MONITORING SUBJECT</span>
+    <div class="header-telemetry">
+      <div class="status-badge">
+        <span class="status-pill-dot" id="statusDot"></span>
+        <span id="statusLabel">MONITORING SUBJECT</span>
+      </div>
+      <div class="status-badge" style="font-family: var(--font-mono); color: var(--aperture-amber);">
+        [CHAMBER 04 / 19]
       </div>
     </div>
   </header>
 
-  <!-- Main Stage with 3-column Layout -->
+  <!-- Main Tri-Panel Grid -->
   <main>
-    <!-- Left Column: Flight Radar & ZimaOS Telemetry -->
-    <aside class="sidebar-panel">
-      <!-- Flightradar24 Widget -->
-      <div class="telemetry-card">
-        <div class="card-title">
-          <span>✈ Flight Radar Telemetry</span>
-          <span class="badge" id="flightBadge">LIVE</span>
+    <!-- Left Wing: Flight Radar Telemetry & Chamber Environmental Monitors -->
+    <aside class="facility-panel">
+      <!-- Flightradar24 Airspace Telemetry Card -->
+      <div class="modern-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>✈ Airspace Radar</span>
+          </div>
+          <span class="tag-blue" id="flightLiveBadge">LIVE RADAR</span>
         </div>
-        <div class="card-body">
-          <div class="card-row"><span>Target:</span> <strong id="flightCallsign">AA100</strong></div>
-          <div class="card-row"><span>Status:</span> <strong id="flightStatus">Radar Standby</strong></div>
-          <div class="card-row"><span>Altitude:</span> <strong id="flightAlt">-- ft</strong></div>
-          <div class="card-row"><span>Speed / Model:</span> <strong id="flightSpd">-- kts / --</strong></div>
+
+        <div class="flight-route-banner">
+          <div class="airport-node">
+            <span class="airport-code" id="flightOrigCode">JFK</span>
+            <span class="airport-city" id="flightOrigCity">New York</span>
+          </div>
+          <div class="route-arrow">
+            <span>✈</span>
+            <div class="route-line"></div>
+          </div>
+          <div class="airport-node">
+            <span class="airport-code" id="flightDestCode">LHR</span>
+            <span class="airport-city" id="flightDestCity">London</span>
+          </div>
         </div>
-        <div class="card-actions">
-          <input type="text" id="flightInput" class="command-input" placeholder="Flight # (e.g. AA100)" style="font-size: 10px; padding: 4px 6px;" />
-          <button class="card-btn" onclick="trackFlightUi()">Track</button>
+
+        <div class="data-row">
+          <span class="data-label">Callsign / Flight:</span>
+          <span class="data-value" id="flightCallsignDisplay" style="color: var(--portal-blue-light);">AA100 (AAL100)</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Live Altitude:</span>
+          <span class="data-value" id="flightAltDisplay">34,000 FT</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Ground Speed:</span>
+          <span class="data-value" id="flightSpeedDisplay">485 KTS (898 km/h)</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Heading:</span>
+          <span class="data-value" id="flightHdgDisplay">078° ENE</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Aircraft Model:</span>
+          <span class="data-value" id="flightModelDisplay">Boeing 777-223(ER)</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Radar Status:</span>
+          <span class="data-value" id="flightStatusDisplay" style="color: var(--status-green);">● EN ROUTE</span>
+        </div>
+
+        <div class="input-action-row">
+          <input type="text" id="flightInputQuery" class="modern-input" placeholder="Flight # (e.g. DL450, AA100)" />
+          <button class="btn-action-submit btn-action-primary" onclick="trackFlightFromUi()">Track</button>
+        </div>
+        <div style="margin-top: 8px;">
+          <button class="btn-action-submit" style="width: 100%;" onclick="openFr24LiveMap()">
+            ⧉ View on Flightradar24 Map
+          </button>
         </div>
       </div>
 
-      <!-- ZimaOS Server Widget -->
-      <div class="telemetry-card">
-        <div class="card-title">
-          <span>🖥 ZimaOS Home Server</span>
-          <span class="badge" id="zimaBadge">ACTIVE</span>
+      <!-- Facility Environmental Card -->
+      <div class="modern-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>⚠ Chamber Sensors</span>
+          </div>
+          <span class="tag-green">NOMINAL</span>
         </div>
-        <div class="card-body">
-          <div class="card-row"><span>Node Host:</span> <strong id="zimaHost">zimaos.local</strong></div>
-          <div class="card-row"><span>Status:</span> <strong id="zimaStatus">Online</strong></div>
-          <div class="card-row"><span>Containers:</span> <strong id="zimaContainers">Checking...</strong></div>
-          <div class="card-row"><span>System CPU:</span> <strong id="zimaCpu">Normal</strong></div>
+        <div class="data-row">
+          <span class="data-label">Neurotoxin Regulator:</span>
+          <span class="data-value" style="color: var(--aperture-amber);">0.00 PSI (ARMED)</span>
         </div>
-        <div class="card-actions">
-          <button class="card-btn" onclick="checkZimaUi()">Refresh</button>
-          <button class="card-btn" onclick="openZimaDashboardUi()">Dashboard</button>
+        <div class="data-row">
+          <span class="data-label">Test Subject Heart Rate:</span>
+          <span class="data-value">72 BPM (Slightly Terrified)</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">Hydraulic Gantry Pressure:</span>
+          <span class="data-value">1,450 kPa</span>
         </div>
       </div>
     </aside>
 
-    <!-- Center Column: GLaDOS Rig and Speech Box -->
-    <section class="chamber-center">
-      <div class="ceiling-gantry"></div>
-
-      <div class="glados-rig" id="gladosRig">
-        <div class="glados-rig-inner">
-          <div class="glados-img-wrapper">
-            <img 
-              src="/assets/glados_highres.jpg" 
-              onerror="this.onerror=null; this.src='/assets/glados.png';" 
-              alt="GLaDOS" 
-              class="glados-img" 
-            />
-            <div class="glados-eye-flare" id="opticEye"></div>
-          </div>
-        </div>
+    <!-- Center Wing: Real 3D GLaDOS Viewport (Three.js WebGL) -->
+    <section class="center-viewport">
+      <div class="viewport-controls-overlay">
+        <button class="btn-vp-action" onclick="resetCameraView()">Reset View</button>
       </div>
 
-      <!-- Live Dialogue & Subtitle Telemetry -->
-      <div class="telemetry-console">
-        <div class="console-header">
-          <span>TRANSCRIPT & AUDITORY TELEMETRY</span>
-          <div class="eq-bar-container" id="eqContainer">
+      <div id="gladosCanvasContainer"></div>
+
+      <!-- Vocal Transcript Deck -->
+      <div class="vocal-console">
+        <div class="vocal-header">
+          <span>AUDITORY PROTOCOL & TRANSCRIPT</span>
+          <div class="eq-bar-group" id="eqBarGroup">
             <div class="eq-bar"></div>
             <div class="eq-bar"></div>
             <div class="eq-bar"></div>
@@ -717,229 +774,514 @@
             <div class="eq-bar"></div>
           </div>
         </div>
-        <div class="console-text" id="consoleText">Awaiting test subject auditory stimulus...</div>
+        <div class="vocal-text" id="transcriptText">
+          Awaiting test subject auditory stimulus...
+        </div>
       </div>
     </section>
 
-    <!-- Right Column: Quick Audio, Volume & Media Deck -->
-    <aside class="audio-panel">
-      <!-- Master Audio Deck -->
-      <div class="telemetry-card">
-        <div class="card-title">
-          <span>🔊 Volume Control</span>
-          <span class="badge" id="volBadge">MASTER</span>
+    <!-- Right Wing: ZimaOS Server, Docker App Launcher & Media Deck -->
+    <aside class="facility-panel">
+      <!-- ZimaOS Mainframe Card -->
+      <div class="modern-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>🖥 ZimaOS Server</span>
+          </div>
+          <span class="tag-green" id="zimaStatusBadge">● ONLINE</span>
         </div>
-        <div class="card-body">
-          <div class="card-row">
-            <span>Level:</span> <strong id="volPercent">50%</strong>
+        <div class="data-row">
+          <span class="data-label">Node Host:</span>
+          <span class="data-value" id="zimaHostText">zimaos.local</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">System CPU:</span>
+          <span class="data-value" id="zimaCpuText">12%</span>
+        </div>
+        <div class="data-row">
+          <span class="data-label">System Memory:</span>
+          <span class="data-value" id="zimaRamText">25% (2.1 / 8 GB)</span>
+        </div>
+
+        <!-- ZimaOS App Launcher Grid -->
+        <div style="margin-top: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+            Application Launcher:
           </div>
-          <div class="volume-slider-box">
-            <input 
-              type="range" 
-              id="volumeSlider" 
-              class="volume-slider" 
-              min="0" 
-              max="100" 
-              value="50" 
-              oninput="onVolumeSliderChange(this.value)" 
-            />
+          <div class="app-grid" id="zimaAppGrid">
+            <!-- Dynamically populated or default common apps -->
+            <div class="app-card-item">
+              <span class="app-name">Plex</span>
+              <button class="app-btn-launch" onclick="launchAppDirect('plex')">▶ Launch</button>
+            </div>
+            <div class="app-card-item">
+              <span class="app-name">Jellyfin</span>
+              <button class="app-btn-launch" onclick="launchAppDirect('jellyfin')">▶ Launch</button>
+            </div>
+            <div class="app-card-item">
+              <span class="app-name">Nextcloud</span>
+              <button class="app-btn-launch" onclick="launchAppDirect('nextcloud')">▶ Launch</button>
+            </div>
+            <div class="app-card-item">
+              <span class="app-name">Home Assistant</span>
+              <button class="app-btn-launch" onclick="launchAppDirect('home assistant')">▶ Launch</button>
+            </div>
           </div>
-          <div class="card-actions">
-            <button class="card-btn" onclick="triggerAction('volume_relative', {delta: -15})">-15%</button>
-            <button class="card-btn" onclick="triggerAction('volume_relative', {delta: 15})">+15%</button>
-            <button class="card-btn" onclick="triggerAction('prompt', {prompt: 'mute'})">Mute</button>
-          </div>
+        </div>
+
+        <div style="margin-top: 10px; display: flex; gap: 8px;">
+          <button class="btn-action-submit" style="flex: 1;" onclick="refreshZimaStatus()">Refresh</button>
+          <button class="btn-action-submit btn-action-primary" style="flex: 1;" onclick="openZimaDashboard()">Dashboard</button>
         </div>
       </div>
 
-      <!-- YouTube Music Search -->
-      <div class="telemetry-card">
-        <div class="card-title">
-          <span>🎵 YouTube Music</span>
-          <span class="badge">MEDIA</span>
-        </div>
-        <div class="card-body">
-          <div class="card-row"><span>Mode:</span> <strong>Direct Audio</strong></div>
-          <div style="margin-top: 6px;">
-            <input 
-              type="text" 
-              id="ytMusicInput" 
-              class="command-input" 
-              placeholder="Search artist or track..." 
-              style="width: 100%; font-size: 10px; padding: 4px 6px;" 
-            />
+      <!-- Master Audio & Volume Deck -->
+      <div class="modern-card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>🔊 Master Volume</span>
           </div>
+          <span class="tag-amber" id="volPercentDisplay">50%</span>
         </div>
-        <div class="card-actions">
-          <button class="card-btn" onclick="searchYtMusicUi()">Play on YT Music</button>
+        <div class="slider-container">
+          <input 
+            type="range" 
+            id="masterVolumeSlider" 
+            class="modern-slider" 
+            min="0" 
+            max="100" 
+            value="50" 
+            oninput="handleVolumeSlider(this.value)" 
+          />
+        </div>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn-action-submit" style="flex: 1;" onclick="triggerAction('volume_relative', {delta: -15})">-15%</button>
+          <button class="btn-action-submit" style="flex: 1;" onclick="triggerAction('volume_relative', {delta: 15})">+15%</button>
+          <button class="btn-action-submit" style="flex: 1;" onclick="triggerAction('prompt', {prompt: 'mute'})">Mute</button>
+        </div>
+
+        <!-- YouTube Music Search -->
+        <div style="margin-top: 14px; border-top: 1px solid var(--border-subtle); padding-top: 10px;">
+          <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">
+            🎵 YouTube Music:
+          </div>
+          <div class="input-action-row">
+            <input type="text" id="ytMusicSearchInput" class="modern-input" placeholder="Artist or song name..." />
+            <button class="btn-action-submit" onclick="searchYtMusic()">Play</button>
+          </div>
         </div>
       </div>
     </aside>
   </main>
 
-  <!-- Bottom Control Deck -->
-  <footer class="control-deck">
-    <div class="quick-actions">
-      <button class="btn-song" onclick="triggerAction('sing', {song: 'still_alive'})">
+  <!-- Bottom Action Bar -->
+  <footer>
+    <div class="quick-actions-bar">
+      <button class="btn-pill btn-pill-song" onclick="triggerAction('sing', {song: 'still_alive'})">
         🎵 Still Alive
       </button>
-      <button class="btn-song" onclick="triggerAction('sing', {song: 'want_you_gone'})">
+      <button class="btn-pill btn-pill-song" onclick="triggerAction('sing', {song: 'want_you_gone'})">
         🎵 Want You Gone
       </button>
-      <button class="btn-primary" onclick="triggerAction('radio')">
+      <button class="btn-pill" onclick="triggerAction('radio')">
         📻 Portal Radio
       </button>
-      <button class="btn-primary" onclick="triggerAction('turret')">
+      <button class="btn-pill" onclick="triggerAction('turret')">
         🎯 Turret Hello
       </button>
-      <button class="btn-primary" onclick="triggerAction('roast')">
+      <button class="btn-pill" onclick="triggerAction('roast')">
         🔥 Roast Me
       </button>
-      <button class="btn-primary" onclick="triggerAction('weather')">
+      <button class="btn-pill" onclick="triggerAction('weather')">
         🌤 Weather
       </button>
-      <button class="btn-danger" onclick="triggerAction('stop_song'); triggerAction('stop_sfx');">
+      <button class="btn-pill btn-pill-danger" onclick="triggerAction('stop_song'); triggerAction('stop_sfx');">
         ⏹ Stop Audio
       </button>
-      <button class="btn-primary" onclick="triggerAction('quip')">
+      <button class="btn-pill" onclick="triggerAction('quip')">
         💬 Quip
       </button>
     </div>
 
-    <form class="command-input-container" onsubmit="submitPrompt(event)">
+    <form class="terminal-form" onsubmit="handlePromptSubmit(event)">
       <input 
         type="text" 
-        id="promptInput" 
-        class="command-input" 
-        placeholder="Instruct GLaDOS or speak into mic..." 
+        id="terminalPromptInput" 
+        class="terminal-input" 
+        placeholder="TEST_SUBJECT@APERTURE:~$ type command or speak..." 
         autocomplete="off"
       />
-      <button type="submit" class="btn-primary">Transmit</button>
+      <button type="submit" class="btn-action-submit btn-action-primary">Transmit</button>
     </form>
   </footer>
 
   <script>
-    const stage = document.getElementById('stage');
-    const statusText = document.getElementById('statusText');
-    const statusDot = document.getElementById('statusDot');
-    const consoleText = document.getElementById('consoleText');
-    const eqBars = document.querySelectorAll('.eq-bar');
-    const rig = document.getElementById('gladosRig');
-    const eye = document.getElementById('opticEye');
+    // --- 1. THREE.JS 3D WEBGL ENGINE FOR GLaDOS (from GLaDOS.blend) ---
+    const container = document.getElementById('gladosCanvasContainer');
+    let scene, camera, renderer, gladosModel, controls;
+    let eyeLight, ambientLight, dirLight;
+    let targetRotationY = 0, currentRotationY = 0;
+    let targetRotationX = 0, currentRotationX = 0;
+    let targetSway = 0;
+    let animClock = new THREE.Clock();
 
-    let currentSpeakingInterval = null;
+    function initThreeJS() {
+      const width = container.clientWidth || 800;
+      const height = container.clientHeight || 600;
 
-    // Equalizer amplitude animation
-    function animateEq(active, isSinging = false) {
-      if (active) {
-        if (!currentSpeakingInterval) {
-          currentSpeakingInterval = setInterval(() => {
-            eqBars.forEach(bar => {
-              const height = Math.floor(Math.random() * (isSinging ? 18 : 14)) + 3;
-              bar.style.height = height + 'px';
-              bar.style.background = isSinging ? 'var(--aperture-blue)' : 'var(--aperture-amber)';
+      scene = new THREE.Scene();
+      scene.background = null; // Transparent canvas on top of chamber gradient
+
+      camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100);
+      camera.position.set(0, 1.2, 5.2);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.15;
+      container.appendChild(renderer.domElement);
+
+      if (typeof THREE.OrbitControls !== 'undefined') {
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxDistance = 10;
+        controls.minDistance = 2;
+        controls.target.set(0, 1.2, 0);
+      }
+
+      // Dynamic Aperture Chamber Lighting
+      ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+      scene.add(ambientLight);
+
+      dirLight = new THREE.DirectionalLight(0xffffff, 1.8);
+      dirLight.position.set(2, 6, 4);
+      scene.add(dirLight);
+
+      const rimLight = new THREE.DirectionalLight(0x0284c7, 1.2);
+      rimLight.position.set(-4, -2, -3);
+      scene.add(rimLight);
+
+      // Point light at GLaDOS's golden optical eye
+      eyeLight = new THREE.PointLight(0xff9a00, 3.5, 8);
+      eyeLight.position.set(0, 1.2, 0.4);
+      scene.add(eyeLight);
+
+      // Load GLaDOS GLB exported from GLaDOS.blend
+      if (typeof THREE.GLTFLoader !== 'undefined') {
+        const loader = new THREE.GLTFLoader();
+        loader.load(
+          '/assets/model/glados.glb',
+          function (gltf) {
+            gladosModel = gltf.scene;
+            gladosModel.scale.set(0.65, 0.65, 0.65);
+            gladosModel.position.set(0, -0.4, 0);
+
+            // Enhance materials for PBR rendering
+            gladosModel.traverse(function (child) {
+              if (child.isMesh && child.material) {
+                child.material.metalness = 0.6;
+                child.material.roughness = 0.35;
+                if (child.material.name && child.material.name.includes('selfillum')) {
+                  child.material.emissive = new THREE.Color(0xff9a00);
+                  child.material.emissiveIntensity = 2.0;
+                }
+              }
             });
-          }, 85);
-        }
-      } else {
-        if (currentSpeakingInterval) {
-          clearInterval(currentSpeakingInterval);
-          currentSpeakingInterval = null;
-        }
-        eqBars.forEach(bar => {
-          bar.style.height = '4px';
-          bar.style.background = 'var(--aperture-amber)';
-        });
+
+            scene.add(gladosModel);
+          },
+          undefined,
+          function (err) {
+            console.warn('GLB load error, using high-res fallback:', err);
+          }
+        );
+      }
+
+      window.addEventListener('resize', onWindowResize);
+    }
+
+    function onWindowResize() {
+      if (!camera || !renderer || !container) return;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    }
+
+    function resetCameraView() {
+      if (controls && camera) {
+        camera.position.set(0, 1.2, 5.2);
+        controls.target.set(0, 1.2, 0);
+        controls.update();
       }
     }
 
-    function applyState(data) {
-      const state = (data.state || 'idle').toLowerCase();
-      stage.className = 'state-' + state;
-
-      if (state === 'speaking') {
-        statusText.innerText = 'TRANSMITTING VOCAL PROTOCOL';
-        statusDot.className = 'status-dot active';
-        consoleText.innerText = data.text || '"Speaking..."';
-        animateEq(true, false);
-      } else if (state === 'singing') {
-        statusText.innerText = 'VOCAL TRACK: ' + (data.song || 'PORTAL THEME');
-        statusDot.className = 'status-dot singing';
-        consoleText.innerText = data.text || ('"Now playing ' + (data.song || 'Portal credits song') + '..."');
-        animateEq(true, true);
-      } else if (state === 'listening') {
-        statusText.innerText = 'LISTENING FOR AUDIO INPUT';
-        statusDot.className = 'status-dot active';
-        consoleText.innerText = 'Enrichment Center microphone array active...';
-        animateEq(false);
-      } else if (state === 'thinking') {
-        statusText.innerText = 'RUNNING APERTURE CALCULATIONS';
-        statusDot.className = 'status-dot';
-        consoleText.innerText = data.thought || 'Calculating test parameters...';
-        animateEq(false);
-      } else {
-        statusText.innerText = 'IDLE - MONITORING SUBJECT';
-        statusDot.className = 'status-dot';
-        if (data.text) {
-          consoleText.innerText = data.text;
-        } else {
-          consoleText.innerText = 'Awaiting test subject auditory stimulus...';
-        }
-        animateEq(false);
-      }
-    }
-
-    // Connect to Server-Sent Events (SSE)
-    function connectEvents() {
-      const evtSource = new EventSource('/api/events');
-      evtSource.onmessage = function(event) {
-        try {
-          const data = JSON.parse(event.data);
-          applyState(data);
-        } catch (e) {
-          console.error('Failed to parse SSE data:', e);
-        }
-      };
-      evtSource.onerror = function() {
-        evtSource.close();
-        setTimeout(connectEvents, 3000);
-      };
-    }
-
-    if (window.location.protocol.startsWith('http')) {
-      connectEvents();
-    }
-
-    // Kinematic mouse cursor tracking (smooth damped spring physics)
-    let targetRot = 0, currentRot = 0;
-    let targetX = 0, currentX = 0;
-    let targetY = 0, currentY = 0;
-
+    // Damped Mouse Parallax Tracking
     window.addEventListener('mousemove', (e) => {
       const cx = window.innerWidth / 2;
       const cy = window.innerHeight / 2;
       const nx = (e.clientX - cx) / cx;
       const ny = (e.clientY - cy) / cy;
-      targetRot = nx * 4.5;
-      targetX = nx * 16.0;
-      targetY = Math.max(0, ny * 12.0);
-      if (eye) {
-        eye.style.transform = `translate(${nx * 6}px, ${ny * 5}px)`;
-      }
+      targetRotationY = nx * 0.35;
+      targetRotationX = ny * 0.22;
     });
 
-    function updateRigTracking() {
-      currentRot += (targetRot - currentRot) * 0.08;
-      currentX += (targetX - currentX) * 0.08;
-      currentY += (targetY - currentY) * 0.08;
-      
-      if (rig) {
-        rig.style.transform = `translate(${currentX}px, ${currentY}px) rotate(${currentRot}deg)`;
-      }
-      requestAnimationFrame(updateRigTracking);
-    }
-    requestAnimationFrame(updateRigTracking);
+    let gState = 'idle';
 
+    function animate3D() {
+      requestAnimationFrame(animate3D);
+      const delta = animClock.getDelta();
+      const time = animClock.getElapsedTime();
+
+      // Compound Inverted Pendulum Sway Physics
+      if (gladosModel) {
+        currentRotationY += (targetRotationY - currentRotationY) * 0.05;
+        currentRotationX += (targetRotationX - currentRotationX) * 0.05;
+
+        if (gState === 'speaking') {
+          // Rapid mechanical actuator jitter
+          const jitter = Math.sin(time * 18.0) * 0.035 + Math.cos(time * 26.0) * 0.02;
+          gladosModel.rotation.y = currentRotationY + jitter;
+          gladosModel.rotation.x = currentRotationX + (Math.sin(time * 12.0) * 0.02);
+          if (eyeLight) eyeLight.intensity = 3.5 + Math.sin(time * 22.0) * 1.5;
+        } else if (gState === 'singing') {
+          // Broad theatrical musical sweeping arc
+          const sweep = Math.sin(time * 2.2) * 0.14;
+          gladosModel.rotation.y = currentRotationY + sweep;
+          gladosModel.rotation.z = Math.cos(time * 2.2) * 0.08;
+          if (eyeLight) {
+            eyeLight.color.setHex(0x38bdf8);
+            eyeLight.intensity = 4.0 + Math.sin(time * 4.0) * 1.5;
+          }
+        } else {
+          // Smooth 7s compound pendulum sway
+          const swayY = Math.sin(time * 0.9) * 0.045;
+          const swayZ = Math.cos(time * 0.6) * 0.025;
+          gladosModel.rotation.y = currentRotationY + swayY;
+          gladosModel.rotation.x = currentRotationX;
+          gladosModel.rotation.z = swayZ;
+          if (eyeLight) {
+            eyeLight.color.setHex(0xff9a00);
+            eyeLight.intensity = 2.5 + Math.sin(time * 1.5) * 0.6;
+          }
+        }
+      }
+
+      if (controls) controls.update();
+      if (renderer && scene && camera) renderer.render(scene, camera);
+    }
+
+    try {
+      initThreeJS();
+      animate3D();
+    } catch (e) {
+      console.warn('Three.js failed to initialize:', e);
+    }
+
+    // --- 2. TELEMETRY & AUDIO EQUALIZER ---
+    const statusLabel = document.getElementById('statusLabel');
+    const statusDot = document.getElementById('statusDot');
+    const transcriptText = document.getElementById('transcriptText');
+    const eqBars = document.querySelectorAll('.eq-bar');
+    let eqTimer = null;
+
+    function runEqualizer(active, isSinging = false) {
+      if (active) {
+        if (!eqTimer) {
+          eqTimer = setInterval(() => {
+            eqBars.forEach(b => {
+              const h = Math.floor(Math.random() * (isSinging ? 18 : 14)) + 3;
+              b.style.height = h + 'px';
+              b.style.background = isSinging ? 'var(--portal-blue-light)' : 'var(--aperture-amber)';
+            });
+          }, 85);
+        }
+      } else {
+        if (eqTimer) {
+          clearInterval(eqTimer);
+          eqTimer = null;
+        }
+        eqBars.forEach(b => {
+          b.style.height = '4px';
+          b.style.background = 'var(--aperture-amber)';
+        });
+      }
+    }
+
+    function applyAgentState(data) {
+      const state = (data.state || 'idle').toLowerCase();
+      gState = state;
+
+      if (state === 'speaking') {
+        statusLabel.innerText = 'TRANSMITTING VOCAL PROTOCOL';
+        statusDot.className = 'status-pill-dot speaking';
+        transcriptText.innerText = data.text || '"Speaking..."';
+        runEqualizer(true, false);
+      } else if (state === 'singing') {
+        statusLabel.innerText = 'VOCAL TRACK: ' + (data.song || 'PORTAL THEME');
+        statusDot.className = 'status-pill-dot singing';
+        transcriptText.innerText = data.text || ('"Now playing ' + (data.song || 'Portal credits song') + '..."');
+        runEqualizer(true, true);
+      } else if (state === 'listening') {
+        statusLabel.innerText = 'LISTENING FOR AUDIO INPUT';
+        statusDot.className = 'status-pill-dot';
+        transcriptText.innerText = 'Microphone active. Awaiting voice command...';
+        runEqualizer(false);
+      } else if (state === 'thinking') {
+        statusLabel.innerText = 'CALCULATING PARAMETERS';
+        statusDot.className = 'status-pill-dot speaking';
+        transcriptText.innerText = data.thought || 'Calculating test parameters...';
+        runEqualizer(false);
+      } else {
+        statusLabel.innerText = 'MONITORING SUBJECT';
+        statusDot.className = 'status-pill-dot';
+        if (data.text) {
+          transcriptText.innerText = data.text;
+        } else {
+          transcriptText.innerText = 'Awaiting test subject auditory stimulus...';
+        }
+        runEqualizer(false);
+      }
+
+      // Update Tracked Flight if provided in event
+      if (data.tracked_flight) {
+        updateFlightHud(data.tracked_flight);
+      }
+    }
+
+    // Connect Server-Sent Events (SSE)
+    function connectSse() {
+      const sse = new EventSource('/api/events');
+      sse.onmessage = function (evt) {
+        try {
+          const payload = JSON.parse(evt.data);
+          applyAgentState(payload);
+        } catch (err) {
+          console.error('SSE JSON error:', err);
+        }
+      };
+      sse.onerror = function () {
+        sse.close();
+        setTimeout(connectSse, 3000);
+      };
+    }
+
+    if (window.location.protocol.startsWith('http')) {
+      connectSse();
+      fetchTrackedFlight();
+      fetchZimaApps();
+    }
+
+    // --- 3. LIVE FLIGHTRADAR24 AIRSPACE HUD ---
+    let currentFr24Url = 'https://www.flightradar24.com';
+
+    function updateFlightHud(flight) {
+      if (!flight) return;
+      document.getElementById('flightCallsignDisplay').innerText = flight.callsign || 'N/A';
+      document.getElementById('flightOrigCode').innerText = (flight.origin || 'JFK').substring(0, 4);
+      document.getElementById('flightDestCode').innerText = (flight.dest || 'LHR').substring(0, 4);
+      
+      const altVal = flight.altitude_ft;
+      document.getElementById('flightAltDisplay').innerText = (altVal !== null && altVal !== undefined) ? `${altVal.toLocaleString()} FT` : 'Unavailable';
+      
+      const spdVal = flight.speed_kts;
+      const kmhVal = flight.speed_kmh;
+      document.getElementById('flightSpeedDisplay').innerText = (spdVal !== null && spdVal !== undefined) ? `${spdVal} KTS (${kmhVal} km/h)` : 'Unavailable';
+      
+      const hdgVal = flight.heading;
+      document.getElementById('flightHdgDisplay').innerText = (hdgVal !== null && hdgVal !== undefined) ? `${hdgVal}°` : '--';
+      
+      document.getElementById('flightModelDisplay').innerText = flight.model || 'Commercial Aircraft';
+      document.getElementById('flightStatusDisplay').innerText = '● ' + (flight.status || 'AIRBORNE').toUpperCase();
+      
+      if (flight.fr24_url) {
+        currentFr24Url = flight.fr24_url;
+      }
+    }
+
+    async function fetchTrackedFlight() {
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'get_tracked_flight' })
+        });
+        const data = await res.json();
+        if (data && data.flight) {
+          updateFlightHud(data.flight);
+        }
+      } catch (err) {
+        console.warn('Flight fetch failed:', err);
+      }
+    }
+
+    async function trackFlightFromUi() {
+      const input = document.getElementById('flightInputQuery');
+      const q = input.value.trim().toUpperCase();
+      if (!q) return;
+      document.getElementById('flightCallsignDisplay').innerText = q + ' (Pinging...)';
+      const res = await triggerAction('track_flight', { flight: q, open_browser: false });
+      if (res && res.message) {
+        transcriptText.innerText = res.message;
+        fetchTrackedFlight();
+      }
+    }
+
+    function openFr24LiveMap() {
+      window.open(currentFr24Url, '_blank');
+    }
+
+    // --- 4. ZIMAOS MAINFRAME & DOCKER APP LAUNCHER ---
+    async function fetchZimaApps() {
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'zimaos_apps', detailed: true })
+        });
+        const data = await res.json();
+        if (data && data.apps && data.apps.length > 0) {
+          const grid = document.getElementById('zimaAppGrid');
+          grid.innerHTML = '';
+          data.apps.slice(0, 8).forEach(app => {
+            const item = document.createElement('div');
+            item.className = 'app-card-item';
+            item.innerHTML = `
+              <span class="app-name" title="${app.name}">${app.name}</span>
+              <button class="app-btn-launch" onclick="launchAppDirect('${app.name}')">▶ Launch</button>
+            `;
+            grid.appendChild(item);
+          });
+        }
+      } catch (err) {
+        console.warn('ZimaOS apps fetch failed:', err);
+      }
+    }
+
+    async function launchAppDirect(appName) {
+      transcriptText.innerText = `Initializing ZimaOS application container: ${appName}...`;
+      await triggerAction('launch_zimaos_app', { app: appName });
+    }
+
+    async function refreshZimaStatus() {
+      document.getElementById('zimaStatusBadge').innerText = '● CHECKING';
+      const res = await triggerAction('zimaos_status');
+      if (res && res.message) {
+        document.getElementById('zimaStatusBadge').innerText = '● ONLINE';
+        transcriptText.innerText = res.message;
+      }
+      fetchZimaApps();
+    }
+
+    async function openZimaDashboard() {
+      await triggerAction('zimaos_dashboard');
+    }
+
+    // --- 5. AUDIO & ACTION DISPATCHER ---
     async function triggerAction(actionName, extra = {}) {
       if (window.location.protocol.startsWith('http')) {
         try {
@@ -950,73 +1292,37 @@
           });
           return await res.json();
         } catch (err) {
-          console.error('Error triggering action:', err);
+          console.error('Action error:', err);
         }
       }
       return { success: true };
     }
 
-    async function submitPrompt(e) {
-      e.preventDefault();
-      const input = document.getElementById('promptInput');
-      const text = input.value.trim();
-      if (!text) return;
-
-      input.value = '';
-      if (window.location.protocol.startsWith('http')) {
-        applyState({ state: 'thinking', thought: 'Processing: "' + text + '"...' });
-        await triggerAction('prompt', { prompt: text });
-      }
-    }
-
-    // Flight Radar UI Helper
-    async function trackFlightUi() {
-      const fInput = document.getElementById('flightInput');
-      const callsign = fInput.value.trim().toUpperCase() || 'AA100';
-      document.getElementById('flightCallsign').innerText = callsign;
-      document.getElementById('flightStatus').innerText = 'Pinging Radar...';
-      const res = await triggerAction('track_flight', { flight: callsign, open_browser: true });
-      if (res && res.message) {
-        document.getElementById('flightStatus').innerText = 'Telemetry Acquired';
-        consoleText.innerText = res.message;
-      }
-    }
-
-    // ZimaOS UI Helpers
-    async function checkZimaUi() {
-      document.getElementById('zimaStatus').innerText = 'Pinging Node...';
-      const res = await triggerAction('zimaos_status');
-      if (res && res.message) {
-        document.getElementById('zimaStatus').innerText = 'Node Responding';
-        consoleText.innerText = res.message;
-      }
-      const appRes = await triggerAction('zimaos_apps');
-      if (appRes && appRes.message) {
-        document.getElementById('zimaContainers').innerText = 'Active';
-      }
-    }
-
-    async function openZimaDashboardUi() {
-      await triggerAction('zimaos_dashboard');
-    }
-
-    // Volume Slider Helper
-    let volTimeout = null;
-    function onVolumeSliderChange(val) {
-      document.getElementById('volPercent').innerText = val + '%';
-      if (volTimeout) clearTimeout(volTimeout);
-      volTimeout = setTimeout(() => {
+    let volSliderTimeout = null;
+    function handleVolumeSlider(val) {
+      document.getElementById('volPercentDisplay').innerText = val + '%';
+      if (volSliderTimeout) clearTimeout(volSliderTimeout);
+      volSliderTimeout = setTimeout(() => {
         triggerAction('volume_set', { level: parseInt(val, 10) });
-      }, 250);
+      }, 200);
     }
 
-    // YouTube Music Helper
-    async function searchYtMusicUi() {
-      const qInput = document.getElementById('ytMusicInput');
-      const q = qInput.value.trim();
+    async function searchYtMusic() {
+      const input = document.getElementById('ytMusicSearchInput');
+      const q = input.value.trim();
       if (!q) return;
       await triggerAction('youtube', { query: q, music: true });
-      qInput.value = '';
+      input.value = '';
+    }
+
+    async function handlePromptSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('terminalPromptInput');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      applyAgentState({ state: 'thinking', thought: 'Analyzing prompt: "' + text + '"...' });
+      await triggerAction('prompt', { prompt: text });
     }
   </script>
 </body>

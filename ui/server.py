@@ -51,6 +51,12 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                     ".svg": "image/svg+xml",
                     ".webp": "image/webp",
                     ".gif": "image/gif",
+                    ".glb": "model/gltf-binary",
+                    ".gltf": "model/gltf+json",
+                    ".bin": "application/octet-stream",
+                    ".wasm": "application/wasm",
+                    ".js": "application/javascript",
+                    ".css": "text/css",
                 }
                 c_type = content_types.get(ext, "application/octet-stream")
                 self.send_response(HTTPStatus.OK)
@@ -184,14 +190,29 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                     response_data = {"success": success, "message": msg}
 
                 elif action == "zimaos_apps":
-                    from tools.zimaos import list_zimaos_apps
-                    success, msg = list_zimaos_apps()
+                    from tools.zimaos import list_zimaos_apps, get_zimaos_apps_detailed
+                    detailed = payload.get("detailed", False)
+                    if detailed:
+                        apps_list = get_zimaos_apps_detailed()
+                        response_data = {"success": True, "apps": apps_list}
+                    else:
+                        success, msg = list_zimaos_apps()
+                        response_data = {"success": success, "message": msg}
+
+                elif action == "launch_zimaos_app":
+                    from tools.zimaos import launch_zimaos_app
+                    app_name = payload.get("app") or payload.get("app_name") or ""
+                    success, msg = launch_zimaos_app(app_name)
                     response_data = {"success": success, "message": msg}
 
                 elif action == "zimaos_dashboard":
                     from tools.zimaos import open_zimaos_dashboard
                     success, msg = open_zimaos_dashboard()
                     response_data = {"success": success, "message": msg}
+
+                elif action == "get_tracked_flight":
+                    f_data = ui_state.get_state().get("tracked_flight")
+                    response_data = {"success": bool(f_data), "flight": f_data}
 
                 elif action == "volume_relative":
                     from tools.audio import change_volume_relative

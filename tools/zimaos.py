@@ -121,6 +121,106 @@ def list_zimaos_apps(**kwargs) -> Tuple[bool, str]:
     return True, f"ZimaOS is currently running {len(apps)} container(s): {apps_summary}."
 
 
+def get_zimaos_apps_detailed() -> list[dict[str, Any]]:
+    """Returns a structured list of Docker applications on ZimaOS for the UI launcher."""
+    containers_data = _query_zimaos_endpoint("/v2/docker/container/list") or _query_zimaos_endpoint("/v1/docker/container")
+    items = (containers_data and containers_data.get("data")) or []
+    if not isinstance(items, list):
+        return []
+
+    host = config.zimaos_host.rstrip("/")
+    if not host.startswith("http://") and not host.startswith("https://"):
+        host = f"http://{host}"
+
+    result = []
+    for c in items:
+        name = c.get("name") or (c.get("Names", [""])[0].lstrip("/") if c.get("Names") else "Unknown")
+        state = (c.get("state") or c.get("State", "running")).lower()
+        cid = c.get("id") or c.get("Id", "")
+        # Resolve public port
+        port = None
+        ports = c.get("ports") or c.get("Ports") or []
+        if isinstance(ports, list) and ports:
+            for p in ports:
+                if isinstance(p, dict) and p.get("PublicPort"):
+                    port = p.get("PublicPort")
+                    break
+                elif isinstance(p, int):
+                    port = p
+                    break
+        elif isinstance(ports, (int, str)) and str(ports).isdigit():
+            port = int(ports)
+
+        # Build direct web URL if port is available
+        app_url = f"{host}:{port}" if port else host
+
+        result.append({
+            "id": cid,
+            "name": name,
+            "state": state,
+            "port": port,
+            "url": app_url,
+            "image": c.get("image") or c.get("Image", "")
+        })
+    return result
+
+
+@register_tool(
+    name="launch_zimaos_app",
+    description="Launches or opens a Docker application (Plex, Jellyfin, Nextcloud, Home Assistant, etc.) on your ZimaOS server.",
+    sensitive=False,
+)
+def launch_zimaos_app(app_name: str, **kwargs) -> Tuple[bool, str]:
+    """Finds, wakes, and opens a ZimaOS Docker application in the default browser."""
+    clean_target = app_name.strip().lower()
+    apps = get_zimaos_apps_detailed()
+
+    if not apps:
+        # Fallback: if server cannot list containers, offer to open dashboard
+        open_zimaos_dashboard()
+        return True, f"Could not query containers directly. Opened ZimaOS dashboard to locate '{app_name}'."
+
+    # Fuzzy match app name
+    matched_app = None
+    for a in apps:
+        aname = a["name"].lower()
+        aimage = a["image"].lower()
+        if clean_target in aname or clean_target in aimage or aname in clean_target:
+            matched_app = a
+            break
+
+    if not matched_app:
+        available = ", ".join([a["name"] for a in apps[:6]])
+        return False, f"Could not find application matching '{app_name}' on ZimaOS. Available apps: {available}."
+
+    # If stopped, wake container via API
+    if matched_app["state"] not in ("running", "active"):
+        cid = matched_app["id"]
+        if cid:
+            base = config.zimaos_host.rstrip("/")
+            if not base.startswith("http://") and not base.startswith("https://"):
+                base = f"http://{base}"
+            start_url = f"{base}/v2/docker/container/state/{cid}"
+            req = urllib.request.Request(
+                start_url,
+                data=json.dumps({"state": "start"}).encode("utf-8"),
+                headers=_get_zimaos_headers() | {"Content-Type": "application/json"},
+                method="PUT"
+            )
+            try:
+                urllib.request.urlopen(req, timeout=3.0)
+            except Exception as e:
+                logger.debug(f"Failed to send start request to ZimaOS container {cid}: {e}")
+
+    # Launch app web GUI
+    app_url = matched_app["url"]
+    try:
+        webbrowser.open(app_url)
+        return True, f"Launched {matched_app['name']} on ZimaOS ({app_url}) in your default browser."
+    except Exception as e:
+        return False, f"Failed to open browser for {matched_app['name']}: {e}"
+
+
 @register_tool(
     name="open_zimaos_dashboard",
     description="Opens the ZimaOS web administration dashboard in your default browser.",
@@ -136,3 +236,4 @@ def open_zimaos_dashboard(**kwargs) -> Tuple[bool, str]:
         return True, f"Opened ZimaOS dashboard at {host} in your default browser."
     except Exception as e:
         return False, f"Failed to launch ZimaOS dashboard: {e}"
+

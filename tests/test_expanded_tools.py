@@ -140,6 +140,9 @@ class TestAgentDeterministicIntents(unittest.TestCase):
         plan_zima_dash = agent.query_llm("GLaDOS open ZimaOS dashboard")
         self.assertTrue(any(a.tool == "open_zimaos_dashboard" for a in plan_zima_dash.actions))
 
+        plan_zima_launch = agent.query_llm("GLaDOS launch Plex on ZimaOS")
+        self.assertTrue(any(a.tool == "launch_zimaos_app" and "plex" in a.args.get("app_name", "").lower() for a in plan_zima_launch.actions))
+
 
 class TestNewTools(unittest.TestCase):
 
@@ -156,6 +159,12 @@ class TestNewTools(unittest.TestCase):
         success, msg = track_flight("AA100", open_browser=False)
         self.assertTrue(success)
         self.assertIn("AA100", msg)
+
+        # Check that ui_state has tracked_flight set
+        from ui.state import ui_state
+        state = ui_state.get_state()
+        self.assertIsNotNone(state.get("tracked_flight"))
+        self.assertEqual(state["tracked_flight"]["callsign"], "AA100")
 
     @patch("urllib.request.urlopen")
     def test_zimaos_status_mock(self, mock_urlopen):
@@ -177,6 +186,21 @@ class TestNewTools(unittest.TestCase):
         success, msg = open_zimaos_dashboard()
         self.assertTrue(success)
         self.assertIn("ZimaOS dashboard", msg)
+
+    @patch("webbrowser.open")
+    @patch("urllib.request.urlopen")
+    def test_launch_zimaos_app_mock(self, mock_urlopen, mock_browser):
+        from tools.zimaos import launch_zimaos_app
+        mock_browser.return_value = True
+
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"data": [{"name": "plex", "id": "cid_plex", "state": "running", "ports": [{"PublicPort": 32400}]}]}'
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        success, msg = launch_zimaos_app("plex")
+        self.assertTrue(success)
+        self.assertIn("plex", msg.lower())
 
 
 if __name__ == "__main__":

@@ -52,6 +52,7 @@ You have access to the following tools:
 25. get_zimaos_status(): Inspects health, CPU, memory, storage, and uptime of the local ZimaOS home server.
 26. list_zimaos_apps(): Lists running Docker apps and containers hosted on ZimaOS.
 27. open_zimaos_dashboard(): Opens the ZimaOS Web GUI management console in the default browser.
+28. launch_zimaos_app(app_name: str): Launches or opens a Docker application (Plex, Jellyfin, Nextcloud, Home Assistant, etc.) on your ZimaOS server.
 
 RULES:
 - You must ONLY respond with valid, parsable JSON. No preamble, no conversational filler, and no markdown outside the JSON.

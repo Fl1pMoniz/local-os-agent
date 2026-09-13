@@ -45,4 +45,5 @@ venv.bak/
 captures/*
 !captures/.gitkeep
 voice/models/**/*.onnx
+*.bak
 
