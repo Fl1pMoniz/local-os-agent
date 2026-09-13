@@ -672,7 +672,7 @@
       <div class="modern-card">
         <div class="card-header">
           <div class="card-title">
-            <span>✈ Airspace Radar</span>
+            <span>Airspace Radar</span>
           </div>
           <span class="tag-blue" id="flightLiveBadge">LIVE RADAR</span>
         </div>
@@ -683,7 +683,7 @@
             <span class="airport-city" id="flightOrigCity">New York</span>
           </div>
           <div class="route-arrow">
-            <span>✈</span>
+            <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.5px;">EN ROUTE</span>
             <div class="route-line"></div>
           </div>
           <div class="airport-node">
@@ -723,7 +723,7 @@
         </div>
         <div style="margin-top: 8px;">
           <button class="btn-action-submit" style="width: 100%;" onclick="openFr24LiveMap()">
-            ⧉ View on Flightradar24 Map
+            Open Flightradar24 Map
           </button>
         </div>
       </div>
@@ -732,7 +732,7 @@
       <div class="modern-card">
         <div class="card-header">
           <div class="card-title">
-            <span>⚠ Chamber Sensors</span>
+            <span>Chamber Telemetry</span>
           </div>
           <span class="tag-green">NOMINAL</span>
         </div>
@@ -786,7 +786,7 @@
       <div class="modern-card">
         <div class="card-header">
           <div class="card-title">
-            <span>🖥 ZimaOS Server</span>
+            <span>ZimaOS Server</span>
           </div>
           <span class="tag-green" id="zimaStatusBadge">● ONLINE</span>
         </div>
@@ -812,19 +812,19 @@
             <!-- Dynamically populated or default common apps -->
             <div class="app-card-item">
               <span class="app-name">Plex</span>
-              <button class="app-btn-launch" onclick="launchAppDirect('plex')">▶ Launch</button>
+              <button class="app-btn-launch" onclick="launchAppDirect('plex')">Launch</button>
             </div>
             <div class="app-card-item">
               <span class="app-name">Jellyfin</span>
-              <button class="app-btn-launch" onclick="launchAppDirect('jellyfin')">▶ Launch</button>
+              <button class="app-btn-launch" onclick="launchAppDirect('jellyfin')">Launch</button>
             </div>
             <div class="app-card-item">
               <span class="app-name">Nextcloud</span>
-              <button class="app-btn-launch" onclick="launchAppDirect('nextcloud')">▶ Launch</button>
+              <button class="app-btn-launch" onclick="launchAppDirect('nextcloud')">Launch</button>
             </div>
             <div class="app-card-item">
               <span class="app-name">Home Assistant</span>
-              <button class="app-btn-launch" onclick="launchAppDirect('home assistant')">▶ Launch</button>
+              <button class="app-btn-launch" onclick="launchAppDirect('home assistant')">Launch</button>
             </div>
           </div>
         </div>
@@ -839,7 +839,7 @@
       <div class="modern-card">
         <div class="card-header">
           <div class="card-title">
-            <span>🔊 Master Volume</span>
+            <span>Master Volume</span>
           </div>
           <span class="tag-amber" id="volPercentDisplay">50%</span>
         </div>
@@ -863,7 +863,7 @@
         <!-- YouTube Music Search -->
         <div style="margin-top: 14px; border-top: 1px solid var(--border-subtle); padding-top: 10px;">
           <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">
-            🎵 YouTube Music:
+            YouTube Music:
           </div>
           <div class="input-action-row">
             <input type="text" id="ytMusicSearchInput" class="modern-input" placeholder="Artist or song name..." />
@@ -878,28 +878,28 @@
   <footer>
     <div class="quick-actions-bar">
       <button class="btn-pill btn-pill-song" onclick="triggerAction('sing', {song: 'still_alive'})">
-        🎵 Still Alive
+        Still Alive
       </button>
       <button class="btn-pill btn-pill-song" onclick="triggerAction('sing', {song: 'want_you_gone'})">
-        🎵 Want You Gone
+        Want You Gone
       </button>
       <button class="btn-pill" onclick="triggerAction('radio')">
-        📻 Portal Radio
+        Portal Radio
       </button>
       <button class="btn-pill" onclick="triggerAction('turret')">
-        🎯 Turret Hello
+        Turret Hello
       </button>
       <button class="btn-pill" onclick="triggerAction('roast')">
-        🔥 Roast Me
+        Roast Me
       </button>
       <button class="btn-pill" onclick="triggerAction('weather')">
-        🌤 Weather
+        Weather
       </button>
       <button class="btn-pill btn-pill-danger" onclick="triggerAction('stop_song'); triggerAction('stop_sfx');">
-        ⏹ Stop Audio
+        Stop Audio
       </button>
       <button class="btn-pill" onclick="triggerAction('quip')">
-        💬 Quip
+        Quip
       </button>
     </div>
 

@@ -179,10 +179,10 @@ def interactive_voice_loop(agent: OSAgent) -> None:
     print_banner()
     check_llm_connection(agent)
     print("\n" + "=" * 65)
-    print("   🧪  APERTURE SCIENCE COMPUTER-AIDED ENRICHMENT CENTER  🧪")
-    print(f"      Administrator : GLaDOS (Genetic Lifeform and Disk OS)")
-    print(f"      Wake Word     : '{config.wake_word.upper()}' (e.g. 'GLaDOS...')")
-    print("      Say 'exit', 'quit', or 'stop' to abort the test.")
+    print("   [+] APERTURE SCIENCE COMPUTER-AIDED ENRICHMENT CENTER")
+    print(f"       Administrator : GLaDOS (Genetic Lifeform and Disk OS)")
+    print(f"       Wake Word     : '{config.wake_word.upper()}' (e.g. 'GLaDOS...')")
+    print("       Say 'exit', 'quit', or 'stop' to abort the test.")
     print("=" * 65 + "\n")
 
     boot_line = get_glados_quote("boot")
@@ -199,7 +199,7 @@ def interactive_voice_loop(agent: OSAgent) -> None:
             except Exception:
                 pass
 
-            print(f"\n[🧪 Listening for '{config.wake_word.title()}'...]")
+            print(f"\n[*] Listening for '{config.wake_word.title()}'...")
 
             def on_speech():
                 try:
