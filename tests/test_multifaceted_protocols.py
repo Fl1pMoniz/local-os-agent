@@ -20,10 +20,12 @@ class TestMultifacetedProtocols(unittest.TestCase):
         self.agent = OSAgent(base_url="http://mock-llm:11434/v1", model="mock-glados")
 
     # 1. Protocol 2: Replay Capture / 30-Second Clipper
-    @patch("tools.game_clipper.user32")
-    @patch("tools.game_clipper._is_obs_running", return_value=False)
+    @patch("tools.game_clipper.os.path.getsize", return_value=15500000)
+    @patch("tools.game_clipper.os.path.exists", return_value=True)
+    @patch("tools.game_clipper._trigger_obs_websocket", return_value=(True, "C:\\Videos\\Portal2.mp4", "Saved"))
+    @patch("tools.game_clipper._is_obs_running", return_value=True)
     @patch("tools.game_clipper._get_active_window_title", return_value="Portal 2")
-    def test_capture_game_clip(self, mock_title, mock_obs, mock_u32):
+    def test_capture_game_clip(self, mock_title, mock_obs, mock_ws, mock_exists, mock_size):
         res = capture_game_clip(seconds=30)
         self.assertTrue(res["success"])
         self.assertEqual(res["seconds"], 30)

@@ -1,7 +1,6 @@
 """Protocol 2: Aperture Replay Capture - 30-Second Gameplay Clipper.
-Integrates with OBS Studio Replay Buffer via OBS WebSocket (FOSS Primary)
-and NVIDIA ShadowPlay (hardware GPU fallback) to reliably capture and archive
-high-frame-rate highlights with active game metadata.
+Integrates with OBS Studio Replay Buffer via native OBS WebSocket v5 (FOSS Primary)
+to reliably capture and archive high-frame-rate highlights with active game metadata.
 """
 
 import ctypes
@@ -19,11 +18,11 @@ from tools import register_tool
 
 logger = logging.getLogger("local_os_agent.tools.game_clipper")
 
-# Win32 Virtual Key Codes & Scan Codes
-VK_MENU = 0x12   # Alt key
-VK_F10 = 0x79    # F10 key
-SCAN_MENU = 0x38 # Alt scancode
-SCAN_F10 = 0x44  # F10 scancode
+# Win32 Virtual Key Codes & Scan Codes (used for title discovery)
+VK_MENU = 0x12
+VK_F10 = 0x79
+SCAN_MENU = 0x38
+SCAN_F10 = 0x44
 KEYEVENTF_KEYUP = 0x0002
 KEYEVENTF_SCANCODE = 0x0008
 
@@ -93,20 +92,6 @@ def _is_obs_running() -> bool:
         return False
 
 
-def _is_shadowplay_running() -> bool:
-    """Checks if NVIDIA ShadowPlay / GeForce Overlay helper is active."""
-    try:
-        res = subprocess.run(
-            ["tasklist", "/fi", "imagename eq nvsphelper64.exe", "/fo", "csv", "/nh"],
-            capture_output=True,
-            text=True,
-            timeout=2
-        )
-        return "nvsphelper64.exe" in res.stdout.lower()
-    except Exception:
-        return False
-
-
 def _load_obs_websocket_config() -> tuple[int, str, bool]:
     """Loads OBS WebSocket port, password, and auth requirements from plugin config."""
     config_path = pathlib.Path(os.environ.get("APPDATA", "")) / "obs-studio" / "plugin_config" / "obs-websocket" / "config.json"
@@ -125,10 +110,77 @@ def _load_obs_websocket_config() -> tuple[int, str, bool]:
     return port, password, auth_required
 
 
+def _launch_obs_process() -> bool:
+    """Launches OBS Studio via Steam URI or direct binary execution."""
+    exe_path = _find_obs_executable()
+    # If Steam version, launch via Steam protocol for proper runtime context
+    if exe_path and "steam" in str(exe_path).lower():
+        try:
+            subprocess.Popen(["cmd.exe", "/c", "start", "steam://rungameid/1905180"], shell=True)
+            return True
+        except Exception as e:
+            logger.debug(f"Failed to launch via Steam protocol: {e}")
+
+    if exe_path and exe_path.exists():
+        try:
+            subprocess.Popen(
+                [str(exe_path), "--startreplaybuffer", "--minimize-to-tray"],
+                cwd=str(exe_path.parent)
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to launch OBS binary directly: {e}")
+
+    return False
+
+
+def ensure_obs_replay_buffer(timeout_sec: float = 12.0) -> bool:
+    """
+    Ensures OBS Studio is running and its Replay Buffer is actively recording.
+    If OBS is not running, launches it and connects via WebSocket to prime the buffer.
+    """
+    if not _is_obs_running():
+        logger.info("OBS Studio not detected. Launching in background...")
+        if not _launch_obs_process():
+            return False
+
+        # Wait for OBS process to register
+        start_wait = time.time()
+        while time.time() - start_wait < 6.0:
+            time.sleep(0.5)
+            if _is_obs_running():
+                break
+
+    # Connect to WebSocket and ensure Replay Buffer is active
+    try:
+        import obsws_python as obs
+        port, pwd, auth = _load_obs_websocket_config()
+        deadline = time.time() + timeout_sec
+        while time.time() < deadline:
+            try:
+                c = obs.ReqClient(
+                    host="localhost",
+                    port=port,
+                    password=pwd if auth and pwd else None,
+                    timeout=1.0
+                )
+                st = c.get_replay_buffer_status()
+                if not getattr(st, "output_active", False):
+                    c.start_replay_buffer()
+                    logger.info("Started OBS Replay Buffer via WebSocket.")
+                return True
+            except Exception:
+                time.sleep(0.5)
+    except Exception as e:
+        logger.debug(f"ensure_obs_replay_buffer exception: {e}")
+
+    return False
+
+
 def _trigger_obs_websocket(seconds: int = 30) -> tuple[bool, str | None, str]:
     """
-    Connects to OBS Studio via native WebSocket v5 (FOSS),
-    ensures the Replay Buffer is active, and issues a SaveReplayBuffer request.
+    Connects to OBS Studio via native WebSocket v5, verifies the Replay Buffer is active,
+    and issues a SaveReplayBuffer request, polling until the video file is flushed to disk.
     Returns (success, saved_file_path, status_message).
     """
     try:
@@ -145,15 +197,15 @@ def _trigger_obs_websocket(seconds: int = 30) -> tuple[bool, str | None, str]:
         is_active = getattr(status, "output_active", False)
         if not is_active:
             client.start_replay_buffer()
-            logger.info("OBS Replay Buffer was stopped; started Replay Buffer via WebSocket.")
-            time.sleep(0.5)
+            logger.info("OBS Replay Buffer was stopped; started Replay Buffer now.")
+            return False, None, "Replay Buffer was not running. I have started it now; please wait a few seconds before clipping."
 
         client.save_replay_buffer()
         logger.info("Dispatched SaveReplayBuffer to OBS Studio via WebSocket.")
 
-        # Poll up to 3.5s for the replay file to be flushed and finalized
+        # Poll up to 4.5s for the replay file to be finalized on disk
         start_time = time.time()
-        while time.time() - start_time < 3.5:
+        while time.time() - start_time < 4.5:
             try:
                 replay_res = client.get_last_replay_buffer_replay()
                 saved_path = getattr(replay_res, "saved_replay_path", None)
@@ -168,25 +220,13 @@ def _trigger_obs_websocket(seconds: int = 30) -> tuple[bool, str | None, str]:
 
         # Fallback to directory scan if get_last_replay_buffer_replay is pending
         latest = find_latest_clip(max_age_seconds=15)
-        if latest:
+        if latest and latest.exists() and latest.stat().st_size > 0:
             return True, str(latest), "OBS Studio Replay Buffer clip written to disk."
 
-        return True, None, "OBS Studio SaveReplayBuffer dispatched (buffer flush in progress)."
+        return False, None, "OBS Studio SaveReplayBuffer was signaled, but no finalized file was written to disk."
     except Exception as e:
         logger.warning(f"OBS WebSocket command failed: {e}")
         return False, None, f"OBS WebSocket connection error: {e}"
-
-
-def _trigger_shadowplay_clip():
-    """Dispatches Alt + F10 with hardware scancodes to save NVIDIA Instant Replay."""
-    try:
-        user32.keybd_event(VK_MENU, SCAN_MENU, 0, 0)
-        user32.keybd_event(VK_F10, SCAN_F10, 0, 0)
-        time.sleep(0.08)
-        user32.keybd_event(VK_F10, SCAN_F10, KEYEVENTF_KEYUP, 0)
-        user32.keybd_event(VK_MENU, SCAN_MENU, KEYEVENTF_KEYUP, 0)
-    except Exception as e:
-        logger.warning(f"Failed to dispatch Alt+F10 scancode: {e}")
 
 
 def get_captures_directories() -> list[pathlib.Path]:
@@ -260,63 +300,76 @@ def format_clip_card(
 def capture_game_clip(seconds: int = 30) -> dict[str, Any]:
     """
     Captures and archives the last 30 seconds of active PC gameplay or foreground window.
-    Triggers OBS Studio Replay Buffer via OBS WebSocket (FOSS Primary) or NVIDIA ShadowPlay
-    hardware encoder, tags the active game title, locates the saved MP4 file, and displays
-    an Aperture Science replay card.
+    Triggers OBS Studio Replay Buffer via OBS WebSocket (FOSS Primary), tags the active
+    game title, locates the saved MP4 file, and displays an Aperture Science replay card.
     """
     active_game = _get_active_window_title()
     obs_active = _is_obs_running()
-    shadowplay_active = _is_shadowplay_running()
     saved_path_str: str | None = None
     engine_name = "OBS Studio Replay Buffer (WebSocket)"
 
-    if obs_active:
-        engine_name = "OBS Studio Replay Buffer (WebSocket)"
-        ws_ok, ws_path, ws_msg = _trigger_obs_websocket(seconds=seconds)
-        if ws_path:
-            saved_path_str = ws_path
-    elif shadowplay_active:
-        engine_name = "NVIDIA ShadowPlay (Alt+F10)"
-        _trigger_shadowplay_clip()
-        time.sleep(1.5)
-    else:
-        engine_name = "OBS Studio Replay Buffer"
-        # Fallback trigger
-        _trigger_shadowplay_clip()
+    if not obs_active:
+        # Launch OBS in background so subsequent clips work
+        ensure_obs_replay_buffer(timeout_sec=4.0)
+        card = format_clip_card(active_game, "", 0.0, f"{seconds}s", engine_name)
+        return {
+            "success": False,
+            "action": "capture_game_clip",
+            "seconds": seconds,
+            "active_game": active_game,
+            "engine": engine_name,
+            "file_path": "",
+            "file_size_mb": 0.0,
+            "terminal_card": card,
+            "quip": "OBS Studio was offline. I have launched it and primed the buffer. Please wait a few seconds of gameplay before saving highlights.",
+            "message": (
+                "Capture failed: OBS Studio was not running, so no past gameplay was buffered in memory. "
+                "I have launched OBS Studio and primed the Replay Buffer now. "
+                "Please wait a few seconds for gameplay to buffer, then retry."
+            )
+        }
 
-    # Search for the newly written file across captures paths if not already resolved
-    if not saved_path_str:
-        latest_file = find_latest_clip(max_age_seconds=20)
-        if latest_file:
+    # OBS is running: trigger replay buffer via WebSocket
+    ws_ok, ws_path, ws_msg = _trigger_obs_websocket(seconds=seconds)
+    if ws_ok and ws_path:
+        saved_path_str = ws_path
+    else:
+        # Fallback directory check
+        latest_file = find_latest_clip(max_age_seconds=15)
+        if latest_file and latest_file.exists() and latest_file.stat().st_size > 0:
             saved_path_str = str(latest_file)
 
+    if not saved_path_str or not os.path.exists(saved_path_str):
+        card = format_clip_card(active_game, "", 0.0, f"{seconds}s", engine_name)
+        return {
+            "success": False,
+            "action": "capture_game_clip",
+            "seconds": seconds,
+            "active_game": active_game,
+            "engine": engine_name,
+            "file_path": "",
+            "file_size_mb": 0.0,
+            "terminal_card": card,
+            "quip": "Highlight capture failed. No video was saved to disk.",
+            "message": f"Highlight capture failed: {ws_msg}"
+        }
+
     file_size = 0.0
-    if saved_path_str and os.path.exists(saved_path_str):
-        try:
-            file_size = os.path.getsize(saved_path_str) / (1024 * 1024)
-        except Exception:
-            file_size = 0.0
+    try:
+        file_size = os.path.getsize(saved_path_str) / (1024 * 1024)
+    except Exception:
+        file_size = 0.0
 
     ascii_card = format_clip_card(
         game_title=active_game,
-        file_path=saved_path_str or "",
+        file_path=saved_path_str,
         file_size_mb=file_size,
         duration_str=f"{seconds}s",
         engine=engine_name
     )
 
     quip = random.choice(GLADOS_CLIP_QUIPS)
-
-    if saved_path_str:
-        msg = f"Successfully captured {seconds}s highlight for '{active_game}' via {engine_name}. {quip}"
-    elif obs_active:
-        msg = f"Triggered {engine_name} for '{active_game}'. Video buffer flush in progress. {quip}"
-    else:
-        msg = (
-            f"Triggered clip capture for '{active_game}'. "
-            "Note: Windows Game Bar is disabled. Ensure OBS Studio is running with Replay Buffer enabled for deterministic capture. "
-            f"{quip}"
-        )
+    msg = f"Successfully captured {seconds}s highlight for '{active_game}' via {engine_name}. {quip}"
 
     return {
         "success": True,
@@ -324,7 +377,7 @@ def capture_game_clip(seconds: int = 30) -> dict[str, Any]:
         "seconds": seconds,
         "active_game": active_game,
         "engine": engine_name,
-        "file_path": saved_path_str or "",
+        "file_path": saved_path_str,
         "file_size_mb": round(file_size, 1),
         "terminal_card": ascii_card,
         "quip": quip,
@@ -339,36 +392,35 @@ def launch_obs(start_buffer: bool = True) -> dict[str, Any]:
     automatically activating the Replay Buffer for instant highlight capture.
     """
     if _is_obs_running():
+        # Ensure replay buffer is active
+        try:
+            import obsws_python as obs
+            port, pwd, auth = _load_obs_websocket_config()
+            c = obs.ReqClient(host="localhost", port=port, password=pwd if auth and pwd else None, timeout=1.0)
+            st = c.get_replay_buffer_status()
+            if not getattr(st, "output_active", False):
+                c.start_replay_buffer()
+                return {
+                    "success": True,
+                    "message": "OBS Studio was already running. Started Replay Buffer via WebSocket."
+                }
+        except Exception:
+            pass
         return {
             "success": True,
-            "message": "OBS Studio is already running."
+            "message": "OBS Studio is already running and Replay Buffer is active."
         }
 
-    exe_path = _find_obs_executable()
-    if not exe_path:
-        return {
-            "success": False,
-            "message": "OBS Studio executable could not be located on this system. Please verify installation."
-        }
-
-    args = [str(exe_path), "--minimize-to-tray"]
-    if start_buffer:
-        args.append("--startreplaybuffer")
-
-    try:
-        subprocess.Popen(args, cwd=str(exe_path.parent))
-        time.sleep(1.5)
+    ok = ensure_obs_replay_buffer(timeout_sec=10.0)
+    if ok:
         return {
             "success": True,
-            "executable": str(exe_path),
-            "message": "OBS Studio launched successfully with Replay Buffer primed."
+            "message": "OBS Studio launched successfully with Replay Buffer primed and active."
         }
-    except Exception as e:
-        logger.error(f"Failed to launch OBS: {e}")
-        return {
-            "success": False,
-            "message": f"Error launching OBS Studio: {e}"
-        }
+    return {
+        "success": False,
+        "message": "Failed to launch OBS Studio or connect to WebSocket server."
+    }
 
 
 @register_tool

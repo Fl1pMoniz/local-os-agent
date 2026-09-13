@@ -446,7 +446,7 @@ class OSAgent:
         # 14. Protocol 2: 30-Second Gameplay Clipper
         elif RE_CLIP.search(prompt_lower):
             plan.actions = [ToolAction(tool="capture_game_clip", args={"seconds": 30})]
-            plan.response = "Replay buffer triggered. Your questionable tactical maneuvers have been archived for posterity."
+            plan.response = "Accessing OBS Replay Buffer to archive test highlight."
 
         elif RE_CLIPS_LIST.search(prompt_lower):
             plan.actions = [ToolAction(tool="list_recent_clips")]

@@ -461,7 +461,7 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                     from tools.game_clipper import capture_game_clip
                     secs = int(payload.get("seconds", 30))
                     res = capture_game_clip(seconds=secs)
-                    response_data = {"success": True, "clip": res, "message": res.get("message", "Clip saved.")}
+                    response_data = {"success": res.get("success", False), "clip": res, "message": res.get("message", "Clip saved.")}
 
                 elif action in ("list_clips", "clips"):
                     from tools.game_clipper import list_recent_clips
@@ -600,7 +600,7 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                             quip = res.get("quip", "")
                             output_text = f"{card}\n[GLaDOS]: \"{quip}\"" if card else f"[+] {res.get('message')}"
                             response_data = {
-                                "success": True,
+                                "success": bool(res.get("success", False)),
                                 "command": user_prompt,
                                 "output": output_text,
                                 "message": res.get("message", "Clip saved."),

@@ -634,6 +634,14 @@ def main() -> None:
     except Exception:
         pass
 
+    # Ensure OBS Studio Replay Buffer is primed in background for instant clipping
+    try:
+        import threading
+        from tools.game_clipper import ensure_obs_replay_buffer
+        threading.Thread(target=ensure_obs_replay_buffer, daemon=True).start()
+    except Exception:
+        pass
+
     if args.voice and not args.cli_mode:
         interactive_voice_loop(agent)
     elif prompt:
