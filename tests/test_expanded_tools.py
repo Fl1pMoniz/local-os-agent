@@ -202,7 +202,45 @@ class TestNewTools(unittest.TestCase):
         self.assertTrue(success)
         self.assertIn("plex", msg.lower())
 
+    @patch("webbrowser.open")
+    def test_custom_zima_apps_crud_and_launch(self, mock_browser):
+        from tools.zimaos import (
+            add_custom_zima_app,
+            get_custom_zima_apps,
+            delete_custom_zima_app,
+            launch_zimaos_app
+        )
+        mock_browser.return_value = True
+
+        # 1. Add custom app
+        success, msg = add_custom_zima_app("TestPortainer", ":9000", "Management")
+        self.assertTrue(success)
+        self.assertIn("TestPortainer", msg)
+
+        # 2. Retrieve custom apps
+        apps = get_custom_zima_apps()
+        matched = [a for a in apps if a.get("name") == "TestPortainer"]
+        self.assertTrue(len(matched) >= 1)
+        self.assertIn(":9000", matched[0]["url"])
+
+        # 3. Launch custom app
+        l_success, l_msg = launch_zimaos_app("TestPortainer")
+        self.assertTrue(l_success)
+        self.assertIn("TestPortainer", l_msg)
+        mock_browser.assert_called()
+
+        # 4. Delete custom app
+        d_success, d_msg = delete_custom_zima_app("TestPortainer")
+        self.assertTrue(d_success)
+        self.assertIn("Removed", d_msg)
+
+        # 5. Verify removal
+        apps_after = get_custom_zima_apps()
+        matched_after = [a for a in apps_after if a.get("name") == "TestPortainer"]
+        self.assertEqual(len(matched_after), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

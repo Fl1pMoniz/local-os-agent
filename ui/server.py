@@ -210,6 +210,25 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                     success, msg = open_zimaos_dashboard()
                     response_data = {"success": success, "message": msg}
 
+                elif action == "add_zima_app":
+                    from tools.zimaos import add_custom_zima_app
+                    name = payload.get("name", "")
+                    url = payload.get("url", "")
+                    cat = payload.get("category", "General")
+                    success, msg = add_custom_zima_app(name, url, cat)
+                    response_data = {"success": success, "message": msg}
+
+                elif action == "delete_zima_app":
+                    from tools.zimaos import delete_custom_zima_app
+                    name = payload.get("name", "") or payload.get("id", "")
+                    success, msg = delete_custom_zima_app(name)
+                    response_data = {"success": success, "message": msg}
+
+                elif action == "get_custom_zima_apps":
+                    from tools.zimaos import get_custom_zima_apps
+                    apps = get_custom_zima_apps()
+                    response_data = {"success": True, "apps": apps}
+
                 elif action == "get_tracked_flight":
                     f_data = ui_state.get_state().get("tracked_flight")
                     response_data = {"success": bool(f_data), "flight": f_data}
