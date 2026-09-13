@@ -187,10 +187,10 @@ def find_best_game_match(query: str, games_catalog: dict[str, int]) -> Tuple[str
     """
     Fuzzy match user input against installed game names using difflib and substring ranking.
     """
-    if not games_catalog:
+    if not query or not str(query).strip() or not games_catalog:
         return None
 
-    query_clean = query.strip().lower()
+    query_clean = str(query).strip().lower()
 
     # 1. Exact case-insensitive match
     for name, appid in games_catalog.items():
@@ -227,6 +227,9 @@ def launch_steam_game(game_name: str) -> Tuple[bool, str]:
     """
     Fuzzy matches a game name to its Steam ID and launches it via the Steam protocol.
     """
+    if not game_name or not str(game_name).strip():
+        return False, "Please specify a game name to launch via Steam."
+
     try:
         games_catalog = discover_installed_steam_games()
         if not games_catalog:

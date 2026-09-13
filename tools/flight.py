@@ -37,31 +37,35 @@ def clean_flight_query(query: str) -> str:
 
 def fetch_flightradar24_search(query: str) -> list[dict[str, Any]]:
     """Searches Flightradar24 for active flights matching the query."""
-    encoded = urllib.parse.quote_plus(query)
-    url = f"https://www.flightradar24.com/v1/search/web/find?query={encoded}&limit=5"
-    req = urllib.request.Request(url, headers=BROWSER_HEADERS)
-    with urllib.request.urlopen(req, timeout=6) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-    return data.get("results", [])
+    try:
+        encoded = urllib.parse.quote_plus(query)
+        url = f"https://www.flightradar24.com/v1/search/web/find?query={encoded}&limit=5"
+        req = urllib.request.Request(url, headers=BROWSER_HEADERS)
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return data.get("results", [])
+    except Exception as e:
+        logger.debug(f"Flightradar24 search error for '{query}': {e}")
+        return []
 
 
 def fetch_live_sector_telemetry(lat: float, lon: float, flight_id: str) -> dict[str, Any] | None:
     """Queries Flightradar24 localized live feed around the aircraft coordinates."""
-    feed_url = (
-        f"https://data-cloud.flightradar24.com/zones/fcgi/feed.js?"
-        f"bounds={lat+1.5:.2f},{lat-1.5:.2f},{lon-1.5:.2f},{lon+1.5:.2f}&faa=1&satellite=1&mlat=1&flarm=1&adsb=1"
-    )
-    req = urllib.request.Request(feed_url, headers=BROWSER_HEADERS)
-    with urllib.request.urlopen(req, timeout=6) as resp:
-        feed_data = json.loads(resp.read().decode("utf-8"))
-
-    plane_entry = feed_data.get(flight_id)
-    if not plane_entry or not isinstance(plane_entry, list):
-        return None
-
-    # Feed index mapping:
-    # 0=lat, 1=lon, 2=track, 3=alt, 4=spd, 8=model, 9=reg, 11=orig, 12=dest, 13=flight, 14=on_ground, 15=vspd, 16=callsign
     try:
+        feed_url = (
+            f"https://data-cloud.flightradar24.com/zones/fcgi/feed.js?"
+            f"bounds={lat+1.5:.2f},{lat-1.5:.2f},{lon-1.5:.2f},{lon+1.5:.2f}&faa=1&satellite=1&mlat=1&flarm=1&adsb=1"
+        )
+        req = urllib.request.Request(feed_url, headers=BROWSER_HEADERS)
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            feed_data = json.loads(resp.read().decode("utf-8"))
+
+        plane_entry = feed_data.get(flight_id)
+        if not plane_entry or not isinstance(plane_entry, list):
+            return None
+
+        # Feed index mapping:
+        # 0=lat, 1=lon, 2=track, 3=alt, 4=spd, 8=model, 9=reg, 11=orig, 12=dest, 13=flight, 14=on_ground, 15=vspd, 16=callsign
         return {
             "lat": plane_entry[0],
             "lon": plane_entry[1],
@@ -78,7 +82,8 @@ def fetch_live_sector_telemetry(lat: float, lon: float, flight_id: str) -> dict[
             "vertical_speed_fpm": plane_entry[15],
             "callsign": plane_entry[16] or "Unknown",
         }
-    except IndexError:
+    except Exception as e:
+        logger.debug(f"Telemetry fetch error for flight {flight_id}: {e}")
         return None
 
 
@@ -131,11 +136,12 @@ def track_flight(flight_query: str, open_browser: bool = False, **kwargs) -> Tup
         reg = (telemetry and telemetry.get("reg")) or detail.get("reg") or ""
 
         # Determine flight profile status
+        vspd = (telemetry and telemetry.get("vertical_speed_fpm")) or 0
         if telemetry and telemetry.get("on_ground"):
             status_desc = "On ground / Taxiing"
-        elif telemetry and telemetry.get("vertical_speed_fpm", 0) > 400:
+        elif vspd > 400:
             status_desc = "Climbing"
-        elif telemetry and telemetry.get("vertical_speed_fpm", 0) < -400:
+        elif vspd < -400:
             status_desc = "Descending for approach"
         else:
             status_desc = "Cruising"

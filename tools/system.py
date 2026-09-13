@@ -185,6 +185,19 @@ def minimize_all_windows() -> Tuple[bool, str]:
 
 # --- Contextual Safety Gatekeeper Tools ---
 
+# Critical Windows system processes that must never be terminated
+PROTECTED_PROCESSES = {
+    "system",
+    "system idle process",
+    "smss.exe",
+    "csrss.exe",
+    "wininit.exe",
+    "services.exe",
+    "lsass.exe",
+    "svchost.exe",
+}
+
+
 def kill_process(name_or_pid: str | int) -> Tuple[bool, str]:
     """
     Terminates a process by name or PID. SENSITIVE: requires confirmation.
@@ -195,18 +208,25 @@ def kill_process(name_or_pid: str | int) -> Tuple[bool, str]:
 
         if isinstance(name_or_pid, int) or (isinstance(name_or_pid, str) and name_or_pid.isdigit()):
             target_pid = int(name_or_pid)
+            if target_pid in (0, 4):
+                return False, "Aperture Science safety override: System kernel process (PID 0/4) cannot be terminated."
         else:
-            target_name = str(name_or_pid).lower()
+            target_name = str(name_or_pid).lower().strip()
+            if target_name in PROTECTED_PROCESSES or f"{target_name}.exe" in PROTECTED_PROCESSES:
+                return False, f"Aperture Science safety override: '{target_name}' is a critical system process and cannot be terminated."
 
         killed = []
         for proc in psutil.process_iter(["pid", "name"]):
             try:
                 p_pid = proc.info["pid"]
                 p_name = proc.info["name"] or ""
+                p_lower = p_name.lower()
+                if p_lower in PROTECTED_PROCESSES:
+                    continue
                 if target_pid is not None and p_pid == target_pid:
                     proc.terminate()
                     killed.append(f"{p_name} (PID: {p_pid})")
-                elif target_name is not None and target_name in p_name.lower():
+                elif target_name is not None and target_name in p_lower:
                     proc.terminate()
                     killed.append(f"{p_name} (PID: {p_pid})")
             except (psutil.NoSuchProcess, psutil.AccessDenied):
@@ -292,7 +312,7 @@ def set_timer(seconds: int, label: str = "Test") -> Tuple[bool, str]:
         def _timer_worker():
             time.sleep(sec)
             try:
-                from voice.speaker import speak
+                from voice import speak
                 speak(f"Attention test subject: Your timer for {label} has expired. Resume testing immediately.")
             except Exception as e:
                 logger.error("Timer alarm failed: %s", e)
@@ -336,7 +356,7 @@ def read_clipboard_aloud() -> Tuple[bool, str]:
     """
     try:
         import pyperclip
-        from voice.speaker import speak
+        from voice import speak
         content = pyperclip.paste()
         if not content or not content.strip():
             return False, "Clipboard is empty. Nothing to read."

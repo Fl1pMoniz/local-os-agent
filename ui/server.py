@@ -216,13 +216,19 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
 
                 elif action == "volume_relative":
                     from tools.audio import change_volume_relative
-                    delta = int(payload.get("delta", 10))
+                    try:
+                        delta = int(float(str(payload.get("delta", 10)).replace("%", "").strip()))
+                    except (ValueError, TypeError):
+                        delta = 10
                     success, msg = change_volume_relative(delta)
                     response_data = {"success": success, "message": msg}
 
                 elif action == "volume_set":
                     from tools.audio import set_volume
-                    level = int(payload.get("level", 50))
+                    try:
+                        level = int(float(str(payload.get("level", 50)).replace("%", "").strip()))
+                    except (ValueError, TypeError):
+                        level = 50
                     success, msg = set_volume(level)
                     response_data = {"success": success, "message": msg}
 

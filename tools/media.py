@@ -22,12 +22,13 @@ def play_youtube(query: str, music: bool = False, **kwargs) -> Tuple[bool, str]:
     If music=True or query contains 'youtube music', searches YouTube Music.
     """
     try:
-        query_clean = query.strip()
-        if not query_clean:
+        if not query or not str(query).strip():
             return False, "Query cannot be empty."
 
+        query_clean = str(query).strip()
+
         # Check if YouTube Music was requested
-        is_music = music or ("youtube music" in query_clean.lower()) or ("music.youtube" in query_clean.lower())
+        is_music = bool(music) or ("youtube music" in query_clean.lower()) or ("music.youtube" in query_clean.lower())
 
         # Clean query of common prefix fluff
         clean_text = query_clean
@@ -69,7 +70,10 @@ def media_control(action: str) -> Tuple[bool, str]:
     Simulates global media key events.
     Accepted actions: 'play_pause', 'next_track', 'prev_track'.
     """
-    action_normalized = action.lower().strip().replace("-", "_").replace(" ", "_")
+    if not action or not str(action).strip():
+        return False, "Media action cannot be empty."
+
+    action_normalized = str(action).lower().strip().replace("-", "_").replace(" ", "_")
 
     # Map possible synonyms to standard actions
     action_map = {

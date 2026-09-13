@@ -172,7 +172,10 @@ def get_zimaos_apps_detailed() -> list[dict[str, Any]]:
 )
 def launch_zimaos_app(app_name: str, **kwargs) -> Tuple[bool, str]:
     """Finds, wakes, and opens a ZimaOS Docker application in the default browser."""
-    clean_target = app_name.strip().lower()
+    if not app_name or not str(app_name).strip():
+        return False, "Please specify an application name to launch on ZimaOS."
+
+    clean_target = str(app_name).strip().lower()
     apps = get_zimaos_apps_detailed()
 
     if not apps:

@@ -1,5 +1,6 @@
 """Agent core: LLM client, exact SYSTEM_PROMPT, robust JSON parsing, and multi-tool execution loop."""
 
+import ast
 import json
 import logging
 import re
@@ -13,13 +14,33 @@ from tools import execute_tool, get_tool
 
 logger = logging.getLogger("local_os_agent.agent")
 
+# Pre-compiled regular expressions for high-performance JSON extraction & intent matching
+RE_JSON_BLOCK = re.compile(r"(\{[\s\S]*\})")
+RE_FENCE_JSON = re.compile(r"^```json\s*", re.IGNORECASE)
+RE_FENCE_ANY = re.compile(r"^```\s*")
+RE_FENCE_END = re.compile(r"\s*```$")
+RE_TRAILING_COMMAS = re.compile(r",\s*([\}\]])")
+
+# Pre-compiled intent patterns
+RE_VOL_UP = re.compile(r"\b(volume up|louder|increase volume|higher volume|turn it up|sobe o volume|aumenta o volume|mais alto)\b", re.IGNORECASE)
+RE_VOL_DOWN = re.compile(r"\b(volume down|quieter|lower volume|decrease volume|turn it down|abaixa o volume|diminui o volume|mais baixo)\b", re.IGNORECASE)
+RE_VOL_EXACT = re.compile(r"\b(?:set|put|change)?\s*volume\s*(?:to|at|for|para|em)?\s*(\d{1,3})%?\b", re.IGNORECASE)
+RE_MUTE = re.compile(r"\b(mute|unmute|silenciar|mudo|mutar|desmutar)\b", re.IGNORECASE)
+RE_YT_CLEAN = re.compile(r"\b(play|search|on|for|in|no|na|tocar|ouvir|procurar|musica|music|youtube|de)\b", re.IGNORECASE)
+RE_FLIGHT_MATCH = re.compile(r"(?:flight|voo|radar|aero|number|num|no)?\s*([A-Za-z]{2,3}\s*\d{1,4}[A-Za-z]?)", re.IGNORECASE)
+RE_ALPHANUM_TOKEN = re.compile(r"\b[A-Za-z0-9]{3,7}\b")
+RE_ZIMA_LAUNCH = re.compile(r"\b(?:launch|open|start|run|iniciar|abrir)\s+(?:app\s+)?([A-Za-z0-9_\-\s]+?)\s+(?:on|in|no|na)?\s*(?:zimaos|zima os|casaos|home server|servidor)\b", re.IGNORECASE)
+RE_SCREENSHOT = re.compile(r"\b(screenshot|take screenshot|capture screen|captura de tela|tirar print|print da tela|screen capture)\b", re.IGNORECASE)
+RE_STATS = re.compile(r"\b(system stats|system status|hardware stats|cpu usage|ram usage|status do sistema|como esta o pc|diagnostico)\b", re.IGNORECASE)
+RE_RECYCLE = re.compile(r"\b(empty recycle bin|clean recycle bin|esvaziar lixeira|limpar lixeira)\b", re.IGNORECASE)
+RE_WEATHER = re.compile(r"\b(weather|temperature|forecast|previsao do tempo|clima|temperatura)\b", re.IGNORECASE)
 
 
 def extract_json_payload(raw_text: str) -> dict[str, Any]:
     """
     Robust JSON extractor using regex to locate the outermost {...} block.
-    Shields against conversational fluff, markdown backticks, and trailing text
-    frequently produced by small open-weights models.
+    Shields against conversational fluff, markdown backticks, single-quote dictionaries,
+    and trailing commas produced by small open-weights models.
     """
     if not raw_text or not raw_text.strip():
         raise ValueError("Received empty response from LLM.")
@@ -27,7 +48,7 @@ def extract_json_payload(raw_text: str) -> dict[str, Any]:
     text = raw_text.strip()
 
     # Match outermost JSON object { ... }
-    json_match = re.search(r"(\{[\s\S]*\})", text)
+    json_match = RE_JSON_BLOCK.search(text)
     if json_match:
         payload_str = json_match.group(1).strip()
     else:
@@ -35,22 +56,48 @@ def extract_json_payload(raw_text: str) -> dict[str, Any]:
         payload_str = text
 
     # Strip markdown fence markers if trapped inside match
-    payload_str = re.sub(r"^```json\s*", "", payload_str, flags=re.IGNORECASE)
-    payload_str = re.sub(r"^```\s*", "", payload_str)
-    payload_str = re.sub(r"\s*```$", "", payload_str)
+    payload_str = RE_FENCE_JSON.sub("", payload_str)
+    payload_str = RE_FENCE_ANY.sub("", payload_str)
+    payload_str = RE_FENCE_END.sub("", payload_str)
 
     # Repair common small model syntax quirk: trailing commas before } or ]
-    payload_str = re.sub(r",\s*([\}\]])", r"\1", payload_str)
+    payload_str = RE_TRAILING_COMMAS.sub(r"\1", payload_str)
 
+    data: Any = None
     try:
         data = json.loads(payload_str)
-        # Ensure 'response' key exists if model omitted it
-        if isinstance(data, dict) and "response" not in data and "thought" in data:
-            data["response"] = data["thought"]
-        return data
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to decode JSON from text: {raw_text}")
-        raise ValueError(f"LLM did not return valid JSON: {e}") from e
+    except json.JSONDecodeError:
+        # 1. Fallback: attempt safe Python literal evaluation (handles single quotes & True/False)
+        try:
+            data = ast.literal_eval(payload_str)
+        except Exception:
+            # 2. Fallback: normalize single quotes and Python boolean literals
+            try:
+                normalized = re.sub(r"(?<!\\)'", '"', payload_str)
+                normalized = re.sub(r"\bTrue\b", "true", normalized)
+                normalized = re.sub(r"\bFalse\b", "false", normalized)
+                normalized = re.sub(r"\bNone\b", "null", normalized)
+                data = json.loads(normalized)
+            except Exception as e:
+                logger.error(f"Failed to decode JSON from text: {raw_text}")
+                raise ValueError(f"LLM did not return valid JSON: {e}") from e
+
+    if not isinstance(data, dict):
+        raise ValueError(f"Extracted payload is not a JSON object: {type(data)}")
+
+    # Ensure required keys exist
+    if "thought" not in data and "response" in data:
+        data["thought"] = data["response"]
+    elif "thought" not in data:
+        data["thought"] = "Executing command."
+
+    if "response" not in data:
+        data["response"] = data.get("thought", "")
+
+    if "actions" not in data or not isinstance(data["actions"], list):
+        data["actions"] = []
+
+    return data
 
 
 class OSAgent:
@@ -109,15 +156,6 @@ class OSAgent:
             }
         }
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            temperature=0.2,  # Slight temperature for natural eloquent phrasing
-            timeout=config.llm_timeout,
-            extra_body=extra_options,
-        )
-
-        content = ""
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -141,9 +179,9 @@ class OSAgent:
         prompt_lower = user_prompt.lower()
 
         # 1. Volume Controls (Relative, Exact, Mute)
-        rel_up_match = re.search(r"\b(volume up|louder|increase volume|higher volume|turn it up|sobe o volume|aumenta o volume|mais alto)\b", prompt_lower)
-        rel_down_match = re.search(r"\b(volume down|quieter|lower volume|decrease volume|turn it down|abaixa o volume|diminui o volume|mais baixo)\b", prompt_lower)
-        exact_vol_match = re.search(r"\b(?:set|put|change)?\s*volume\s*(?:to|at|for|para|em)?\s*(\d{1,3})%?\b", prompt_lower)
+        rel_up_match = RE_VOL_UP.search(prompt_lower)
+        rel_down_match = RE_VOL_DOWN.search(prompt_lower)
+        exact_vol_match = RE_VOL_EXACT.search(prompt_lower)
 
         if rel_up_match:
             plan.actions = [ToolAction(tool="change_volume_relative", args={"delta": 15})]
@@ -155,34 +193,31 @@ class OSAgent:
             vol_val = max(0, min(100, int(exact_vol_match.group(1))))
             plan.actions = [ToolAction(tool="set_volume", args={"level": vol_val})]
             plan.response = f"Volume adjusted to {vol_val} percent. Efficiency maximized."
-        elif any(w in prompt_lower for w in ("mute", "unmute", "silenciar", "mudo")):
+        elif RE_MUTE.search(prompt_lower):
             if not any(a.tool == "mute_toggle" for a in plan.actions):
                 plan.actions = [ToolAction(tool="mute_toggle")]
                 plan.response = "Toggling audio mute register."
 
         # 2. YouTube Music and YouTube Video
         elif "youtube music" in prompt_lower or ("music" in prompt_lower and "youtube" in prompt_lower):
-            # Extract query after keywords
-            clean_q = re.sub(r"\b(play|search|on|for|in|no|na|tocar|ouvir|procurar|musica|music|youtube|de)\b", "", prompt_lower, flags=re.IGNORECASE).strip()
+            clean_q = RE_YT_CLEAN.sub("", prompt_lower).strip()
             clean_q = clean_q or "aperture science"
             plan.actions = [ToolAction(tool="play_youtube", args={"query": clean_q, "music": True})]
             plan.response = f"Searching YouTube Music for {clean_q}. Melancholy suits your test scores."
         elif "youtube" in prompt_lower and any(w in prompt_lower for w in ("play", "search", "open", "watch", "tocar", "ver", "assistir", "procurar")):
-            clean_q = re.sub(r"\b(play|search|on|for|in|no|na|tocar|ver|assistir|procurar|video|youtube|de)\b", "", prompt_lower, flags=re.IGNORECASE).strip()
+            clean_q = RE_YT_CLEAN.sub("", prompt_lower).strip()
             clean_q = clean_q or "aperture science"
             plan.actions = [ToolAction(tool="play_youtube", args={"query": clean_q, "music": False})]
             plan.response = f"Searching YouTube for {clean_q}."
 
         # 3. Flightradar24 Flight Tracking
         elif any(w in prompt_lower for w in ("flight", "flightradar", "voo", "radar")) and any(w in prompt_lower for w in ("track", "where", "status", "rastrear", "rastreie", "onde", "qual")):
-            # Look for flight codes like AA100, LA3001, G31500, AF447, DL20
-            flight_match = re.search(r"(?:flight|voo|radar|aero|number|num|no)?\s*([A-Za-z]{2,3}\s*\d{1,4}[A-Za-z]?)", prompt_lower)
+            flight_match = RE_FLIGHT_MATCH.search(prompt_lower)
             flight_code = "AA100"
             if flight_match and len(flight_match.group(1).strip()) >= 3:
                 flight_code = flight_match.group(1).replace(" ", "").upper()
             else:
-                # Fallback: find any alphanumeric token 3-7 chars with digits
-                tokens = re.findall(r"\b[A-Za-z0-9]{3,7}\b", prompt_lower)
+                tokens = RE_ALPHANUM_TOKEN.findall(prompt_lower)
                 for t in tokens:
                     if any(c.isdigit() for c in t) and any(c.isalpha() for c in t):
                         flight_code = t.upper()
@@ -193,7 +228,7 @@ class OSAgent:
 
         # 4. ZimaOS Server & App Launcher
         elif any(w in prompt_lower for w in ("zimaos", "zima os", "casaos", "home server", "meu servidor", "servidor")):
-            launch_match = re.search(r"\b(?:launch|open|start|run|iniciar|abrir)\s+(?:app\s+)?([A-Za-z0-9_\-\s]+?)\s+(?:on|in|no|na)?\s*(?:zimaos|zima os|casaos|home server|servidor)\b", prompt_lower)
+            launch_match = RE_ZIMA_LAUNCH.search(prompt_lower)
             if launch_match and launch_match.group(1).strip() not in ("dashboard", "painel", "web", "gui", "interface", "server", "servidor"):
                 target_app = launch_match.group(1).strip()
                 plan.actions = [ToolAction(tool="launch_zimaos_app", args={"app_name": target_app})]
@@ -246,20 +281,79 @@ class OSAgent:
             plan.actions = [ToolAction(tool="read_clipboard_aloud")]
             plan.response = "Accessing system clipboard memory registers."
 
-        # Normalize any LLM-emitted actions
+        # 10. Screenshot intent
+        elif RE_SCREENSHOT.search(prompt_lower):
+            if not any(a.tool == "take_screenshot" for a in plan.actions):
+                plan.actions = [ToolAction(tool="take_screenshot")]
+                plan.response = "Capturing screen optical telemetry for analysis."
+
+        # 11. System stats intent
+        elif RE_STATS.search(prompt_lower):
+            if not any(a.tool == "get_system_stats" for a in plan.actions):
+                plan.actions = [ToolAction(tool="get_system_stats")]
+                plan.response = "Gathering diagnostic telemetry from host computer."
+
+        # 12. Empty recycle bin intent
+        elif RE_RECYCLE.search(prompt_lower):
+            if not any(a.tool == "empty_recycle_bin" for a in plan.actions):
+                plan.actions = [ToolAction(tool="empty_recycle_bin")]
+                plan.response = "Purging digital incinerator registers permanently."
+
+        # 13. Weather intent
+        elif RE_WEATHER.search(prompt_lower):
+            if not any(a.tool == "get_weather" for a in plan.actions):
+                plan.actions = [ToolAction(tool="get_weather")]
+                plan.response = "Querying atmospheric sensors for environmental conditions."
+
+        # Normalize and sanitize arguments for any LLM-emitted actions
         for act in plan.actions:
             if act.tool == "set_volume":
                 # Normalize arguments like 'volume', 'value' -> 'level'
                 if "level" not in act.args:
-                    for k in ("volume", "value", "val"):
+                    for k in ("volume", "value", "val", "pct"):
                         if k in act.args:
                             try:
-                                act.args["level"] = int(act.args.pop(k))
+                                clean_val = str(act.args.pop(k)).replace("%", "").strip()
+                                act.args["level"] = int(float(clean_val))
                                 break
                             except (ValueError, TypeError):
                                 pass
                 if "level" not in act.args:
                     act.args["level"] = 50
+                else:
+                    try:
+                        clean_val = str(act.args["level"]).replace("%", "").strip()
+                        act.args["level"] = max(0, min(100, int(float(clean_val))))
+                    except (ValueError, TypeError):
+                        act.args["level"] = 50
+
+            elif act.tool == "change_volume_relative":
+                if "delta" in act.args:
+                    try:
+                        clean_d = str(act.args["delta"]).replace("%", "").strip()
+                        act.args["delta"] = int(float(clean_d))
+                    except (ValueError, TypeError):
+                        act.args["delta"] = 10
+
+            elif act.tool == "track_flight":
+                if "flight_query" not in act.args and "flight" in act.args:
+                    act.args["flight_query"] = act.args.pop("flight")
+                if "flight_query" not in act.args:
+                    act.args["flight_query"] = "AA100"
+                act.args["flight_query"] = str(act.args["flight_query"]).strip()
+
+            elif act.tool == "play_youtube":
+                if "query" not in act.args:
+                    act.args["query"] = "aperture science"
+                act.args["query"] = str(act.args["query"]).strip()
+                if "music" in act.args and not isinstance(act.args["music"], bool):
+                    act.args["music"] = str(act.args["music"]).lower() in ("true", "1", "yes")
+
+            elif act.tool == "launch_zimaos_app":
+                if "app_name" not in act.args and "app" in act.args:
+                    act.args["app_name"] = act.args.pop("app")
+                if "app_name" in act.args:
+                    act.args["app_name"] = str(act.args["app_name"]).strip()
 
         # Update conversation history
         self.history.append({"role": "user", "content": user_prompt})
