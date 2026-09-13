@@ -29,22 +29,22 @@ class TestVoiceModule(unittest.TestCase):
         from voice import extract_wake_word_command
 
         # Called with direct command
-        called, cmd = extract_wake_word_command("Hey Cortana, set volume to 50", wake_word="cortana")
+        called, cmd = extract_wake_word_command("Hey GLaDOS, set volume to 50", wake_word="glados")
         self.assertTrue(called)
         self.assertEqual(cmd, "set volume to 50")
 
         # Called with just name
-        called, cmd = extract_wake_word_command("Cortana", wake_word="cortana")
+        called, cmd = extract_wake_word_command("GLaDOS", wake_word="glados")
         self.assertTrue(called)
         self.assertEqual(cmd, "")
 
         # Called with question
-        called, cmd = extract_wake_word_command("Cortana, what is my CPU usage?", wake_word="cortana")
+        called, cmd = extract_wake_word_command("GLaDOS, what is my CPU usage?", wake_word="glados")
         self.assertTrue(called)
         self.assertEqual(cmd, "what is my CPU usage")
 
-        # Ambient speech without Cortana
-        called, cmd = extract_wake_word_command("Turn up the music please", wake_word="cortana")
+        # Ambient speech without GLaDOS
+        called, cmd = extract_wake_word_command("Turn up the music please", wake_word="glados")
         self.assertFalse(called)
         self.assertEqual(cmd, "")
 

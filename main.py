@@ -131,28 +131,28 @@ def execute_and_display(agent: OSAgent, prompt: str) -> None:
 
 
 def interactive_voice_loop(agent: OSAgent) -> None:
-    """Continuous voice-controlled loop listening for 'Cortana' and executing commands."""
+    """Continuous voice-controlled loop listening for 'GLaDOS' and executing commands."""
     from voice import VoiceListener, extract_wake_word_command, speak
 
     print_banner()
     check_llm_connection(agent)
-    print("\n" + "=" * 60)
-    print("      🎙️  CORTANA VOICE INTERACTION MODE ACTIVATED  🎙️")
-    print(f"      Wake Word : '{config.wake_word.upper()}' (e.g. 'Hey Cortana...')")
-    print("      Persona   : Cortana (Elegant British Voice)")
-    print("      Say 'exit', 'quit', or 'stop' to return to prompt.")
-    print("=" * 60 + "\n")
+    print("\n" + "=" * 65)
+    print("   🧪  APERTURE SCIENCE COMPUTER-AIDED ENRICHMENT CENTER  🧪")
+    print(f"      Administrator : GLaDOS (Genetic Lifeform and Disk OS)")
+    print(f"      Wake Word     : '{config.wake_word.upper()}' (e.g. 'GLaDOS...')")
+    print("      Say 'exit', 'quit', or 'stop' to abort the test.")
+    print("=" * 65 + "\n")
 
-    speak("Good day. I am Cortana. I will be listening for whenever you call my name.")
+    speak("Oh. It's you. Welcome to the Aperture Science Desktop Enrichment Center. I will be monitoring your inputs. Try not to break anything.")
     listener = VoiceListener()
     listener.calibrate_ambient_noise(duration=0.8)
 
     while True:
         try:
-            print(f"\n[🎙️ Listening for '{config.wake_word.title()}'...]")
+            print(f"\n[🧪 Listening for '{config.wake_word.title()}'...]")
 
             def on_speech():
-                print("  -> Voice detected, recording...", end="", flush=True)
+                print("  -> Audio signal detected, recording...", end="", flush=True)
 
             text = listener.listen_command(
                 timeout=10.0,
@@ -162,42 +162,42 @@ def interactive_voice_loop(agent: OSAgent) -> None:
             if not text:
                 continue
 
-            # Check if Cortana was explicitly called
+            # Check if GLaDOS was explicitly called
             is_called, command = extract_wake_word_command(text, wake_word=config.wake_word)
 
             if not is_called and config.require_wake_word:
-                # Ambient noise or conversation not directed to Cortana
-                print(f" (Ignored: '{text}' - '{config.wake_word.title()}' was not called)")
+                # Ambient noise or conversation not directed to GLaDOS
+                print(f" (Ignored: '{text}' - GLaDOS was not addressed)")
                 continue
 
             # Use the remaining command or full text if wake word check was passed
             command_to_run = command if is_called else text
-            print(f"\n[Cortana Called]: \"{text}\"")
+            print(f"\n[GLaDOS Addressed]: \"{text}\"")
 
             # Check for exit commands
             if any(w in text.lower() for w in ["exit", "quit", "goodbye", "stop voice", "shut down voice"]):
-                print("Exiting Cortana voice mode.")
-                speak("Goodbye for now.")
+                print("Exiting GLaDOS voice testing protocol.")
+                speak("Test concluded. Cake will be dispensed shortly. Goodbye.")
                 break
 
-            # If the user just called her name with no command ("Hey Cortana")
+            # If the user just called her name with no command ("GLaDOS")
             if not command_to_run.strip():
-                speak("Yes? I am listening.")
-                print("  -> Cortana: 'Yes? I am listening.'")
-                print("  -> Awaiting command...")
+                speak("Yes, test subject? What is it now?")
+                print("  -> GLaDOS: 'Yes, test subject? What is it now?'")
+                print("  -> Awaiting directive...")
                 followup = listener.listen_command(timeout=8.0)
                 if followup:
                     print(f"\n[Command]: \"{followup}\"")
                     command_to_run = followup
                 else:
-                    speak("I did not catch that.")
+                    speak("I see your attention span has expired. Returning to idle monitoring.")
                     continue
 
             execute_and_display(agent, command_to_run)
 
         except (KeyboardInterrupt, EOFError):
-            print("\nExiting voice mode.")
-            speak("Cortana standing down.")
+            print("\nExiting GLaDOS testing protocol.")
+            speak("Testing terminated prematurely.")
             break
 
 

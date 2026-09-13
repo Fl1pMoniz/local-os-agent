@@ -8,7 +8,7 @@ from schemas import AgentResponse, ToolAction
 class TestSchemas(unittest.TestCase):
     def test_system_prompt_exactness(self):
         """Verify the exact SYSTEM_PROMPT text matches prompt specification."""
-        self.assertIn("You are Cortana, an OS-level Agentic Assistant running on the user's local machine", SYSTEM_PROMPT)
+        self.assertIn("You are GLaDOS (Genetic Lifeform and Disk Operating System)", SYSTEM_PROMPT)
         self.assertIn("1. set_volume(level: int): Sets master system volume (0-100).", SYSTEM_PROMPT)
         self.assertIn("2. set_app_volume(app_name: str, level: int): Sets volume of a specific application (0-100)", SYSTEM_PROMPT)
         self.assertIn("3. mute_toggle(): Toggles the system mute state.", SYSTEM_PROMPT)

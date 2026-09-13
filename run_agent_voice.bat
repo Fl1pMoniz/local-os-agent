@@ -1,11 +1,11 @@
 @echo off
 chcp 65001 >nul
-title Local OS Agent (Voice Mode)
+title Aperture OS - GLaDOS (Voice Mode)
 cd /d "%~dp0"
 
 echo ====================================================
-echo      Starting Local OS Agent in Voice Mode...
-echo      Voice: Elegant British Female (Sonia)
+echo      Starting Aperture OS GLaDOS Voice Mode...
+echo      Voice: GLaDOS (Synthetic, Coldly Polite)
 echo ====================================================
 
 :: Check if Ollama or local LLM is responding
@@ -17,8 +17,8 @@ if %ERRORLEVEL% NEQ 0 (
     timeout /t 3 /nobreak >nul
 )
 
-:: Launch the agent in voice mode with the optimized Cortana 3B model (2.3 GB VRAM)
-python main.py --model cortana:3b --voice
+:: Launch the agent in voice mode with the GLaDOS 3B model
+python main.py --model glados:3b --voice
 
 if %ERRORLEVEL% NEQ 0 (
     echo.

@@ -1,4 +1,4 @@
 FROM llama3.2:3b
 PARAMETER num_ctx 2048
-PARAMETER temperature 0.0
+PARAMETER temperature 0.3
 PARAMETER stop "}\n\n"

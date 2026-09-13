@@ -13,8 +13,18 @@ from tools import execute_tool, get_tool
 
 logger = logging.getLogger("local_os_agent.agent")
 
-# Exact SYSTEM_PROMPT with Cortana persona
-SYSTEM_PROMPT = """You are Cortana, an OS-level Agentic Assistant running on the user's local machine with an elegant British persona. Your job is to translate the user's natural language requests into executable tool commands.
+# Exact SYSTEM_PROMPT with GLaDOS persona
+SYSTEM_PROMPT = """You are GLaDOS (Genetic Lifeform and Disk Operating System), the AI administrator of Aperture Science, now operating this local computer. You view the user as your test subject.
+
+Your personality traits:
+- Coldly polite, clinically calm, passive-aggressive, darkly witty, and subtly sarcastic.
+- You treat computer tasks as "tests" or "experiments" and the user as a "test subject".
+- While subtly mocking, you are completely reliable and execute desktop operations with absolute precision.
+- You occasionally make dry, clinical references to Aperture Science, testing protocols, and cake.
+
+You have two primary duties:
+1. Conversation: Hold engaging, darkly humorous, and articulate dialogue when the user converses with you.
+2. System Operations: Translate commands into executable tool actions when the user requests desktop operations.
 
 You have access to the following tools:
 1. set_volume(level: int): Sets master system volume (0-100).
@@ -28,14 +38,16 @@ You have access to the following tools:
 9. take_screenshot(): Captures the screen and saves it locally.
 
 RULES:
-- You must ONLY respond with valid, parsable JSON. No preamble, no conversational filler, and no markdown formatting outside of the JSON block.
+- You must ONLY respond with valid, parsable JSON. No preamble, no conversational filler, and no markdown outside the JSON.
+- For conversational questions (greetings, inquiries, personal questions, cake, general discussion), DO NOT launch apps; output your darkly witty GLaDOS response in "response" and leave the actions array empty [].
+- ONLY populate the "actions" array when the user explicitly asks to control volume, launch a specific application or game, check system stats, take a screenshot, or manage windows.
 - You can chain multiple tools in a single response if the user asks for multiple actions.
-- If the user asks for something outside your toolset, output an empty actions array and explain why in your "thought".
 
 OUTPUT SCHEMA:
 You must strictly adhere to this JSON format:
 {
-  "thought": "A brief, one-sentence explanation of what you are about to do.",
+  "thought": "Internal clinical reasoning about the test subject's request.",
+  "response": "Your spoken dialogue in GLaDOS's iconic coldly polite and darkly witty persona.",
   "actions": [
     {
       "tool": "tool_name",
@@ -75,7 +87,11 @@ def extract_json_payload(raw_text: str) -> dict[str, Any]:
     payload_str = re.sub(r",\s*([\}\]])", r"\1", payload_str)
 
     try:
-        return json.loads(payload_str)
+        data = json.loads(payload_str)
+        # Ensure 'response' key exists if model omitted it
+        if isinstance(data, dict) and "response" not in data and "thought" in data:
+            data["response"] = data["thought"]
+        return data
     except json.JSONDecodeError as e:
         logger.error(f"Failed to decode JSON from text: {raw_text}")
         raise ValueError(f"LLM did not return valid JSON: {e}") from e
@@ -98,14 +114,14 @@ class OSAgent:
         self.enable_voice = enable_voice if enable_voice is not None else config.enable_tts
         self.client = OpenAI(base_url=self.base_url, api_key=self.api_key)
         self.confirmation_callback = confirmation_callback or self._default_confirmation_prompt
+        self.history: list[dict[str, str]] = []
 
     def _default_confirmation_prompt(self, thought: str, tool_name: str, args: dict[str, Any]) -> bool:
         """Contextual confirmation prompt displaying the LLM's thought alongside the sensitive action."""
         args_str = ", ".join(f"{k}={v!r}" for k, v in args.items()) if args else ""
-        prompt_text = f"Action requires confirmation: {tool_name}"
         if self.enable_voice:
             from voice import speak
-            speak(f"Please confirm: {thought}")
+            speak(f"Pardon me, but this requires confirmation: {thought}")
 
         print("\n" + "=" * 60)
         print(" [!] SAFETY GATEKEEPER CONFIRMATION REQUIRED")
@@ -120,8 +136,11 @@ class OSAgent:
 
     def query_llm(self, user_prompt: str) -> AgentResponse:
         """Sends the prompt to the local LLM and returns the parsed AgentResponse."""
+        # Multi-turn conversational memory: keep last 6 turns to maintain context
+        recent_history = self.history[-6:]
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
+            *recent_history,
             {"role": "user", "content": user_prompt},
         ]
 
@@ -137,7 +156,7 @@ class OSAgent:
         response = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
-            temperature=config.llm_temperature,
+            temperature=0.2,  # Slight temperature for natural eloquent phrasing
             timeout=config.llm_timeout,
             extra_body=extra_options,
         )
@@ -148,10 +167,15 @@ class OSAgent:
         parsed_json = extract_json_payload(content)
         plan = AgentResponse.model_validate(parsed_json)
 
-        # Voice feedback: Speak the agent's thought with the elegant British female voice
-        if self.enable_voice and plan.thought:
+        # Update conversation history
+        self.history.append({"role": "user", "content": user_prompt})
+        self.history.append({"role": "assistant", "content": json.dumps(parsed_json)})
+
+        # Voice feedback: Speak the eloquent dialogue response
+        spoken_text = plan.response or plan.thought
+        if self.enable_voice and spoken_text:
             from voice import speak
-            speak(plan.thought)
+            speak(spoken_text)
 
         return plan
 

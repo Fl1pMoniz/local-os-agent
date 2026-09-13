@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 >nul
-title Local OS Agent
+title Aperture OS - GLaDOS
 cd /d "%~dp0"
 
 echo ====================================================
-echo             Starting Local OS Agent...
+echo             Starting GLaDOS Assistant...
 echo ====================================================
 
 :: Check if Ollama or local LLM is responding
@@ -16,8 +16,8 @@ if %ERRORLEVEL% NEQ 0 (
     timeout /t 3 /nobreak >nul
 )
 
-:: Launch the agent with the optimized Cortana 3B model (uses only 2.3 GB VRAM)
-python main.py --model cortana:3b
+:: Launch the agent with the GLaDOS 3B model
+python main.py --model glados:3b
 
 if %ERRORLEVEL% NEQ 0 (
     echo.

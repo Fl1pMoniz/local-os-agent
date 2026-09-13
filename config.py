@@ -10,8 +10,8 @@ class AgentConfig:
     # LLM Settings (OpenAI compatible endpoint)
     llm_base_url: str = os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")
     llm_api_key: str = os.getenv("LLM_API_KEY", "ollama")  # Ollama accepts any non-empty string
-    llm_model: str = os.getenv("LLM_MODEL", "cortana:3b")
-    llm_temperature: float = float(os.getenv("LLM_TEMPERATURE", "0.0"))
+    llm_model: str = os.getenv("LLM_MODEL", "glados:3b")
+    llm_temperature: float = float(os.getenv("LLM_TEMPERATURE", "0.2"))
     llm_timeout: float = float(os.getenv("LLM_TIMEOUT", "45.0"))
     llm_num_ctx: int = int(os.getenv("LLM_NUM_CTX", "2048"))  # Limit KV cache to 2k tokens (< 200MB VRAM)
     llm_max_tokens: int = int(os.getenv("LLM_MAX_TOKENS", "300"))
@@ -25,10 +25,11 @@ class AgentConfig:
 
     # Voice & Wake Word Settings
     enable_tts: bool = os.getenv("ENABLE_TTS", "true").lower() in ("true", "1", "yes")
-    tts_voice: str = os.getenv("TTS_VOICE", "en-GB-LibbyNeural")
-    tts_rate: str = os.getenv("TTS_RATE", "+0%")
+    tts_voice: str = os.getenv("TTS_VOICE", "glados")
+    tts_rate: str = os.getenv("TTS_RATE", "+5%")
+    tts_pitch: str = os.getenv("TTS_PITCH", "+3Hz")
     stt_language: str = os.getenv("STT_LANGUAGE", "en-US")
-    wake_word: str = os.getenv("WAKE_WORD", "cortana").lower()
+    wake_word: str = os.getenv("WAKE_WORD", "glados").lower()
     require_wake_word: bool = os.getenv("REQUIRE_WAKE_WORD", "true").lower() in ("true", "1", "yes")
     audio_cache_dir: Path = base_dir / "captures" / "audio"
 

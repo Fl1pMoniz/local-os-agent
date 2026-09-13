@@ -1,20 +1,21 @@
-# Local OS Agent 🤖
+# Aperture OS - GLaDOS 🤖🧪
 
-A production-ready, modular OS-level Agentic Assistant that interfaces with locally hosted Large Language Models (via OpenAI-compatible endpoints like Ollama or LM Studio) to execute desktop automation tasks across audio, media, dynamic Steam gaming, system diagnostics, and window management with a multi-tool execution loop and a safety gatekeeper.
+A production-ready, modular OS-level Agentic Assistant that interfaces with locally hosted Large Language Models (via Ollama or LM Studio) to execute desktop automation tasks across media, gaming, system settings, and multitasking with the iconic personality and voice of **GLaDOS** (Genetic Lifeform and Disk Operating System) from Valve's *Portal*.
 
 ---
 
 ## Key Features
 
-1. **Voice Control & Elegant British Speech**:
-   - **Microphone Listening (STT)**: Records speech using `sounddevice` with automatic silence and energy detection, transcribing commands directly to LLM prompts.
-   - **Wake Word Recognition**: Only triggers when you say **`"Cortana"`** or **`"Hey Cortana"`**, ignoring background room speech.
-   - **High-Definition Neural Voices (TTS)**: Features high-definition neural voices (`libby` British female default, `aria` official Cortana, `ava` cinematic).
+1. **GLaDOS Persona & Conversational Intelligence**:
+   - **Aperture Science Persona**: Coldly polite, clinically calm, darkly witty, and subtly sarcastic.
+   - **Conversational Memory**: Holds multi-turn dialogue when spoken to (banter, cake inquiries, testing protocols) while reliably executing desktop tasks when ordered.
+   - **GLaDOS Voice Synthesis**: Tuned synthetic neural voice (`glados` preset) featuring Ellen McLain's signature clinical, deadpan cadence and pitch.
+   - **Wake Word Recognition**: Responds exclusively when addressed as **`"GLaDOS"`** or **`"Hey GLaDOS"`**, ignoring background room chatter.
 
 2. **Ultra-Low VRAM Footprint (< 2.5 GB VRAM)**:
-   - Configured with the optimized **`cortana:3b`** model (based on LLaMA 3.2 3B).
+   - Configured with the optimized **`glados:3b`** model (based on LLaMA 3.2 3B).
    - Constrained to a 2,048 token context window, capping total GPU memory consumption at **2.3 GB VRAM** (leaving ~10 GB free on an RTX 4070 for games and background tasks).
-   - Generates responses in ~1 second.
+   - Instant response latency (~1.0s).
 
 3. **Exact System Prompt & JSON Enforcement**:
    - Injects the strict system prompt directly into the agent.

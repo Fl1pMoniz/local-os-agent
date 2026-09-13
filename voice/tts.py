@@ -41,30 +41,52 @@ def clean_text_for_speech(text: str) -> str:
     return cleaned
 
 
-VOICE_PRESETS: dict[str, tuple[str, str]] = {
-    "libby": ("en-GB-LibbyNeural", "Crisp, elegant & highly articulate British female (Default)"),
-    "maisie": ("en-GB-MaisieNeural", "Warm & natural conversational British female"),
-    "aria": ("en-US-AriaNeural", "Iconic Microsoft Cortana / Copilot expressive AI assistant"),
-    "ava": ("en-US-AvaMultilingualNeural", "Ultra-modern cinematic, intelligent AI assistant"),
-    "sonia": ("en-GB-SoniaNeural", "Standard British female"),
+VOICE_PRESETS: dict[str, dict[str, str]] = {
+    "glados": {
+        "voice": "en-US-AvaMultilingualNeural",
+        "pitch": "+3Hz",
+        "rate": "+5%",
+        "desc": "Aperture Science GLaDOS voice profile (coldly polite, synthetic & clinical)",
+    },
+    "glados_robot": {
+        "voice": "en-US-AnaNeural",
+        "pitch": "+4Hz",
+        "rate": "+4%",
+        "desc": "High-synthetic robotic GLaDOS variant",
+    },
+    "libby": {
+        "voice": "en-GB-LibbyNeural",
+        "pitch": "+2Hz",
+        "rate": "+2%",
+        "desc": "Crisp, elegant & articulate British female",
+    },
+    "aria": {
+        "voice": "en-US-AriaNeural",
+        "pitch": "+0Hz",
+        "rate": "+2%",
+        "desc": "The iconic Microsoft Cortana / Copilot expressive AI assistant voice",
+    },
 }
 
 
 class TextToSpeech:
     """
     High-fidelity Text-to-Speech engine utilizing Microsoft Edge's Neural TTS
-    with seamless native Windows MCI playback and offline SAPI5 fallback.
+    with dynamic pitch/rate tuning, native Windows MCI playback, and offline SAPI5 fallback.
     """
 
-    def __init__(self, voice: str | None = None, rate: str | None = None):
-        raw_voice = voice or config.tts_voice
-        # Resolve preset shorthand (e.g. 'libby', 'aria', 'ava')
-        if raw_voice.lower() in VOICE_PRESETS:
-            self.voice = VOICE_PRESETS[raw_voice.lower()][0]
+    def __init__(self, voice: str | None = None, rate: str | None = None, pitch: str | None = None):
+        raw_voice = (voice or config.tts_voice).lower()
+        if raw_voice in VOICE_PRESETS:
+            preset = VOICE_PRESETS[raw_voice]
+            self.voice = preset["voice"]
+            self.pitch = pitch or preset["pitch"]
+            self.rate = rate or preset["rate"]
         else:
-            self.voice = raw_voice
+            self.voice = voice or config.tts_voice
+            self.pitch = pitch or config.tts_pitch
+            self.rate = rate or config.tts_rate
 
-        self.rate = rate or config.tts_rate
         self.cache_dir = config.audio_cache_dir
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
@@ -104,9 +126,9 @@ class TextToSpeech:
                     self._current_alias = None
 
     async def _synthesize_edge(self, text: str, output_path: Path) -> None:
-        """Synthesizes text to an MP3 file using edge-tts."""
+        """Synthesizes text to an MP3 file using edge-tts with dynamic pitch and rate."""
         import edge_tts
-        communicate = edge_tts.Communicate(text, voice=self.voice, rate=self.rate)
+        communicate = edge_tts.Communicate(text, voice=self.voice, rate=self.rate, pitch=self.pitch)
         await communicate.save(str(output_path))
 
     def _speak_offline_sapi(self, text: str) -> None:
