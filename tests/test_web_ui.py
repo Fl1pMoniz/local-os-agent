@@ -48,6 +48,7 @@ class TestWebUI(unittest.TestCase):
         # Must contain Aperture ASCII logo and key Aperture keywords
         self.assertIn("APERTURE SCIENCE", content.upper())
         self.assertIn(".------------.", content)  # Aperture Diaphragm ASCII
+        self.assertIn("H@@@MM@M#H", content)      # Picture 2 Aperture ASCII Logo signature
         self.assertIn("GLADOS-WEB", content.upper())
         self.assertIn("[MIC:", content)
         self.assertIn("[VOICE:", content)

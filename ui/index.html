@@ -6,6 +6,60 @@
   <title>Command Prompt - Aperture Science Laboratories [GLaDOS-WEB]</title>
   <style>
     :root {
+      /* Authentic Amber CRT Terminal Palette (Old School Aperture Mainframe) */
+      --cmd-bg: #060401;
+      --cmd-screen: #0a0703;
+      --cmd-surface: #120d06;
+      --cmd-border: #332008;
+      --cmd-border-bright: #5c3b0f;
+      --cmd-ascii: #ff9d00;
+      --cmd-ascii-dim: #6e440e;
+      
+      --cmd-text: #e6b86a;
+      --cmd-bright: #fff2cc;
+      --cmd-dim: #8c5d1e;
+      
+      /* Old School Amber Phosphor */
+      --term-amber: #ff9d00;
+      --term-amber-bright: #ffbe33;
+      --term-amber-dim: #995e00;
+      --term-amber-glow: rgba(255, 157, 0, 0.45);
+      
+      /* Aperture Terminal Highlight */
+      --aperture-blue: #ff9d00;
+      --aperture-blue-dim: #995e00;
+      --aperture-blue-glow: rgba(255, 157, 0, 0.45);
+      
+      /* Terminal Status Colors */
+      --term-green: #39ff14;
+      --term-green-dim: rgba(57, 255, 20, 0.15);
+      --term-red: #ff3b30;
+      --term-red-dim: rgba(255, 59, 48, 0.15);
+      
+      --font-cmd: "Consolas", "Lucida Console", "Cascadia Mono", "Courier New", monospace;
+    }
+
+    body[data-theme="green"] {
+      --cmd-bg: #020803;
+      --cmd-screen: #030d05;
+      --cmd-surface: #061408;
+      --cmd-border: #0e3314;
+      --cmd-border-bright: #1a5423;
+      --cmd-ascii: #39ff14;
+      --cmd-ascii-dim: #154c1f;
+      --cmd-text: #7ee889;
+      --cmd-bright: #dcffe0;
+      --cmd-dim: #2f6e39;
+      --term-amber: #39ff14;
+      --term-amber-bright: #80ff66;
+      --term-amber-dim: #1f8a2c;
+      --term-amber-glow: rgba(57, 255, 20, 0.45);
+      --aperture-blue: #39ff14;
+      --aperture-blue-dim: #1f8a2c;
+      --aperture-blue-glow: rgba(57, 255, 20, 0.45);
+    }
+
+    body[data-theme="cyan"] {
       --cmd-bg: #05080c;
       --cmd-screen: #070b10;
       --cmd-surface: #0b1118;
@@ -13,23 +67,16 @@
       --cmd-border-bright: #2d4663;
       --cmd-ascii: #00d4ff;
       --cmd-ascii-dim: #1d405a;
-      
       --cmd-text: #b8c7d9;
       --cmd-bright: #e2f1ff;
       --cmd-dim: #5c728a;
-      
-      /* Aperture Portal Cyan / Blue */
+      --term-amber: #00d4ff;
+      --term-amber-bright: #80e5ff;
+      --term-amber-dim: #0088aa;
+      --term-amber-glow: rgba(0, 212, 255, 0.4);
       --aperture-blue: #00d4ff;
       --aperture-blue-dim: #0088aa;
       --aperture-blue-glow: rgba(0, 212, 255, 0.4);
-      
-      /* Terminal Status Colors */
-      --term-green: #00ff66;
-      --term-green-dim: rgba(0, 255, 102, 0.15);
-      --term-amber: #ffaa00;
-      --term-red: #ff3344;
-      
-      --font-cmd: "Consolas", "Lucida Console", "Cascadia Mono", "Courier New", monospace;
     }
 
     * {
@@ -39,7 +86,7 @@
     }
 
     html, body {
-      background-color: #020406;
+      background-color: #030201;
       color: var(--cmd-text);
       font-family: var(--font-cmd);
       font-size: clamp(11px, 0.88vw, 13px);
@@ -53,17 +100,32 @@
 
     /* Full-Screen Unified Single Terminal Frame */
     .terminal-mainframe {
+      position: relative;
       display: flex;
       flex-direction: column;
       height: 100vh;
       width: 100vw;
-      background: radial-gradient(circle at center, rgba(0, 212, 255, 0.02) 0%, rgba(0, 0, 0, 0.7) 100%),
+      background: radial-gradient(circle at center, rgba(255, 157, 0, 0.03) 0%, rgba(0, 0, 0, 0.78) 100%),
                   repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.22) 1px, transparent 1px, transparent 2px),
                   var(--cmd-bg);
       border: 2px solid var(--cmd-border-bright);
-      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.9), 0 0 25px rgba(0, 212, 255, 0.12);
+      box-shadow: inset 0 0 45px rgba(0, 0, 0, 0.95), 0 0 30px var(--term-amber-glow);
       overflow: hidden;
       user-select: text;
+    }
+
+    /* Subtle CRT Scanline & Phosphor Pitch Overlay */
+    .terminal-mainframe::after {
+      content: " ";
+      display: block;
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.22) 50%),
+                  linear-gradient(90deg, rgba(255, 157, 0, 0.015), rgba(0, 0, 0, 0.01), rgba(255, 157, 0, 0.015));
+      z-index: 999;
+      background-size: 100% 3px, 6px 100%;
+      pointer-events: none;
+      opacity: 0.65;
     }
 
     /* Horizontal ASCII Frame Delimiters */
@@ -88,42 +150,46 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 6px 14px;
-      background: rgba(11, 17, 24, 0.85);
+      padding: 6px 16px;
+      background: var(--cmd-surface);
       border-bottom: 1px solid var(--cmd-border);
-      gap: 12px;
+      gap: 16px;
       flex-shrink: 0;
+      min-height: 114px;
     }
 
     .term-header-left {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 16px;
     }
 
     .ascii-logo {
-      color: var(--aperture-blue);
-      text-shadow: 0 0 8px var(--aperture-blue-glow);
-      font-size: 6.8px;
-      line-height: 7.2px;
+      color: var(--term-amber);
+      text-shadow: 0 0 8px var(--term-amber-glow);
+      font-family: var(--font-cmd);
+      font-size: 4.8px;
+      line-height: 5.3px;
+      letter-spacing: 0px;
       white-space: pre;
       user-select: none;
       font-weight: bold;
       margin: 0;
+      display: block;
     }
 
     .term-header-meta {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 3px;
     }
 
     .term-headline {
-      color: var(--aperture-blue);
+      color: var(--term-amber);
       font-size: 1.05rem;
       font-weight: bold;
       letter-spacing: 1px;
-      text-shadow: 0 0 6px var(--aperture-blue-glow);
+      text-shadow: 0 0 8px var(--term-amber-glow);
     }
 
     .term-subheadline {
@@ -149,7 +215,7 @@
       background: transparent;
       color: var(--cmd-bright);
       border: 1px solid var(--cmd-border-bright);
-      padding: 4px 10px;
+      padding: 5px 12px;
       font-family: var(--font-cmd);
       font-size: 0.78rem;
       cursor: pointer;
@@ -159,9 +225,9 @@
     }
 
     .term-btn:hover {
-      background: var(--aperture-blue);
+      background: var(--term-amber);
       color: #000000;
-      border-color: var(--aperture-blue);
+      border-color: var(--term-amber);
       font-weight: bold;
     }
 
@@ -178,13 +244,13 @@
     }
 
     .term-btn.blue {
-      border-color: var(--aperture-blue);
-      color: var(--aperture-blue);
-      background: rgba(0, 212, 255, 0.08);
+      border-color: var(--term-amber);
+      color: var(--term-amber);
+      background: rgba(255, 157, 0, 0.08);
     }
 
     .term-btn.blue:hover {
-      background: var(--aperture-blue);
+      background: var(--term-amber);
       color: #000000;
       font-weight: bold;
     }
@@ -192,7 +258,7 @@
     /* Main Terminal Workspace: 3 Columns Delineated by ASCII Borders */
     .term-workspace {
       display: grid;
-      grid-template-columns: 1fr auto minmax(280px, 310px) auto minmax(500px, 540px);
+      grid-template-columns: 1fr auto minmax(280px, 320px) auto minmax(500px, 540px);
       flex: 1;
       min-height: 0;
       background: var(--cmd-screen);
@@ -233,11 +299,11 @@
 
     /* Pane ASCII Title Bar */
     .pane-title-ascii {
-      background: rgba(11, 17, 24, 0.95);
+      background: var(--cmd-surface);
       border-bottom: 1px solid var(--cmd-border);
-      padding: 4px 10px;
+      padding: 4px 12px;
       font-size: 0.78rem;
-      color: var(--aperture-blue);
+      color: var(--term-amber);
       font-weight: bold;
       user-select: none;
       flex-shrink: 0;
@@ -254,10 +320,11 @@
     .console-scroll-area {
       flex: 1;
       overflow-y: auto;
-      overflow-x: auto;
-      padding: 10px 14px;
+      overflow-x: hidden;
+      padding: 12px 16px;
       display: flex;
       flex-direction: column;
+      align-items: center; /* Horizontally centers all console lines in Tile 1 */
       gap: 5px;
       font-size: 0.84rem;
       background: transparent;
@@ -267,10 +334,13 @@
       white-space: pre-wrap;
       word-break: break-word;
       line-height: 1.35;
+      width: 100%;
+      max-width: 860px; /* Constrains terminal width and centers in Tile 1 */
+      margin: 0 auto;
     }
 
     .term-prompt-line {
-      color: var(--aperture-blue);
+      color: var(--term-amber);
       font-weight: bold;
     }
 
@@ -279,7 +349,7 @@
     }
 
     .term-glados-line {
-      color: #7dd3fc;
+      color: #ffd166;
     }
 
     .term-err-line {
@@ -291,7 +361,7 @@
     }
 
     .term-voice-line {
-      color: #38bdf8;
+      color: #ffbe33;
       font-weight: bold;
     }
 
@@ -308,10 +378,11 @@
     .cmd-input-container {
       flex-shrink: 0;
       border-top: 1px solid var(--cmd-border);
-      background: rgba(11, 17, 24, 0.95);
-      padding: 6px 12px;
+      background: var(--cmd-surface);
+      padding: 6px 14px;
       display: flex;
       flex-direction: column;
+      align-items: center; /* Centers input bar component in Tile 1 */
       gap: 4px;
     }
 
@@ -319,10 +390,18 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      width: 100%;
+      max-width: 860px;
+    }
+
+    .cmd-input-container .ascii-bar {
+      width: 100%;
+      max-width: 860px;
+      text-align: center;
     }
 
     .cmd-prefix {
-      color: var(--aperture-blue);
+      color: var(--term-amber);
       font-weight: bold;
       user-select: none;
       flex-shrink: 0;
@@ -340,8 +419,8 @@
     }
 
     .cmd-input:focus {
-      border-color: var(--aperture-blue);
-      box-shadow: 0 0 6px var(--aperture-blue-glow);
+      border-color: var(--term-amber);
+      box-shadow: 0 0 8px var(--term-amber-glow);
     }
 
     /* Column 2: Directive Matrix Pane */
@@ -351,11 +430,20 @@
       border-right: 1px solid var(--cmd-border);
     }
 
+    .term-matrix-pane .pane-title-ascii {
+      justify-content: center; /* Centers title header in Tile 2 */
+      gap: 10px;
+    }
+
     .matrix-scroll-area {
       flex: 1;
       overflow-y: auto;
       overflow-x: hidden;
-      padding: 8px 10px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center; /* Centers horizontally in middle of Tile 2 */
+      justify-content: center; /* Centers vertically in middle of Tile 2 */
     }
 
     .commands-ascii {
@@ -364,20 +452,20 @@
       line-height: 1.34;
       color: var(--cmd-bright);
       white-space: pre;
-      margin: 0;
+      margin: auto auto; /* Dead-center alignment within Tile 2 */
       user-select: text;
     }
 
     .cmd-link {
       cursor: pointer;
-      color: #7dd3fc;
+      color: #ffbe33;
       font-weight: bold;
       padding: 0 2px;
       transition: color 0.1s, background 0.1s;
     }
 
     .cmd-link:hover {
-      background: var(--aperture-blue);
+      background: var(--term-amber);
       color: #000000;
       text-decoration: underline;
     }
@@ -388,18 +476,28 @@
     }
 
     .telemetry-tab-ascii {
-      background: rgba(11, 17, 24, 0.95);
+      background: var(--cmd-surface);
       border-bottom: 1px solid var(--cmd-border);
       padding: 6px 10px;
       display: flex;
       flex-direction: column;
+      align-items: center; /* Centers tab bar component in Tile 3 */
       gap: 4px;
       flex-shrink: 0;
+    }
+
+    .telemetry-tab-ascii .ascii-bar {
+      width: 100%;
+      max-width: 520px;
+      text-align: center;
     }
 
     .tab-ascii-buttons {
       display: flex;
       gap: 8px;
+      width: 100%;
+      max-width: 520px;
+      justify-content: center;
     }
 
     .term-tab-btn {
@@ -417,14 +515,14 @@
     }
 
     .term-tab-btn:hover {
-      color: var(--aperture-blue);
-      border-color: var(--aperture-blue);
+      color: var(--term-amber);
+      border-color: var(--term-amber);
     }
 
     .term-tab-btn.active {
-      border-color: var(--aperture-blue);
-      color: var(--aperture-blue);
-      background: rgba(0, 212, 255, 0.12);
+      border-color: var(--term-amber);
+      color: var(--term-amber);
+      background: rgba(255, 157, 0, 0.12);
       font-weight: bold;
     }
 
@@ -432,20 +530,29 @@
       flex: 1;
       overflow-y: auto;
       overflow-x: hidden;
-      padding: 8px 10px;
+      padding: 10px 12px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      align-items: center; /* Centers all HUD cards in Tile 3 */
+      gap: 8px;
+    }
+
+    .telemetry-scroll-area .ascii-bar {
+      width: 100%;
+      max-width: 520px;
+      text-align: center;
     }
 
     .exact-terminal-ascii {
       font-family: var(--font-cmd);
       font-size: 11px;
       line-height: 1.25;
-      color: #93c5fd;
+      color: var(--cmd-text);
       white-space: pre;
       user-select: text;
-      margin: 0;
+      margin: 0 auto;
+      width: fit-content;
+      max-width: 100%;
       background: transparent;
     }
 
@@ -457,12 +564,15 @@
       color: var(--cmd-dim);
       padding: 3px 6px;
       border: 1px solid var(--cmd-border);
-      background: rgba(11, 17, 24, 0.6);
-      margin-top: 4px;
+      background: var(--cmd-surface);
+      margin: 0 auto;
+      width: 100%;
+      max-width: 520px;
+      justify-content: center;
     }
 
     .ascii-mini-input {
-      background: #020406;
+      background: var(--cmd-screen);
       border: 1px solid var(--cmd-border);
       color: var(--cmd-bright);
       padding: 2px 6px;
@@ -472,7 +582,7 @@
     }
 
     .ascii-mini-input:focus {
-      border-color: var(--aperture-blue);
+      border-color: var(--term-amber);
       outline: none;
     }
 
@@ -488,7 +598,7 @@
       align-items: center;
       gap: 16px;
       padding: 4px 14px;
-      background: rgba(11, 17, 24, 0.95);
+      background: var(--cmd-surface);
       border-top: 1px solid var(--cmd-border);
       font-size: 0.74rem;
       color: var(--cmd-dim);
@@ -513,17 +623,27 @@
     <!-- Unified Terminal Top Header -->
     <header class="term-top-header">
       <div class="term-header-left">
-        <!-- Aperture Science Diaphragm ASCII Logo -->
-        <pre class="ascii-logo">
-         .------------.       
-  .---''    ###########  ''---.
-/###########   ######### ######\
-|########                    # #|
-|########                          #|
- \####### ####               ###/
-   \#####  ######   ###########/ 
-     '---.###########   ###.---' 
-          '------------'         </pre>
+        <!-- Aperture Science Diaphragm ASCII Logo .------------. -->
+        <pre class="ascii-logo">            .,-:;//;:=,
+        :H@@@MM@M#H/.,+%;,
+     ,/X+ +M@M@MM%=,-%HMMM@X/,
+   -+@MM; $M@MH+-,;XMMMM@MMMM@+-
+  ;@M@@M- XM@X;. -+XXXXXHHH@M@M#@/.
+ ,%MM@@MH ,@%=             .---=-=:=,.
+ =@#@@@MX .,              -%HX$$%%%+;
+=-./@M@M$                 .;@MMMM@MM:
+X@/ -$MM/                   .+MM@@M$
+,@M@H: :@:                    . =X#@@@@-
+,@@@MMX, .                    /H- ;@M@M=
+.H@@@@M@+,                    %MM+..%#$.
+/MMMM@MMH/.                  XM@MH; =;
+ /%+%$XHH@$=              , .H@@@@MX,
+   .=--------.           -%H.,@@@@@MX,
+   .%MM@@@HHHXX$$$%+-  .:$MMX =M@MMM%.
+     =XMMM@MM@MM#H;,-+HMM@M+ /MMMX=
+       =%@M@M#@$-.=$@MM@@M; %M%=
+         ,:+$+-,/H#MMMMMM@= =,
+             =++%%%%+/:-</pre>
         <div class="term-header-meta">
           <div class="term-headline">APERTURE SCIENCE COMPUTER-AIDED ENRICHMENT CENTER // MAINFRAME TERMINAL</div>
           <div class="term-subheadline">GLaDOS v3.11 Production LLM Desktop Controller &amp; Autonomous Telemetry Hub [GLADOS-WEB]</div>
@@ -706,7 +826,8 @@
       <span id="footer-tts" class="status-item">[TTS: ACTIVE]</span>
       <span id="footer-tab" class="status-item">[TAB: PC HWINFO]</span>
       <span id="footer-sync" class="status-item">[SENSORS: SYNCED]</span>
-      <span class="status-item" style="margin-left: auto;">[TERMINAL: VT100 / APERTURE-OS]</span>
+      <span id="btn-theme-cycle" class="status-item cmd-link" onclick="cycleTheme()" title="Click to cycle CRT phosphors">[PALETTE: AMBER CRT]</span>
+      <span class="status-item" style="margin-left: auto;">[TERMINAL: VT220 / APERTURE-OS]</span>
     </footer>
     <div class="ascii-bar bright">+==================================================================================================================================================================================================================+</div>
 
@@ -714,6 +835,26 @@
 
   <script>
     const API_BASE = window.location.origin;
+
+    // Retro CRT Theme Switcher (Amber CRT default, Green CRT, Aperture Cyan)
+    const THEMES = ["amber", "green", "cyan"];
+    function cycleTheme() {
+      let cur = document.body.getAttribute("data-theme") || "amber";
+      let nextIdx = (THEMES.indexOf(cur) + 1) % THEMES.length;
+      setTheme(THEMES[nextIdx]);
+    }
+    function setTheme(t) {
+      document.body.setAttribute("data-theme", t);
+      try { localStorage.setItem("glados_ui_theme", t); } catch (e) {}
+      const btn = document.getElementById("btn-theme-cycle");
+      if (btn) btn.textContent = "[PALETTE: " + t.toUpperCase() + (t === "amber" ? " CRT" : "") + "]";
+    }
+    try {
+      const savedTheme = localStorage.getItem("glados_ui_theme") || "amber";
+      setTheme(savedTheme);
+    } catch (e) {
+      setTheme("amber");
+    }
 
     let voiceRecognitionActive = false;
     let gladosVoiceActive = true;
