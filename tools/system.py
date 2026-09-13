@@ -25,6 +25,11 @@ def launch_app(app_name: str) -> Tuple[bool, str]:
         return False, "Application name cannot be empty."
 
     app_clean = app_name.strip()
+
+    # Block accidental command shell spawning from voice or LLM hallucination
+    if app_clean.lower() in ("cmd", "command", "cmd.exe", "powershell", "powershell.exe"):
+        return False, "Direct shell execution via launch_app is disabled for system safety."
+
     alias_map = {
         "calculator": "calc.exe",
         "calc": "calc.exe",
@@ -32,8 +37,6 @@ def launch_app(app_name: str) -> Tuple[bool, str]:
         "explorer": "explorer.exe",
         "file explorer": "explorer.exe",
         "terminal": "wt.exe",
-        "cmd": "cmd.exe",
-        "powershell": "powershell.exe",
         "task manager": "taskmgr.exe",
         "taskmgr": "taskmgr.exe",
         "paint": "mspaint.exe",

@@ -15,7 +15,7 @@ if %ERRORLEVEL% NEQ 0 (
     echo [!] Local LLM server at localhost:11434 is not responding.
     echo     Attempting to start Ollama in background...
     start /B ollama serve >nul 2>&1
-    timeout /t 3 /nobreak >nul
+    ping 127.0.0.1 -n 3 >nul
 )
 
 :: Launch the agent in voice mode with visual UI enabled
@@ -26,3 +26,4 @@ if %ERRORLEVEL% NEQ 0 (
     echo [!] Agent stopped with an error code.
     pause
 )
+

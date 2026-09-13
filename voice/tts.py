@@ -350,6 +350,18 @@ class TextToSpeech:
                 winmm.mciSendStringW(f"close {self._current_alias}", None, 0, 0)
                 self._current_alias = None
 
+    @property
+    def is_speaking(self) -> bool:
+        """Returns True if GLaDOS is currently speaking or has speech queued."""
+        with self._lock:
+            return self._current_alias is not None or not self._speech_queue.empty()
+
+    def wait_until_idle(self, timeout: float = 15.0) -> None:
+        """Blocks until all queued speech has completed playback."""
+        start = time.time()
+        while self.is_speaking and (time.time() - start) < timeout:
+            time.sleep(0.05)
+
 
 # Global singleton TTS engine
 tts_engine = TextToSpeech()

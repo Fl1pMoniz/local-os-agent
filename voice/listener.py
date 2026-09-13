@@ -154,6 +154,15 @@ class VoiceListener:
         buffer: list[np.ndarray] = []
         is_speaking = False
         silence_start: float | None = None
+        # Guarantee mutual acoustic exclusion: Never listen while GLaDOS is speaking
+        try:
+            from voice.tts import tts_engine
+            if tts_engine.is_speaking:
+                tts_engine.wait_until_idle()
+                time.sleep(0.3)  # Acoustic room decay cooldown
+        except Exception:
+            pass
+
         listen_start = time.time()
 
         if on_listening:
@@ -162,6 +171,19 @@ class VoiceListener:
         try:
             with sd.InputStream(samplerate=self.sample_rate, channels=1, dtype="int16") as stream:
                 while True:
+                    # Flush buffer if GLaDOS starts speaking
+                    try:
+                        from voice.tts import tts_engine
+                        if tts_engine.is_speaking:
+                            buffer.clear()
+                            is_speaking = False
+                            silence_start = None
+                            listen_start = time.time()
+                            time.sleep(0.1)
+                            continue
+                    except Exception:
+                        pass
+
                     elapsed = time.time() - listen_start
 
                     # Check overall timeout before any speech is detected
