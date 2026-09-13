@@ -40,6 +40,10 @@ class AgentConfig:
         "sleep_pc",
     )
 
+    @property
+    def voice_enabled(self) -> bool:
+        return self.enable_tts
+
     def __post_init__(self) -> None:
         self.captures_dir.mkdir(parents=True, exist_ok=True)
         self.audio_cache_dir.mkdir(parents=True, exist_ok=True)

@@ -48,6 +48,27 @@ class TestVoiceModule(unittest.TestCase):
         self.assertFalse(called)
         self.assertEqual(cmd, "")
 
+    def test_glados_lines(self):
+        from voice import GLADOS_VOICELINES, get_contextual_quip, get_glados_quote
+
+        # Quotes exist and are strings
+        boot_quote = get_glados_quote("boot")
+        self.assertIsInstance(boot_quote, str)
+        self.assertIn(boot_quote, GLADOS_VOICELINES["boot"])
+
+        # Contextual quips
+        vol_quip = get_contextual_quip("set_volume")
+        self.assertIn(vol_quip, GLADOS_VOICELINES["volume"])
+
+        game_quip = get_contextual_quip("launch_steam_game")
+        self.assertIn(game_quip, GLADOS_VOICELINES["game_launch"])
+
+        app_quip = get_contextual_quip("launch_app")
+        self.assertIn(app_quip, GLADOS_VOICELINES["app_launch"])
+
+        fail_quip = get_contextual_quip("launch_app", success=False)
+        self.assertIn("failed", fail_quip.lower())
+
 
 if __name__ == "__main__":
     unittest.main()
