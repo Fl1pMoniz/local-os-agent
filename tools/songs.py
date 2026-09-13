@@ -121,51 +121,62 @@ def stop_song() -> Tuple[bool, str]:
 def _play_song_worker(file_path: Path, song_name: str) -> None:
     """Worker thread that opens and plays the song via MCI until completion or stop."""
     global _current_song
-    winmm = ctypes.windll.winmm
-    abs_path = str(file_path.resolve())
+    try:
+        from voice.tts import tts_engine
+        tts_engine.stop()
+    except Exception:
+        pass
 
     try:
-        # Give GLaDOS's spoken intro line time to complete before musical intro begins
-        time.sleep(0.3)
-        if _stop_event.is_set():
-            return
+        from voice.audio_arbiter import GLOBAL_AUDIO_LOCK
+        with GLOBAL_AUDIO_LOCK:
+            winmm = ctypes.windll.winmm
+            abs_path = str(file_path.resolve())
 
-        # Close any lingering alias first
-        winmm.mciSendStringW(f"close {MCI_ALIAS}", None, 0, 0)
+            try:
+                # Give GLaDOS's spoken intro line time to complete before musical intro begins
+                time.sleep(0.3)
+                if _stop_event.is_set():
+                    return
 
-        open_cmd = f'open "{abs_path}" type mpegvideo alias {MCI_ALIAS}'
-        err = winmm.mciSendStringW(open_cmd, None, 0, 0)
-        if err != 0:
-            if not _stop_event.is_set():
-                logger.debug(f"MCI open returned code {err}")
-            with _lock:
-                _current_song = None
-            return
+                # Close any lingering alias first
+                winmm.mciSendStringW(f"close {MCI_ALIAS}", None, 0, 0)
 
-        play_cmd = f"play {MCI_ALIAS}"
-        winmm.mciSendStringW(play_cmd, None, 0, 0)
+                open_cmd = f'open "{abs_path}" type mpegvideo alias {MCI_ALIAS}'
+                err = winmm.mciSendStringW(open_cmd, None, 0, 0)
+                if err != 0:
+                    if not _stop_event.is_set():
+                        logger.debug(f"MCI open returned code {err}")
+                    with _lock:
+                        _current_song = None
+                    return
 
-        # Monitor playback until finished or stopped
-        status_buffer = ctypes.create_unicode_buffer(128)
-        while not _stop_event.is_set():
-            time.sleep(0.5)
-            err = winmm.mciSendStringW(f"status {MCI_ALIAS} mode", status_buffer, 128, 0)
-            mode = status_buffer.value.lower()
-            if mode != "playing" and mode != "paused":
-                break
+                play_cmd = f"play {MCI_ALIAS}"
+                winmm.mciSendStringW(play_cmd, None, 0, 0)
 
+                # Monitor playback until finished or stopped
+                status_buffer = ctypes.create_unicode_buffer(128)
+                while not _stop_event.is_set():
+                    time.sleep(0.5)
+                    err = winmm.mciSendStringW(f"status {MCI_ALIAS} mode", status_buffer, 128, 0)
+                    mode = status_buffer.value.lower()
+                    if mode != "playing" and mode != "paused":
+                        break
+
+            except Exception as e:
+                logger.exception(f"Error during song playback: {e}")
+            finally:
+                winmm.mciSendStringW(f"close {MCI_ALIAS}", None, 0, 0)
+                with _lock:
+                    if _current_song == song_name:
+                        _current_song = None
+                try:
+                    from ui.state import ui_state
+                    ui_state.update(state="idle", song="")
+                except Exception:
+                    pass
     except Exception as e:
-        logger.exception(f"Error during song playback: {e}")
-    finally:
-        winmm.mciSendStringW(f"close {MCI_ALIAS}", None, 0, 0)
-        with _lock:
-            if _current_song == song_name:
-                _current_song = None
-        try:
-            from ui.state import ui_state
-            ui_state.update(state="idle", song="")
-        except Exception:
-            pass
+        logger.debug(f"Error in song worker: {e}")
 
 
 @register_tool("sing_song", description="Plays an authentic Portal song sung by GLaDOS ('still_alive' or 'want_you_gone').")

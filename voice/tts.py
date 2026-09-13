@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from config import config
+from voice.audio_arbiter import GLOBAL_AUDIO_LOCK
 
 logger = logging.getLogger("local_os_agent.voice.tts")
 
@@ -120,6 +121,7 @@ class TextToSpeech:
 
         self._speech_queue: queue.Queue[tuple[str, threading.Event | None]] = queue.Queue()
         self._stop_event = threading.Event()
+        self._cancel_event = threading.Event()
         self._current_alias: str | None = None
         self._lock = threading.Lock()
 
@@ -164,37 +166,41 @@ class TextToSpeech:
 
     def _play_audio_native(self, file_path: Path) -> None:
         """Plays an audio file (.wav or .mp3) using Windows Multimedia API (winmm.dll) without GUI windows."""
-        alias = f"tts_{uuid.uuid4().hex[:8]}"
-        with self._lock:
-            self._current_alias = alias
-
-        winmm = ctypes.windll.winmm
-        abs_path = str(file_path.resolve())
-        is_wav = file_path.suffix.lower() == ".wav"
-        device_type = "waveaudio" if is_wav else "mpegvideo"
-
-        try:
-            # Open media device
-            open_cmd = f'open "{abs_path}" type {device_type} alias {alias}'
-            err = winmm.mciSendStringW(open_cmd, None, 0, 0)
-            if err != 0:
-                logger.warning(f"MCI open failed with code {err}")
+        with GLOBAL_AUDIO_LOCK:
+            if self._cancel_event.is_set():
                 return
 
-            # Play file synchronously in the background thread with smart audio ducking
+            alias = f"tts_{uuid.uuid4().hex[:8]}"
+            with self._lock:
+                self._current_alias = alias
+
+            winmm = ctypes.windll.winmm
+            abs_path = str(file_path.resolve())
+            is_wav = file_path.suffix.lower() == ".wav"
+            device_type = "waveaudio" if is_wav else "mpegvideo"
+
             try:
-                from tools.audio_ducking import audio_ducked
-                with audio_ducked(target_fraction=0.20):
+                # Open media device
+                open_cmd = f'open "{abs_path}" type {device_type} alias {alias}'
+                err = winmm.mciSendStringW(open_cmd, None, 0, 0)
+                if err != 0:
+                    logger.warning(f"MCI open failed with code {err}")
+                    return
+
+                # Play file synchronously in the background thread with smart audio ducking
+                try:
+                    from tools.audio_ducking import audio_ducked
+                    with audio_ducked(target_fraction=0.20):
+                        play_cmd = f"play {alias} wait"
+                        winmm.mciSendStringW(play_cmd, None, 0, 0)
+                except Exception:
                     play_cmd = f"play {alias} wait"
                     winmm.mciSendStringW(play_cmd, None, 0, 0)
-            except Exception:
-                play_cmd = f"play {alias} wait"
-                winmm.mciSendStringW(play_cmd, None, 0, 0)
-        finally:
-            winmm.mciSendStringW(f"close {alias}", None, 0, 0)
-            with self._lock:
-                if self._current_alias == alias:
-                    self._current_alias = None
+            finally:
+                winmm.mciSendStringW(f"close {alias}", None, 0, 0)
+                with self._lock:
+                    if self._current_alias == alias:
+                        self._current_alias = None
 
     def _synthesize_piper(self, text: str, output_path: Path) -> bool:
         """Synthesizes text directly using local GLaDOS Piper neural voice to WAV."""
@@ -241,23 +247,26 @@ class TextToSpeech:
 
     def _speak_offline_sapi(self, text: str) -> None:
         """Offline fallback using Windows native SAPI.SpVoice with a female voice if available."""
-        try:
-            import comtypes.client
+        with GLOBAL_AUDIO_LOCK:
+            if self._cancel_event.is_set():
+                return
+            try:
+                import comtypes.client
 
-            ctypes.windll.ole32.CoInitialize(None)
-            speaker = comtypes.client.CreateObject("SAPI.SpVoice")
+                ctypes.windll.ole32.CoInitialize(None)
+                speaker = comtypes.client.CreateObject("SAPI.SpVoice")
 
-            voices = speaker.GetVoices()
-            for i in range(voices.Count):
-                v = voices.Item(i)
-                desc = v.GetDescription().lower()
-                if "zira" in desc or "hazel" in desc or "female" in desc:
-                    speaker.Voice = v
-                    break
+                voices = speaker.GetVoices()
+                for i in range(voices.Count):
+                    v = voices.Item(i)
+                    desc = v.GetDescription().lower()
+                    if "zira" in desc or "hazel" in desc or "female" in desc:
+                        speaker.Voice = v
+                        break
 
-            speaker.Speak(text, 0)
-        except Exception as e:
-            logger.error(f"SAPI offline speech error: {e}")
+                speaker.Speak(text, 0)
+            except Exception as e:
+                logger.error(f"SAPI offline speech error: {e}")
 
     def _speech_worker(self) -> None:
         """Background worker thread that processes and speaks queued messages."""
@@ -268,14 +277,14 @@ class TextToSpeech:
                 continue
 
             text, done_event = item
-            if not text:
+            if not text or self._cancel_event.is_set():
                 if done_event:
                     done_event.set()
                 self._speech_queue.task_done()
                 continue
 
             cleaned = clean_text_for_speech(text)
-            if not cleaned:
+            if not cleaned or self._cancel_event.is_set():
                 if done_event:
                     done_event.set()
                 self._speech_queue.task_done()
@@ -287,26 +296,29 @@ class TextToSpeech:
             except Exception:
                 pass
 
+            audio_file = None
             try:
                 # 1. Primary Engine: Authentic Piper GLaDOS Neural Voice (if requested or default)
                 use_piper = self.voice in ("glados_piper", "glados") or self.preset_key == "glados"
                 piper_success = False
 
-                if use_piper and self._piper_loaded:
+                if use_piper and self._piper_loaded and not self._cancel_event.is_set():
                     audio_file = self.cache_dir / f"speech_{uuid.uuid4().hex[:8]}.wav"
                     piper_success = self._synthesize_piper(cleaned, audio_file)
-                    if piper_success:
+                    if piper_success and not self._cancel_event.is_set():
                         self._play_audio_native(audio_file)
 
                 # 2. Secondary Engine: Microsoft Edge Neural TTS
-                if not piper_success:
+                if not piper_success and not self._cancel_event.is_set():
                     audio_file = self.cache_dir / f"speech_{uuid.uuid4().hex[:8]}.mp3"
                     asyncio.run(self._synthesize_edge(cleaned, audio_file))
-                    self._play_audio_native(audio_file)
+                    if not self._cancel_event.is_set():
+                        self._play_audio_native(audio_file)
 
             except Exception as e:
-                logger.warning(f"Neural TTS failed ({e}); falling back to offline SAPI5 voice.")
-                self._speak_offline_sapi(cleaned)
+                if not self._cancel_event.is_set():
+                    logger.warning(f"Neural TTS failed ({e}); falling back to offline SAPI5 voice.")
+                    self._speak_offline_sapi(cleaned)
 
             finally:
                 # Clean up temporary cached audio file
@@ -334,6 +346,7 @@ class TextToSpeech:
         if not config.enable_tts or not text.strip():
             return
 
+        self._cancel_event.clear()
         done_event = threading.Event() if wait else None
         self._speech_queue.put((text, done_event))
 
@@ -341,20 +354,40 @@ class TextToSpeech:
             done_event.wait()
 
     def stop(self) -> None:
-        """Stops ongoing speech playback and cancels pending queue items."""
+        """Stops ongoing speech playback immediately and cancels pending queue items."""
+        self._cancel_event.set()
         while not self._speech_queue.empty():
             try:
-                self._speech_queue.get_nowait()
+                _, done_event = self._speech_queue.get_nowait()
+                if done_event:
+                    done_event.set()
                 self._speech_queue.task_done()
             except queue.Empty:
                 break
 
         with self._lock:
             if self._current_alias:
-                winmm = ctypes.windll.winmm
-                winmm.mciSendStringW(f"stop {self._current_alias}", None, 0, 0)
-                winmm.mciSendStringW(f"close {self._current_alias}", None, 0, 0)
+                try:
+                    winmm = ctypes.windll.winmm
+                    winmm.mciSendStringW(f"stop {self._current_alias}", None, 0, 0)
+                    winmm.mciSendStringW(f"close {self._current_alias}", None, 0, 0)
+                except Exception:
+                    pass
                 self._current_alias = None
+
+        # Purge any pending SAPI speech immediately
+        try:
+            import comtypes.client
+            speaker = comtypes.client.CreateObject("SAPI.SpVoice")
+            speaker.Speak("", 2)
+        except Exception:
+            pass
+
+        try:
+            from ui.state import ui_state
+            ui_state.update(state="idle")
+        except Exception:
+            pass
 
     @property
     def is_speaking(self) -> bool:

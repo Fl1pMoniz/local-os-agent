@@ -120,18 +120,30 @@ def _synthesize_soundboard_clip(entry_key: str, dest_file: pathlib.Path) -> bool
 
 
 def _play_file_with_ducking(file_path: pathlib.Path):
-    """Plays audio file with background audio ducking."""
-    with audio_ducked(target_fraction=0.15):
-        _stop_mci_soundboard()
-        short_path = ctypes.create_unicode_buffer(1024)
-        ctypes.windll.kernel32.GetShortPathNameW(str(file_path), short_path, 1024)
-        cmd_open = f'open "{short_path.value}" type mpegvideo alias {MCI_SB_ALIAS}'
-        res = winmm.mciSendStringW(cmd_open, None, 0, 0)
-        if res != 0:
-            cmd_open = f'open "{short_path.value}" alias {MCI_SB_ALIAS}'
-            winmm.mciSendStringW(cmd_open, None, 0, 0)
+    """Plays audio file with background audio ducking and global audio lock."""
+    try:
+        from voice.tts import tts_engine
+        tts_engine.stop()
+    except Exception:
+        pass
 
-        winmm.mciSendStringW(f"play {MCI_SB_ALIAS} wait", None, 0, 0)
+    try:
+        from voice.audio_arbiter import GLOBAL_AUDIO_LOCK
+        with GLOBAL_AUDIO_LOCK:
+            with audio_ducked(target_fraction=0.15):
+                _stop_mci_soundboard()
+                short_path = ctypes.create_unicode_buffer(1024)
+                ctypes.windll.kernel32.GetShortPathNameW(str(file_path), short_path, 1024)
+                cmd_open = f'open "{short_path.value}" type mpegvideo alias {MCI_SB_ALIAS}'
+                res = winmm.mciSendStringW(cmd_open, None, 0, 0)
+                if res != 0:
+                    cmd_open = f'open "{short_path.value}" alias {MCI_SB_ALIAS}'
+                    winmm.mciSendStringW(cmd_open, None, 0, 0)
+
+                winmm.mciSendStringW(f"play {MCI_SB_ALIAS} wait", None, 0, 0)
+                _stop_mci_soundboard()
+    except Exception as e:
+        logger.debug(f"Error in soundboard playback: {e}")
         _stop_mci_soundboard()
 
 

@@ -53,4 +53,8 @@ voice/models/**/*.onnx
 zimaos_credentials.json
 captures/zimaos_credentials.json
 captures/zimaos_config.json
+discord_config.json
+captures/discord_config.json
+*discord*.json
+
 

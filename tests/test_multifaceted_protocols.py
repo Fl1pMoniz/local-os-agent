@@ -2,6 +2,7 @@
 
 import unittest
 from unittest.mock import MagicMock, patch
+import os
 import pathlib
 
 from agent import OSAgent
@@ -20,12 +21,13 @@ class TestMultifacetedProtocols(unittest.TestCase):
         self.agent = OSAgent(base_url="http://mock-llm:11434/v1", model="mock-glados")
 
     # 1. Protocol 2: Replay Capture / 30-Second Clipper
+    @patch("tools.game_clipper.organize_and_label_clip", side_effect=lambda path, active_game: pathlib.Path(path))
     @patch("tools.game_clipper.os.path.getsize", return_value=15500000)
     @patch("tools.game_clipper.os.path.exists", return_value=True)
     @patch("tools.game_clipper._trigger_obs_websocket", return_value=(True, "C:\\Videos\\Portal2.mp4", "Saved"))
     @patch("tools.game_clipper._is_obs_running", return_value=True)
     @patch("tools.game_clipper._get_active_window_title", return_value="Portal 2")
-    def test_capture_game_clip(self, mock_title, mock_obs, mock_ws, mock_exists, mock_size):
+    def test_capture_game_clip(self, mock_title, mock_obs, mock_ws, mock_exists, mock_size, mock_org):
         res = capture_game_clip(seconds=30)
         self.assertTrue(res["success"])
         self.assertEqual(res["seconds"], 30)
@@ -201,6 +203,52 @@ class TestMultifacetedProtocols(unittest.TestCase):
 
         plan_water = self.agent.query_llm("I drank water")
         self.assertTrue(any(a.tool == "log_water_intake" for a in plan_water.actions))
+
+    def test_organize_and_label_clip(self):
+        from tools.game_clipper import organize_and_label_clip
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tf:
+            tf.write(b"video data")
+            temp_path = tf.name
+
+        try:
+            organized = organize_and_label_clip(temp_path, active_game="Portal 2 v1.0")
+            self.assertTrue(organized.exists())
+            self.assertIn("Portal 2", organized.name)
+            self.assertIn("Highlight", organized.name)
+            self.assertEqual(organized.suffix, ".mp4")
+        finally:
+            if os.path.exists(temp_path):
+                try:
+                    os.unlink(temp_path)
+                except OSError:
+                    pass
+            if 'organized' in locals() and organized.exists():
+                try:
+                    os.unlink(str(organized))
+                except OSError:
+                    pass
+
+    @patch("tools.discord_relay.requests.post")
+    @patch("tools.discord_relay.get_discord_webhook", return_value="https://discord.com/api/webhooks/mock/test")
+    @patch("tools.discord_relay.find_latest_clip")
+    def test_send_clip_to_discord(self, mock_find, mock_hook, mock_post):
+        mock_file = MagicMock()
+        mock_file.exists.return_value = True
+        mock_file.name = "Portal2 - Highlight.mp4"
+        mock_file.stat.return_value.st_size = 5 * 1024 * 1024
+        mock_find.return_value = mock_file
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 204
+        mock_post.return_value = mock_resp
+
+        from unittest.mock import mock_open
+        with patch("builtins.open", mock_open(read_data=b"video_bytes")):
+            from tools.discord_relay import send_clip_to_discord
+            res = send_clip_to_discord()
+            self.assertTrue(res["success"])
+            self.assertIn("Successfully uploaded", res["message"])
 
 
 if __name__ == "__main__":

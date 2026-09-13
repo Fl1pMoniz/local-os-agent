@@ -122,43 +122,54 @@ def stop_sfx() -> Tuple[bool, str]:
 
 def _play_sfx_worker(file_path: Path, name: str) -> None:
     global _current_sfx
-    winmm = ctypes.windll.winmm
-    abs_path = str(file_path.resolve())
+    try:
+        from voice.tts import tts_engine
+        tts_engine.stop()
+    except Exception:
+        pass
 
     try:
-        time.sleep(0.1)
-        if _stop_event.is_set():
-            return
+        from voice.audio_arbiter import GLOBAL_AUDIO_LOCK
+        with GLOBAL_AUDIO_LOCK:
+            winmm = ctypes.windll.winmm
+            abs_path = str(file_path.resolve())
 
-        winmm.mciSendStringW(f"close {MCI_SFX_ALIAS}", None, 0, 0)
-        open_cmd = f'open "{abs_path}" type waveaudio alias {MCI_SFX_ALIAS}'
-        err = winmm.mciSendStringW(open_cmd, None, 0, 0)
-        if err != 0:
-            with _lock:
-                _current_sfx = None
-            return
+            try:
+                time.sleep(0.1)
+                if _stop_event.is_set():
+                    return
 
-        play_cmd = f"play {MCI_SFX_ALIAS}"
-        winmm.mciSendStringW(play_cmd, None, 0, 0)
+                winmm.mciSendStringW(f"close {MCI_SFX_ALIAS}", None, 0, 0)
+                open_cmd = f'open "{abs_path}" type waveaudio alias {MCI_SFX_ALIAS}'
+                err = winmm.mciSendStringW(open_cmd, None, 0, 0)
+                if err != 0:
+                    with _lock:
+                        _current_sfx = None
+                    return
 
-        status_buffer = ctypes.create_unicode_buffer(128)
-        while not _stop_event.is_set():
-            time.sleep(0.3)
-            winmm.mciSendStringW(f"status {MCI_SFX_ALIAS} mode", status_buffer, 128, 0)
-            if status_buffer.value.lower() not in ("playing", "paused"):
-                break
+                play_cmd = f"play {MCI_SFX_ALIAS}"
+                winmm.mciSendStringW(play_cmd, None, 0, 0)
+
+                status_buffer = ctypes.create_unicode_buffer(128)
+                while not _stop_event.is_set():
+                    time.sleep(0.3)
+                    winmm.mciSendStringW(f"status {MCI_SFX_ALIAS} mode", status_buffer, 128, 0)
+                    if status_buffer.value.lower() not in ("playing", "paused"):
+                        break
+            except Exception as e:
+                logger.debug(f"SFX error: {e}")
+            finally:
+                winmm.mciSendStringW(f"close {MCI_SFX_ALIAS}", None, 0, 0)
+                with _lock:
+                    if _current_sfx == name:
+                        _current_sfx = None
+                try:
+                    from ui.state import ui_state
+                    ui_state.update(state="idle")
+                except Exception:
+                    pass
     except Exception as e:
-        logger.debug(f"SFX error: {e}")
-    finally:
-        winmm.mciSendStringW(f"close {MCI_SFX_ALIAS}", None, 0, 0)
-        with _lock:
-            if _current_sfx == name:
-                _current_sfx = None
-        try:
-            from ui.state import ui_state
-            ui_state.update(state="idle")
-        except Exception:
-            pass
+        logger.debug(f"Error in sfx worker: {e}")
 
 
 @register_tool("play_portal_sfx", description="Plays authentic Portal sound effects: 'radio' (Brazilian samba loop), 'turret_hello', 'turret_target', 'turret_lost', or 'turret_goodnight'.")

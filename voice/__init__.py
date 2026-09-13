@@ -3,6 +3,9 @@
 from typing import Any
 
 
+from voice.audio_arbiter import GLOBAL_AUDIO_LOCK, stop_all_audio
+
+
 def speak(text: str, wait: bool = False) -> None:
     """Convenience helper to speak text using the global TTS engine. No-op if TTS or voice is disabled."""
     from config import config
@@ -34,9 +37,12 @@ __all__ = [
     "VoiceListener",
     "tts_engine",
     "speak",
+    "stop_all_audio",
+    "GLOBAL_AUDIO_LOCK",
     "clean_text_for_speech",
     "extract_wake_word_command",
     "get_glados_quote",
     "get_contextual_quip",
     "GLADOS_VOICELINES",
 ]
+

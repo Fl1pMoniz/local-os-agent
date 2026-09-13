@@ -10,6 +10,8 @@ import logging
 import os
 import pathlib
 import random
+import re
+import shutil
 import subprocess
 import time
 from typing import Any
@@ -111,25 +113,26 @@ def _load_obs_websocket_config() -> tuple[int, str, bool]:
 
 
 def _launch_obs_process() -> bool:
-    """Launches OBS Studio via Steam URI or direct binary execution."""
+    """Launches OBS Studio minimized to tray with Replay Buffer automatically primed."""
     exe_path = _find_obs_executable()
-    # If Steam version, launch via Steam protocol for proper runtime context
-    if exe_path and "steam" in str(exe_path).lower():
-        try:
-            subprocess.Popen(["cmd.exe", "/c", "start", "steam://rungameid/1905180"], shell=True)
-            return True
-        except Exception as e:
-            logger.debug(f"Failed to launch via Steam protocol: {e}")
-
     if exe_path and exe_path.exists():
         try:
             subprocess.Popen(
                 [str(exe_path), "--startreplaybuffer", "--minimize-to-tray"],
                 cwd=str(exe_path.parent)
             )
+            logger.info("Launched OBS Studio binary with --startreplaybuffer --minimize-to-tray.")
             return True
         except Exception as e:
-            logger.error(f"Failed to launch OBS binary directly: {e}")
+            logger.warning(f"Failed to launch OBS binary directly: {e}")
+
+    # Fallback to Steam protocol
+    try:
+        subprocess.Popen(["cmd.exe", "/c", "start", "steam://rungameid/1905180"], shell=True)
+        logger.info("Launched OBS Studio via Steam protocol URI.")
+        return True
+    except Exception as e:
+        logger.debug(f"Failed to launch via Steam protocol: {e}")
 
     return False
 
@@ -268,6 +271,47 @@ def find_latest_clip(max_age_seconds: int = 45) -> pathlib.Path | None:
     return newest_file
 
 
+def organize_and_label_clip(source_path: str | pathlib.Path, active_game: str = "Active Game") -> pathlib.Path:
+    """
+    Organizes and renames raw replay clips into a unified, clean directory:
+    e.g. C:\\Users\\<user>\\Videos\\Captures\\[Clean Game Name] - Highlight YYYY_MM_DD_HH_MM_SS.mp4
+    """
+    src = pathlib.Path(source_path)
+    if not src.exists():
+        return src
+
+    dest_dir = pathlib.Path(os.path.expanduser("~")) / "Videos" / "Captures"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    # Sanitize game title for Windows filename
+    clean_title = re.sub(r'[\/:*?"<>|]', '', active_game)
+    clean_title = re.sub(r'\s*(?:v\d[\d\.]*|\(.*?\)|\[.*?\])', '', clean_title).strip()
+    if not clean_title or clean_title.lower() in ("desktop", "active game", "unknown application", "active application"):
+        clean_title = "PC Highlight"
+
+    # Extract or generate timestamp
+    match = re.search(r'(\d{4}[-_]\d{2}[-_]\d{2}[-_ ]\d{2}[-_]\d{2}[-_]\d{2})', src.name)
+    if match:
+        ts_str = match.group(1).replace("-", "_").replace(" ", "_")
+    else:
+        ts_str = time.strftime("%Y_%m_%d_%H_%M_%S")
+
+    ext = src.suffix or ".mp4"
+    dest_file = dest_dir / f"{clean_title} - Highlight {ts_str}{ext}"
+
+    if src.resolve() == dest_file.resolve():
+        return dest_file
+
+    try:
+        import shutil
+        shutil.move(str(src), str(dest_file))
+        logger.info(f"Organized clip '{src.name}' -> '{dest_file.name}' in {dest_dir}")
+        return dest_file
+    except Exception as e:
+        logger.warning(f"Could not organize clip to {dest_dir}: {e}")
+        return src
+
+
 def format_clip_card(
     game_title: str,
     file_path: str,
@@ -353,6 +397,13 @@ def capture_game_clip(seconds: int = 30) -> dict[str, Any]:
             "quip": "Highlight capture failed. No video was saved to disk.",
             "message": f"Highlight capture failed: {ws_msg}"
         }
+
+    # Automatically organize and label clip into Videos/Captures
+    try:
+        organized_file = organize_and_label_clip(saved_path_str, active_game=active_game)
+        saved_path_str = str(organized_file)
+    except Exception as e:
+        logger.warning(f"Failed organizing clip: {e}")
 
     file_size = 0.0
     try:

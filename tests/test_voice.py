@@ -98,6 +98,28 @@ class TestVoiceModule(unittest.TestCase):
             self.assertLess(allocated_mb, 1024)
 
 
+    def test_audio_mutual_exclusion(self):
+        from voice.audio_arbiter import GLOBAL_AUDIO_LOCK, stop_all_audio
+        from voice.tts import tts_engine
+        import threading
+
+        # 1. Verify global lock is available and re-entrant
+        self.assertIsNotNone(GLOBAL_AUDIO_LOCK)
+        with GLOBAL_AUDIO_LOCK:
+            with GLOBAL_AUDIO_LOCK:
+                pass
+
+        # 2. Queue speech and verify stop_all_audio clears queue immediately
+        tts_engine._speech_queue.put(("Test message 1", threading.Event()))
+        tts_engine._speech_queue.put(("Test message 2", threading.Event()))
+        self.assertFalse(tts_engine._speech_queue.empty())
+
+        stop_all_audio()
+        self.assertTrue(tts_engine._speech_queue.empty())
+        self.assertTrue(tts_engine._cancel_event.is_set())
+
+
 if __name__ == "__main__":
     unittest.main()
+
 

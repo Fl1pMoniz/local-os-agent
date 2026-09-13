@@ -47,6 +47,11 @@ def start_voice_listener() -> tuple[bool, str]:
                 is_called, cmd = extract_wake_word_command(text)
                 if is_called or not config.require_wake_word:
                     cmd_to_run = cmd if is_called and cmd else text
+                    try:
+                        from voice.audio_arbiter import stop_all_audio
+                        stop_all_audio()
+                    except Exception:
+                        pass
                     ui_state.update(state="thinking", thought=f"Audio command received: {cmd_to_run}")
                     plan, results = agent.run(cmd_to_run)
                     resp_text = plan.response or plan.thought or "Directive executed."
@@ -85,7 +90,8 @@ def start_voice_listener() -> tuple[bool, str]:
                         from tools.flight import get_tracked_flight
                         ui_state.update(tracked_flight=get_tracked_flight())
 
-                    if plan.response and config.enable_tts:
+                    has_audio_tool = any(r.tool in ("play_soundboard", "sing_song", "play_portal_sfx") for r in results)
+                    if plan.response and config.enable_tts and not has_audio_tool:
                         ui_state.update(state="speaking", text=plan.response)
                         speak(plan.response, wait=True)
                     else:
@@ -689,13 +695,19 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                         elif p_lower in ("cls", "clear"):
                             response_data = {"success": True, "command": user_prompt, "output": "", "clear": True}
                         else:
+                            try:
+                                from voice.audio_arbiter import stop_all_audio
+                                stop_all_audio()
+                            except Exception:
+                                pass
                             ui_state.update(state="thinking", thought=f"Executing: {user_prompt}")
                             from agent import OSAgent
                             agent = OSAgent()
                             plan, results = agent.run(user_prompt)
                             resp_text = plan.response or plan.thought or "Directive executed."
-                            ui_state.update(state="speaking" if config.enable_tts else "idle", text=resp_text)
-                            if config.enable_tts and plan.response:
+                            has_audio_tool = any(r.tool in ("play_soundboard", "sing_song", "play_portal_sfx") for r in results)
+                            ui_state.update(state="speaking" if (config.enable_tts and not has_audio_tool) else "idle", text=resp_text)
+                            if config.enable_tts and plan.response and not has_audio_tool:
                                 from voice import speak
                                 speak(plan.response)
                             lines = []

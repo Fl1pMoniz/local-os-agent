@@ -126,6 +126,12 @@ def run_diagnostic() -> None:
 
 def execute_and_display(agent: OSAgent, prompt: str, interactive: bool = False, source: str = "cli") -> None:
     """Run a prompt through the agent and format execution results."""
+    try:
+        from voice.audio_arbiter import stop_all_audio
+        stop_all_audio()
+    except Exception:
+        pass
+
     print(f"\n[User Query]: {prompt}")
     print("Thinking...")
 
@@ -139,6 +145,8 @@ def execute_and_display(agent: OSAgent, prompt: str, interactive: bool = False, 
         plan = agent.query_llm(prompt)
         print(f"\n[Agent Thought]: {plan.thought}")
 
+        has_audio_tool = any(a.tool in ("play_soundboard", "sing_song", "play_portal_sfx") for a in plan.actions)
+
         if plan.response:
             print(f"\n[GLaDOS]: \"{plan.response}\"")
             try:
@@ -146,7 +154,7 @@ def execute_and_display(agent: OSAgent, prompt: str, interactive: bool = False, 
                 ui_state.update(state="speaking", text=plan.response)
             except Exception:
                 pass
-            if config.voice_enabled:
+            if config.voice_enabled and not has_audio_tool:
                 from voice import speak
                 speak(plan.response, wait=True)
                 time.sleep(0.35)  # Acoustic room decay cooldown
@@ -269,6 +277,11 @@ def interactive_voice_loop(agent: OSAgent) -> None:
 
             def on_speech():
                 try:
+                    from voice.audio_arbiter import stop_all_audio
+                    stop_all_audio()
+                except Exception:
+                    pass
+                try:
                     from ui.state import ui_state
                     ui_state.update(state="thinking", thought="Audio signal detected, processing...")
                 except Exception:
@@ -310,6 +323,11 @@ def interactive_voice_loop(agent: OSAgent) -> None:
                 print("  -> Awaiting directive...")
                 followup = listener.listen_command(timeout=8.0)
                 if followup:
+                    try:
+                        from voice.audio_arbiter import stop_all_audio
+                        stop_all_audio()
+                    except Exception:
+                        pass
                     print(f"\n[Command]: \"{followup}\"")
                     command_to_run = followup
                 else:
@@ -600,9 +618,23 @@ def main() -> None:
         return
 
     prompt = args.prompt or (" ".join(args.query).strip() if args.query else None)
+    is_web_mode = (prompt and prompt.lower() in ("web", "ui", "console", "dashboard")) or (args.ui and not prompt)
+
+    # Enforce single-instance execution for persistent modes (web console, voice listener, or interactive CLI)
+    if not args.cli_mode and (is_web_mode or args.voice or not prompt):
+        if not acquire_single_instance_lock():
+            sys.exit(0)
+
+    # Ensure OBS Studio Replay Buffer is primed in background for instant clipping across all modes
+    try:
+        import threading
+        from tools.game_clipper import ensure_obs_replay_buffer
+        threading.Thread(target=ensure_obs_replay_buffer, daemon=True).start()
+    except Exception:
+        pass
 
     # Launch standalone web console if requested via 'web'/'ui' or --web/--ui flag
-    if (prompt and prompt.lower() in ("web", "ui", "console", "dashboard")) or (args.ui and not prompt):
+    if is_web_mode:
         from ui.server import start_ui_server
         print("[*] Starting Aperture Science GLaDOS Web Console at http://127.0.0.1:5000...")
         start_ui_server(port=5000, open_browser=True)
@@ -619,10 +651,6 @@ def main() -> None:
         from ui.server import start_ui_server
         start_ui_server(port=5000, open_browser=True)
 
-    # Enforce single-instance execution for voice and interactive modes (unless pure text CLI mode)
-    if not args.cli_mode and (args.voice or not prompt) and not acquire_single_instance_lock():
-        sys.exit(0)
-
     enable_voice = not args.no_tts and not args.cli_mode
     agent = OSAgent(base_url=args.base_url, model=args.model, enable_voice=enable_voice)
 
@@ -631,14 +659,6 @@ def main() -> None:
         from tools.flight import get_tracked_flight, ensure_flight_auto_updater
         if get_tracked_flight():
             ensure_flight_auto_updater()
-    except Exception:
-        pass
-
-    # Ensure OBS Studio Replay Buffer is primed in background for instant clipping
-    try:
-        import threading
-        from tools.game_clipper import ensure_obs_replay_buffer
-        threading.Thread(target=ensure_obs_replay_buffer, daemon=True).start()
     except Exception:
         pass
 

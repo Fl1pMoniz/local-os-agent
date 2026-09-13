@@ -89,7 +89,11 @@ def send_clip_to_discord(clip_path: str | None = None, caption: str | None = Non
             )
         }
 
-    target_file = pathlib.Path(clip_path) if clip_path else find_latest_clip(max_age_seconds=300)
+    target_file = pathlib.Path(clip_path) if clip_path else find_latest_clip(max_age_seconds=600)
+    if not target_file or not target_file.exists():
+        # Fallback to any recent clip in the last 24 hours
+        target_file = find_latest_clip(max_age_seconds=86400)
+
     if not target_file or not target_file.exists():
         return {
             "success": False,
@@ -99,7 +103,7 @@ def send_clip_to_discord(clip_path: str | None = None, caption: str | None = Non
     game_name = _get_active_window_title()
     file_size_mb = target_file.stat().st_size / (1024 * 1024)
 
-    # Discord standard free webhook limit is 10-25MB. Check file size
+    # Discord standard webhook limit is 25MB
     if file_size_mb > 25.0:
         return {
             "success": False,
@@ -111,8 +115,11 @@ def send_clip_to_discord(clip_path: str | None = None, caption: str | None = Non
     try:
         with open(target_file, "rb") as f:
             files = {"file": (target_file.name, f, "video/mp4")}
-            payload = {"content": message_content, "username": "GLaDOS Core Relay"}
-            resp = requests.post(hook_url, data=payload, files=files, timeout=20)
+            payload = {
+                "content": message_content,
+                "username": "GLaDOS Replay Relay",
+            }
+            resp = requests.post(hook_url, data=payload, files=files, timeout=60)
 
         if resp.status_code in (200, 204):
             card = format_discord_card(
@@ -123,8 +130,9 @@ def send_clip_to_discord(clip_path: str | None = None, caption: str | None = Non
             return {
                 "success": True,
                 "file": target_file.name,
+                "file_size_mb": round(file_size_mb, 1),
                 "terminal_card": card,
-                "message": f"Successfully uploaded highlight '{target_file.name}' to Discord."
+                "message": f"Successfully uploaded highlight '{target_file.name}' ({file_size_mb:.1f} MB) to Discord."
             }
         else:
             return {
