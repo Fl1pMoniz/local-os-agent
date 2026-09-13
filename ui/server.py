@@ -11,11 +11,103 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+import time
+from config import config
 from ui.state import ui_state
 
 logger = logging.getLogger("local_os_agent.ui.server")
 UI_DIR = Path(__file__).resolve().parent
 PORT = int(os.getenv("PORT", "5000"))
+
+_voice_thread = None
+_voice_thread_running = False
+
+
+def start_voice_listener() -> tuple[bool, str]:
+    """Starts local microphone voice recognition loop in a daemon thread."""
+    global _voice_thread, _voice_thread_running
+    if _voice_thread_running:
+        return True, "Voice recognition is already active."
+    _voice_thread_running = True
+    config.voice_recognition_enabled = True
+    ui_state.update(voice_recognition=True)
+
+    def _loop():
+        try:
+            from voice import VoiceListener, extract_wake_word_command, speak
+            from agent import OSAgent
+            agent = OSAgent()
+            listener = VoiceListener()
+            listener.calibrate_ambient_noise(duration=0.5)
+            while _voice_thread_running:
+                ui_state.update(state="listening")
+                text = listener.listen_command(timeout=8.0)
+                if not text or not _voice_thread_running:
+                    continue
+                is_called, cmd = extract_wake_word_command(text)
+                if is_called or not config.require_wake_word:
+                    cmd_to_run = cmd if is_called and cmd else text
+                    ui_state.update(state="thinking", thought=f"Audio command received: {cmd_to_run}")
+                    plan, results = agent.run(cmd_to_run)
+                    resp_text = plan.response or plan.thought or "Directive executed."
+
+                    lines = []
+                    if resp_text:
+                        lines.append(f"[GLaDOS]: \"{resp_text}\"")
+                    for r in results:
+                        icon = "+" if r.success else "x"
+                        lines.append(f"  [{icon}] {r.tool}: {r.message}")
+                        if isinstance(r.data, dict) and "full_terminal_card" in r.data:
+                            lines.append(r.data["full_terminal_card"])
+                        elif isinstance(r.data, dict) and "hud_card" in r.data:
+                            lines.append(r.data["hud_card"])
+
+                    output_str = "\n".join(lines) if lines else resp_text
+
+                    # Broadcast terminal execution event to glados-web terminal
+                    ui_state.record_terminal_event(
+                        source="voice",
+                        command=cmd_to_run,
+                        output=output_str,
+                        response=resp_text,
+                        tools=[{"tool": r.tool, "success": r.success, "message": r.message} for r in results],
+                    )
+
+                    # Update telemetry cards in web UI if query was sensor/radar related
+                    cmd_lower = cmd_to_run.lower()
+                    if any(w in cmd_lower for w in ("hardware", "hw", "pc", "temp", "component")):
+                        from tools.system import get_hardware_telemetry
+                        ui_state.update(hardware_telemetry=get_hardware_telemetry(), active_telemetry_tab="pc")
+                    elif any(w in cmd_lower for w in ("zima", "zimaos", "server")):
+                        from tools.zimaos import get_zimaos_telemetry
+                        ui_state.update(zimaos_telemetry=get_zimaos_telemetry(), active_telemetry_tab="zimaos")
+                    elif any(w in cmd_lower for w in ("flight", "radar", "track")):
+                        from tools.flight import get_tracked_flight
+                        ui_state.update(tracked_flight=get_tracked_flight())
+
+                    if plan.response and config.enable_tts:
+                        ui_state.update(state="speaking", text=plan.response)
+                        speak(plan.response, wait=True)
+                    else:
+                        ui_state.update(state="idle")
+                time.sleep(0.2)
+        except Exception as e:
+            logger.debug(f"Voice listener thread exception: {e}")
+        finally:
+            ui_state.update(state="idle", voice_recognition=False)
+
+    _voice_thread = threading.Thread(target=_loop, daemon=True)
+    _voice_thread.start()
+    return True, "Voice recognition activated."
+
+
+def stop_voice_listener() -> tuple[bool, str]:
+    """Stops the local microphone voice recognition loop."""
+    global _voice_thread_running
+    _voice_thread_running = False
+    config.voice_recognition_enabled = False
+    ui_state.update(voice_recognition=False, state="idle")
+    return True, "Voice recognition deactivated."
 
 
 class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
@@ -78,6 +170,45 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(state_data).encode("utf-8"))
             return
 
+        elif parsed.path == "/api/telemetry":
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            try:
+                from tools.system import get_hardware_telemetry
+                from tools.zimaos import get_zimaos_telemetry
+                from tools.flight import get_tracked_flight
+                hw = get_hardware_telemetry()
+                zima = get_zimaos_telemetry()
+                flight = get_tracked_flight()
+                ui_state.update(hardware_telemetry=hw, zimaos_telemetry=zima, tracked_flight=flight)
+                payload = {
+                    "success": True,
+                    "hardware": hw,
+                    "zimaos": zima,
+                    "flight": flight,
+                    "active_tab": ui_state.active_telemetry_tab,
+                    "voice_recognition": ui_state.voice_recognition,
+                    "glados_voice": config.enable_tts,
+                    "terminal_events": list(ui_state.terminal_events),
+                }
+            except Exception as e:
+                payload = {"success": False, "error": str(e)}
+            self.wfile.write(json.dumps(payload).encode("utf-8"))
+            return
+
+        elif parsed.path == "/api/voice_control":
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "voice_recognition": ui_state.voice_recognition,
+                "glados_voice": config.enable_tts,
+            }).encode("utf-8"))
+            return
+
         elif parsed.path == "/api/events":
             # Server-Sent Events stream
             self.send_response(HTTPStatus.OK)
@@ -115,6 +246,40 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
 
+        if parsed.path == "/api/voice_control":
+            content_len = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_len).decode("utf-8")
+            try:
+                payload = json.loads(body) if body else {}
+                if "voice_recognition" in payload:
+                    vr_val = bool(payload["voice_recognition"])
+                    if vr_val:
+                        start_voice_listener()
+                    else:
+                        stop_voice_listener()
+                if "glados_voice" in payload:
+                    gv_val = bool(payload["glados_voice"])
+                    config.enable_tts = gv_val
+                    ui_state.update(glados_voice=gv_val)
+
+                resp = {
+                    "success": True,
+                    "voice_recognition": ui_state.voice_recognition,
+                    "glados_voice": config.enable_tts,
+                }
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps(resp).encode("utf-8"))
+            except Exception as e:
+                self.send_response(HTTPStatus.BAD_REQUEST)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode("utf-8"))
+            return
+
         if parsed.path == "/api/action":
             content_len = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(content_len).decode("utf-8")
@@ -124,7 +289,52 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
 
                 response_data = {"success": True, "message": "OK"}
 
-                if action == "sing":
+                if action in ("toggle_voice_recognition", "toggle_voice"):
+                    if ui_state.voice_recognition:
+                        stop_voice_listener()
+                    else:
+                        start_voice_listener()
+                    response_data = {
+                        "success": True,
+                        "voice_recognition": ui_state.voice_recognition,
+                        "message": f"Voice recognition {'activated' if ui_state.voice_recognition else 'deactivated'}.",
+                    }
+
+                elif action in ("toggle_tts", "toggle_glados_voice"):
+                    config.enable_tts = not config.enable_tts
+                    ui_state.update(glados_voice=config.enable_tts)
+                    response_data = {
+                        "success": True,
+                        "glados_voice": config.enable_tts,
+                        "message": f"GLaDOS speech audio output {'enabled' if config.enable_tts else 'inhibited'}.",
+                    }
+
+                elif action == "set_active_telemetry_tab":
+                    tab = payload.get("tab", "pc").lower()
+                    if tab not in ("pc", "zimaos"):
+                        tab = "pc"
+                    ui_state.update(active_telemetry_tab=tab)
+                    response_data = {"success": True, "active_tab": tab}
+
+                elif action == "get_telemetry":
+                    from tools.system import get_hardware_telemetry
+                    from tools.zimaos import get_zimaos_telemetry
+                    from tools.flight import get_tracked_flight
+                    hw = get_hardware_telemetry()
+                    zima = get_zimaos_telemetry()
+                    flight = get_tracked_flight()
+                    ui_state.update(hardware_telemetry=hw, zimaos_telemetry=zima, tracked_flight=flight)
+                    response_data = {
+                        "success": True,
+                        "hardware": hw,
+                        "zimaos": zima,
+                        "flight": flight,
+                        "active_tab": ui_state.active_telemetry_tab,
+                        "voice_recognition": ui_state.voice_recognition,
+                        "glados_voice": config.enable_tts,
+                    }
+
+                elif action == "sing":
                     song_name = payload.get("song", "still_alive")
                     from tools.songs import sing_song
                     success, msg = sing_song(song_name)
@@ -210,6 +420,13 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                     success, msg = open_zimaos_dashboard()
                     response_data = {"success": success, "message": msg}
 
+                elif action in ("open_zimaos_ssh", "launch_zimaos_ssh", "zimaos_ssh", "server_ssh", "ssh"):
+                    from tools.zimaos import open_zimaos_ssh
+                    user = payload.get("user") or payload.get("ssh_user")
+                    port = payload.get("port")
+                    success, msg = open_zimaos_ssh(ssh_user=user, port=port)
+                    response_data = {"success": success, "message": msg}
+
                 elif action == "add_zima_app":
                     from tools.zimaos import add_custom_zima_app
                     name = payload.get("name", "")
@@ -229,8 +446,56 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                     apps = get_custom_zima_apps()
                     response_data = {"success": True, "apps": apps}
 
+                elif action == "get_zima_host":
+                    from tools.zimaos import get_zimaos_host
+                    host = get_zimaos_host()
+                    response_data = {"success": True, "host": host}
+
+                elif action == "set_zima_host":
+                    from tools.zimaos import set_zimaos_host
+                    new_host = payload.get("host", "")
+                    success, msg = set_zimaos_host(new_host)
+                    response_data = {"success": success, "message": msg, "host": payload.get("host", "")}
+
+                elif action in ("clip_that", "clip", "capture_clip"):
+                    from tools.game_clipper import capture_game_clip
+                    secs = int(payload.get("seconds", 30))
+                    res = capture_game_clip(seconds=secs)
+                    response_data = {"success": True, "clip": res, "message": res.get("message", "Clip saved.")}
+
+                elif action in ("list_clips", "clips"):
+                    from tools.game_clipper import list_recent_clips
+                    res = list_recent_clips()
+                    response_data = {"success": True, "clips": res}
+
+                elif action == "soundboard":
+                    from tools.soundboard import play_soundboard
+                    clip_q = payload.get("clip") or payload.get("name") or "lemons"
+                    res = play_soundboard(clip_q)
+                    response_data = res
+
+                elif action in ("wellness", "subject_status"):
+                    from tools.subject_wellness import check_subject_status
+                    res = check_subject_status()
+                    response_data = res
+
+                elif action in ("water", "log_water"):
+                    from tools.subject_wellness import log_water_intake
+                    ml = int(payload.get("ml", 250))
+                    res = log_water_intake(ml)
+                    response_data = res
+
+                elif action in ("analyze_screen", "look", "inspect"):
+                    from tools.vision import analyze_screen
+                    prompt_txt = payload.get("prompt", "Inspect screen")
+                    res = analyze_screen(prompt_txt)
+                    response_data = res
+
                 elif action == "get_tracked_flight":
-                    f_data = ui_state.get_state().get("tracked_flight")
+                    from tools.flight import get_tracked_flight, ensure_flight_auto_updater
+                    f_data = get_tracked_flight()
+                    if f_data:
+                        ensure_flight_auto_updater()
                     response_data = {"success": bool(f_data), "flight": f_data}
 
                 elif action == "volume_relative":
@@ -259,23 +524,198 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                     response_data = {"success": success, "message": msg}
 
                 elif action == "prompt":
-                    user_prompt = payload.get("prompt", "")
+                    user_prompt = payload.get("prompt", "").strip()
                     if user_prompt:
-                        def _run_prompt(p: str):
-                            try:
-                                ui_state.update(state="thinking", thought="Processing user input...")
-                                from agent import OSAgent
-                                agent = OSAgent()
-                                plan, results = agent.run(p)
-                                if plan.response:
-                                    from voice import speak
-                                    speak(plan.response)
-                            except Exception as err:
-                                logger.error(f"Error processing web prompt: {err}")
-                                ui_state.update(state="idle")
-
-                        threading.Thread(target=_run_prompt, args=(user_prompt,), daemon=True).start()
-                        response_data = {"success": True, "message": "Command dispatched to agent."}
+                        p_lower = user_prompt.lower()
+                        if p_lower in ("hw", "stats", "hardware", "components", "hw live", "monitor", "monitor live", "ai stats", "glados stats", "ai", "tokens", "ai telemetry"):
+                            from tools.system import get_hardware_telemetry
+                            hw = get_hardware_telemetry()
+                            card = hw.get("full_terminal_card") or hw.get("hud_card", "")
+                            ui_state.update(hardware_telemetry=hw, active_telemetry_tab="pc")
+                            response_data = {
+                                "success": True,
+                                "command": user_prompt,
+                                "output": card,
+                                "message": "Host hardware telemetry synchronized.",
+                                "telemetry": {"hardware": hw, "active_tab": "pc"},
+                            }
+                        elif p_lower in ("server ssh", "zima ssh", "ssh", "open ssh", "ssh server"):
+                            from tools.zimaos import open_zimaos_ssh
+                            success, msg = open_zimaos_ssh()
+                            response_data = {
+                                "success": success,
+                                "command": user_prompt,
+                                "output": f"[+] {msg}" if success else f"[-] {msg}",
+                                "message": msg,
+                            }
+                        elif p_lower in ("zima", "zimaos", "zima live", "zima status", "zima hud", "server", "server status", "server hud", "server info"):
+                            from tools.zimaos import get_zimaos_telemetry
+                            zima = get_zimaos_telemetry()
+                            card = zima.get("full_terminal_card") or zima.get("hud_card", "")
+                            ui_state.update(zimaos_telemetry=zima, active_telemetry_tab="zimaos")
+                            response_data = {
+                                "success": True,
+                                "command": user_prompt,
+                                "output": card,
+                                "message": "ZimaOS remote telemetry synchronized.",
+                                "telemetry": {"zimaos": zima, "active_tab": "zimaos"},
+                            }
+                        elif p_lower.startswith("zima ip ") or p_lower.startswith("zima host ") or p_lower.startswith("server ip ") or p_lower.startswith("server host "):
+                            new_host = user_prompt.split(maxsplit=2)[-1].strip()
+                            from tools.zimaos import set_zimaos_host, get_zimaos_telemetry
+                            success, msg = set_zimaos_host(new_host)
+                            zima = get_zimaos_telemetry()
+                            ui_state.update(zimaos_telemetry=zima)
+                            response_data = {
+                                "success": success,
+                                "command": user_prompt,
+                                "output": msg,
+                                "message": msg,
+                                "telemetry": {"zimaos": zima},
+                            }
+                        elif p_lower.startswith("flight ") or p_lower.startswith("track ") or p_lower in ("flight", "radar", "tracked"):
+                            parts = user_prompt.split(maxsplit=1)
+                            callsign = parts[1].strip() if len(parts) > 1 else ""
+                            if callsign:
+                                from tools.flight import track_flight, get_tracked_flight
+                                success, msg = track_flight(callsign, open_browser=False)
+                                flight = get_tracked_flight()
+                            else:
+                                from tools.flight import get_tracked_flight
+                                flight = get_tracked_flight()
+                                msg = "Active radar lock retrieved." if flight else "No flight currently tracked."
+                            card = (flight.get("full_terminal_card") or flight.get("hud_card", "")) if flight else msg
+                            ui_state.update(tracked_flight=flight)
+                            response_data = {
+                                "success": True,
+                                "command": user_prompt,
+                                "output": card,
+                                "message": msg,
+                                "telemetry": {"flight": flight},
+                            }
+                        elif p_lower in ("clip", "clip that", "clip 30", "record that"):
+                            from tools.game_clipper import capture_game_clip
+                            res = capture_game_clip(30)
+                            card = res.get("terminal_card", "")
+                            quip = res.get("quip", "")
+                            output_text = f"{card}\n[GLaDOS]: \"{quip}\"" if card else f"[+] {res.get('message')}"
+                            response_data = {
+                                "success": True,
+                                "command": user_prompt,
+                                "output": output_text,
+                                "message": res.get("message", "Clip saved."),
+                            }
+                        elif p_lower in ("clips", "recent clips", "list clips"):
+                            from tools.game_clipper import list_recent_clips
+                            res = list_recent_clips()
+                            response_data = {
+                                "success": True,
+                                "command": user_prompt,
+                                "output": res.get("terminal_card", ""),
+                                "message": "Archived highlights retrieved.",
+                            }
+                        elif p_lower in ("wellness", "subject", "subject status", "biometrics"):
+                            from tools.subject_wellness import check_subject_status
+                            res = check_subject_status()
+                            response_data = {
+                                "success": True,
+                                "command": user_prompt,
+                                "output": res.get("terminal_card", ""),
+                                "message": res.get("message", ""),
+                            }
+                        elif p_lower in ("water", "log water", "drink water"):
+                            from tools.subject_wellness import log_water_intake
+                            res = log_water_intake()
+                            response_data = {
+                                "success": True,
+                                "command": user_prompt,
+                                "output": f"[GLaDOS]: \"{res.get('message')}\"",
+                                "message": res.get("message", ""),
+                            }
+                        elif p_lower in ("lemons", "combustible lemons", "play lemons", "play cave johnson voiceline", "cave johnson voiceline", "soundboard lemons"):
+                            from tools.soundboard import play_soundboard
+                            res = play_soundboard("lemons")
+                            response_data = {
+                                "success": True,
+                                "command": user_prompt,
+                                "output": res.get("terminal_card", ""),
+                                "message": res.get("message", ""),
+                            }
+                        elif p_lower in ("jellyfin", "media status", "now playing"):
+                            from tools.jellyfin import get_jellyfin_now_playing
+                            res = get_jellyfin_now_playing()
+                            response_data = {
+                                "success": True,
+                                "command": user_prompt,
+                                "output": res.get("terminal_card", ""),
+                                "message": res.get("message", ""),
+                            }
+                        elif p_lower in ("voice on", "mic on", "listen on", "start listening"):
+                            success, msg = start_voice_listener()
+                            response_data = {"success": success, "command": user_prompt, "output": f"[+] {msg}", "message": msg, "voice_recognition": True}
+                        elif p_lower in ("voice off", "mic off", "listen off", "stop listening"):
+                            success, msg = stop_voice_listener()
+                            response_data = {"success": success, "command": user_prompt, "output": f"[+] {msg}", "message": msg, "voice_recognition": False}
+                        elif p_lower in ("tts on", "glados voice on", "speech on", "unmute"):
+                            config.enable_tts = True
+                            ui_state.update(glados_voice=True)
+                            msg = "GLaDOS acoustic speech synthesis enabled."
+                            response_data = {"success": True, "command": user_prompt, "output": f"[+] {msg}", "message": msg, "glados_voice": True}
+                        elif p_lower in ("tts off", "glados voice off", "speech off", "mute voice", "mute"):
+                            config.enable_tts = False
+                            ui_state.update(glados_voice=False)
+                            msg = "GLaDOS acoustic speech synthesis inhibited (muted)."
+                            response_data = {"success": True, "command": user_prompt, "output": f"[+] {msg}", "message": msg, "glados_voice": False}
+                        elif p_lower in ("help", "?", "commands"):
+                            help_msg = (
+                                "+--------------------------------------------------------------------+\n"
+                                "|           APERTURE SCIENCE CLI INTERFACE COMMAND DIRECTORY         |\n"
+                                "+--------------------------------------------------------------------+\n"
+                                "| hw / stats            : Display PC component & thermal HUD         |\n"
+                                "| zima / zimaos         : Display ZimaOS server telemetry HUD        |\n"
+                                "| flight <callsign>     : Track live aircraft (e.g. flight AA100)    |\n"
+                                "| voice on / off        : Turn microphone voice recognition on / off |\n"
+                                "| tts on / off          : Turn GLaDOS speech synthesis on / off      |\n"
+                                "| roast me              : GLaDOS analyzes and insults test subject   |\n"
+                                "| quip                  : Random GLaDOS test chamber quip            |\n"
+                                "| still alive           : Sing Still Alive acoustic simulation       |\n"
+                                "| radio / turret        : Play Portal radio loop / Turret audio feed |\n"
+                                "| stop audio            : Terminate all active music & sound loops   |\n"
+                                "| lock pc               : Lock workstation console                   |\n"
+                                "| cls / clear           : Clear terminal console screen              |\n"
+                                "+--------------------------------------------------------------------+"
+                            )
+                            response_data = {"success": True, "command": user_prompt, "output": help_msg, "message": "Command directory displayed."}
+                        elif p_lower in ("cls", "clear"):
+                            response_data = {"success": True, "command": user_prompt, "output": "", "clear": True}
+                        else:
+                            ui_state.update(state="thinking", thought=f"Executing: {user_prompt}")
+                            from agent import OSAgent
+                            agent = OSAgent()
+                            plan, results = agent.run(user_prompt)
+                            resp_text = plan.response or plan.thought or "Directive executed."
+                            ui_state.update(state="speaking" if config.enable_tts else "idle", text=resp_text)
+                            if config.enable_tts and plan.response:
+                                from voice import speak
+                                speak(plan.response)
+                            lines = []
+                            if resp_text:
+                                lines.append(f"[GLaDOS]: \"{resp_text}\"")
+                            for r in results:
+                                icon = "+" if r.success else "x"
+                                lines.append(f"  [{icon}] {r.tool}: {r.message}")
+                                if isinstance(r.data, dict) and "full_terminal_card" in r.data:
+                                    lines.append(r.data["full_terminal_card"])
+                                elif isinstance(r.data, dict) and "hud_card" in r.data:
+                                    lines.append(r.data["hud_card"])
+                            output_str = "\n".join(lines) if lines else resp_text
+                            response_data = {
+                                "success": True,
+                                "command": user_prompt,
+                                "output": output_str,
+                                "message": resp_text,
+                                "response": resp_text,
+                            }
 
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "application/json")
@@ -306,6 +746,33 @@ def start_ui_server(port: int = PORT, open_browser: bool = False) -> ThreadingHT
     thread.start()
     url = f"http://127.0.0.1:{port}"
     logger.info(f"GLaDOS Visual UI active at {url}")
+
+    # Synchronize any existing flight tracking into ui_state and start auto-updater
+    try:
+        from tools.flight import get_tracked_flight, ensure_flight_auto_updater
+        active_flight = get_tracked_flight()
+        if active_flight:
+            ui_state.update(tracked_flight=active_flight)
+            ensure_flight_auto_updater()
+    except Exception:
+        pass
+
+    # Start background telemetry poller (hardware and zimaos)
+    def _telemetry_polling_loop():
+        time.sleep(0.5)
+        while True:
+            try:
+                from tools.system import get_hardware_telemetry
+                from tools.zimaos import get_zimaos_telemetry
+                hw = get_hardware_telemetry()
+                zima = get_zimaos_telemetry()
+                ui_state.update(hardware_telemetry=hw, zimaos_telemetry=zima)
+            except Exception as ex:
+                logger.debug(f"Telemetry background poller exception: {ex}")
+            time.sleep(2.5)
+
+    _tel_thread = threading.Thread(target=_telemetry_polling_loop, daemon=True)
+    _tel_thread.start()
 
     if open_browser:
         import webbrowser

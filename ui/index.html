@@ -3,40 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Aperture Science - GLaDOS AI Mainframe Terminal</title>
-  <!-- Three.js and GLTFLoader for real 3D GLaDOS rendering -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <title>Command Prompt - Aperture Science Laboratories [GLaDOS-WEB]</title>
   <style>
     :root {
-      /* Modern High-Contrast Aperture Palette */
-      --bg-base: #0b0f17;
-      --bg-surface: #131b26;
-      --bg-surface-elevated: #1a2332;
-      --bg-card: rgba(22, 31, 46, 0.92);
+      --cmd-bg: #0c0c0c;
+      --cmd-surface: #11141a;
+      --cmd-border: #222b38;
+      --cmd-border-bright: #3b495d;
       
-      --border-subtle: #243042;
-      --border-medium: #334155;
-      --border-accent: #f58220;
+      --cmd-text: #cccccc;
+      --cmd-bright: #f0f0f0;
+      --cmd-dim: #767676;
       
-      --text-bright: #f8fafc;
-      --text-main: #e2e8f0;
-      --text-muted: #94a3b8;
-      --text-dim: #64748b;
+      /* Aperture Portal Blue */
+      --aperture-blue: #00a2ff;
+      --aperture-blue-dim: #0077c2;
+      --aperture-blue-glow: rgba(0, 162, 255, 0.4);
       
-      /* Aperture & Portal Color System */
-      --aperture-amber: #f58220;
-      --aperture-amber-glow: rgba(245, 130, 32, 0.4);
-      --portal-blue: #0284c7;
-      --portal-blue-light: #38bdf8;
-      --portal-blue-glow: rgba(56, 189, 248, 0.4);
-      --status-green: #10b981;
-      --status-green-glow: rgba(16, 185, 129, 0.35);
-      --status-red: #ef4444;
+      /* Terminal Status Colors */
+      --term-green: #10b981;
+      --term-amber: #f59e0b;
+      --term-red: #ef4444;
       
-      --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      --font-mono: "Consolas", "Courier New", monospace;
+      --font-cmd: "Consolas", "Lucida Console", "Cascadia Mono", "Courier New", monospace;
     }
 
     * {
@@ -45,1719 +34,1132 @@
       padding: 0;
     }
 
-    body {
-      background: radial-gradient(circle at 50% 10%, #172338 0%, #0d1420 50%, #070a10 100%);
-      color: var(--text-main);
-      font-family: var(--font-ui);
-      height: 100vh;
-      overflow: hidden;
+    html, body {
+      background-color: #05070a;
+      color: var(--cmd-text);
+      font-family: var(--font-cmd);
+      font-size: clamp(11px, 0.95vw, 13px);
+      line-height: 1.35;
+      min-height: 100vh;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    /* CMD Window Shell */
+    .cmd-window {
+      max-width: 1720px;
+      margin: 10px auto;
+      border: 1px solid #333333;
+      background-color: var(--cmd-bg);
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.8), 0 0 15px rgba(0, 162, 255, 0.15);
       display: flex;
       flex-direction: column;
+      min-height: calc(100vh - 20px);
+    }
+
+    /* CMD Windows Classic Title Bar */
+    .cmd-titlebar {
+      background: #1f1f1f;
+      border-bottom: 1px solid #333333;
+      padding: 4px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       user-select: none;
     }
 
-    /* Aperture CRT subtle scanlines */
-    .scanlines {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      background: linear-gradient(rgba(18, 24, 38, 0) 50%, rgba(0, 0, 0, 0.2) 50%);
-      background-size: 100% 3px;
-      z-index: 100;
-      opacity: 0.6;
-    }
-
-    /* Facility Header */
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 28px;
-      background: rgba(13, 20, 32, 0.95);
-      border-bottom: 2px solid var(--border-subtle);
-      backdrop-filter: blur(12px);
-      z-index: 30;
-    }
-
-    .header-branding {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .aperture-logo {
-      width: 32px;
-      height: 32px;
-      border: 3px solid var(--aperture-amber);
-      border-radius: 50%;
-      position: relative;
-      animation: spin-aperture 30s linear infinite;
-    }
-
-    .aperture-logo::after {
-      content: '';
-      position: absolute;
-      inset: 4px;
-      border-top: 3px solid var(--aperture-amber);
-      border-left: 3px solid transparent;
-      border-radius: 50%;
-    }
-
-    @keyframes spin-aperture {
-      100% { transform: rotate(360deg); }
-    }
-
-    .header-title-group {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .header-main-title {
-      font-size: 15px;
-      font-weight: 700;
-      letter-spacing: 1.5px;
-      color: var(--text-bright);
-      text-transform: uppercase;
+    .cmd-titlebar-left {
       display: flex;
       align-items: center;
       gap: 8px;
+      font-size: 0.78rem;
+      color: #e0e0e0;
+      font-weight: bold;
     }
 
-    .header-sub-title {
-      font-size: 11px;
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-      letter-spacing: 0.5px;
-    }
-
-    .header-telemetry {
+    .cmd-titlebar-controls {
       display: flex;
-      align-items: center;
       gap: 12px;
+      font-size: 0.85rem;
+      color: #aaaaaa;
     }
 
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.8px;
-      padding: 6px 14px;
-      background: var(--bg-surface);
-      border: 1px solid var(--border-medium);
-      border-radius: 6px;
-      color: var(--text-bright);
-    }
-
-    .status-pill-dot {
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      background: var(--status-green);
-      box-shadow: 0 0 10px var(--status-green-glow);
-      transition: all 0.3s ease;
-    }
-
-    .status-pill-dot.speaking {
-      background: var(--aperture-amber);
-      box-shadow: 0 0 12px var(--aperture-amber-glow);
-    }
-
-    .status-pill-dot.singing {
-      background: var(--portal-blue-light);
-      box-shadow: 0 0 12px var(--portal-blue-glow);
-    }
-
-    /* Main Tri-Panel Layout */
-    main {
-      flex: 1;
-      display: grid;
-      grid-template-columns: 340px 1fr 340px;
-      gap: 16px;
-      padding: 16px 24px;
-      overflow: hidden;
-      position: relative;
-    }
-
-    /* Side Panels Container */
-    .facility-panel {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      overflow-y: auto;
-      z-index: 10;
-    }
-
-    /* Modern Card Component */
-    .modern-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-medium);
-      border-radius: 8px;
-      padding: 14px 16px;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
-    .modern-card:hover {
-      border-color: rgba(245, 130, 32, 0.45);
-    }
-
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 10px;
-      margin-bottom: 10px;
-      border-bottom: 1px solid var(--border-subtle);
-    }
-
-    .card-title {
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: var(--text-bright);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .tag-blue {
-      font-size: 10px;
-      font-weight: 700;
-      padding: 3px 7px;
-      border-radius: 4px;
-      background: rgba(2, 132, 199, 0.2);
-      color: var(--portal-blue-light);
-      border: 1px solid rgba(56, 189, 248, 0.35);
-    }
-
-    .tag-amber {
-      font-size: 10px;
-      font-weight: 700;
-      padding: 3px 7px;
-      border-radius: 4px;
-      background: rgba(245, 130, 32, 0.18);
-      color: var(--aperture-amber);
-      border: 1px solid rgba(245, 130, 32, 0.35);
-    }
-
-    .tag-green {
-      font-size: 10px;
-      font-weight: 700;
-      padding: 3px 7px;
-      border-radius: 4px;
-      background: rgba(16, 185, 129, 0.18);
-      color: var(--status-green);
-      border: 1px solid rgba(16, 185, 129, 0.35);
-    }
-
-    /* Readable Data Pairs */
-    .data-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-      font-size: 13px;
-    }
-
-    .data-row .data-label {
-      color: var(--text-muted);
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .data-row .data-value {
-      color: var(--text-bright);
-      font-weight: 600;
-      font-family: var(--font-mono);
-    }
-
-    /* Flight Route Banner */
-    .flight-route-banner {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: 6px;
-      padding: 10px 14px;
-      margin: 10px 0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .airport-node {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .airport-code {
-      font-size: 18px;
-      font-weight: 800;
-      font-family: var(--font-mono);
-      color: var(--portal-blue-light);
-    }
-
-    .airport-city {
-      font-size: 10px;
-      color: var(--text-muted);
-    }
-
-    .route-arrow {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 0 10px;
-      color: var(--portal-blue-light);
-      font-size: 14px;
-    }
-
-    .route-line {
-      width: 100%;
-      height: 2px;
-      background: linear-gradient(90deg, var(--portal-blue) 0%, var(--aperture-amber) 100%);
-      margin-top: 4px;
-      border-radius: 1px;
-    }
-
-    /* ZimaOS App Grid */
-    .app-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 8px;
-      margin-top: 10px;
-    }
-
-    .app-card-item {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: 6px;
-      padding: 8px 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      transition: all 0.2s ease;
-    }
-
-    .app-card-item:hover {
-      border-color: var(--portal-blue-light);
-      background: #1c2738;
-    }
-
-    .app-card-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .app-name {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--text-bright);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .app-btn-launch {
-      padding: 4px 8px;
-      font-size: 10px;
-      font-weight: 700;
-      background: rgba(2, 132, 199, 0.2);
-      border: 1px solid var(--portal-blue);
-      color: var(--portal-blue-light);
-      border-radius: 4px;
+    .cmd-titlebar-controls span {
       cursor: pointer;
-      text-align: center;
-      transition: all 0.2s;
     }
-
-    .app-btn-launch:hover {
-      background: var(--portal-blue);
+    .cmd-titlebar-controls span:hover {
       color: #ffffff;
     }
 
-    /* Central Viewport Stage */
-    .center-viewport {
-      position: relative;
+    /* Terminal Header Banner */
+    .terminal-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--cmd-border);
+      background: var(--cmd-surface);
       display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      border-radius: 8px;
-      overflow: hidden;
-      background: radial-gradient(circle at 50% 30%, #192538 0%, #0e1624 60%, #080d14 100%);
-      border: 1px solid var(--border-medium);
-    }
-
-    /* 3D WebGL Canvas Container */
-    #gladosCanvasContainer {
-      width: 100%;
-      flex: 1;
-      position: relative;
-      cursor: grab;
-    }
-
-    #gladosCanvasContainer:active {
-      cursor: grabbing;
-    }
-
-    /* 3D Viewport Controls Overlay */
-    .viewport-controls-overlay {
-      position: absolute;
-      top: 14px;
-      right: 14px;
-      display: flex;
-      gap: 8px;
-      z-index: 15;
-    }
-
-    .btn-vp-action {
-      background: rgba(19, 27, 38, 0.85);
-      border: 1px solid var(--border-medium);
-      color: var(--text-main);
-      padding: 6px 12px;
-      font-size: 11px;
-      font-weight: 600;
-      border-radius: 4px;
-      cursor: pointer;
-      backdrop-filter: blur(6px);
-      transition: all 0.2s;
-    }
-
-    .btn-vp-action:hover {
-      border-color: var(--aperture-amber);
-      color: var(--aperture-amber);
-    }
-
-    /* Subtitle & Audio Dialogue Deck */
-    .vocal-console {
-      width: 92%;
-      max-width: 720px;
-      margin-bottom: 16px;
-      background: rgba(15, 23, 36, 0.95);
-      border: 1px solid var(--border-medium);
-      border-radius: 8px;
-      padding: 14px 18px;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 6px 25px rgba(0, 0, 0, 0.75);
-      z-index: 15;
-    }
-
-    .vocal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      color: var(--aperture-amber);
-      text-transform: uppercase;
-      font-family: var(--font-mono);
-      border-bottom: 1px solid var(--border-subtle);
-      padding-bottom: 4px;
-    }
-
-    .vocal-text {
-      font-size: 14px;
-      line-height: 1.5;
-      color: var(--text-bright);
-      min-height: 42px;
-      display: flex;
-      align-items: center;
-    }
-
-    .eq-bar-group {
-      display: flex;
-      align-items: flex-end;
-      gap: 3px;
-      height: 16px;
-    }
-
-    .eq-bar {
-      width: 3px;
-      height: 4px;
-      background: var(--aperture-amber);
-      border-radius: 1px;
-      transition: height 0.08s ease;
-    }
-
-    /* Form Controls & Inputs */
-    .modern-input {
-      width: 100%;
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      color: var(--text-bright);
-      padding: 8px 12px;
-      font-size: 12px;
-      border-radius: 6px;
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
-    .modern-input:focus {
-      border-color: var(--aperture-amber);
-      box-shadow: 0 0 8px var(--aperture-amber-glow);
-    }
-
-    .input-action-row {
-      display: flex;
-      gap: 8px;
-      margin-top: 8px;
-    }
-
-    .btn-action-submit {
-      padding: 8px 14px;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      background: var(--bg-surface-elevated);
-      border: 1px solid var(--border-medium);
-      color: var(--text-bright);
-      border-radius: 6px;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: all 0.2s;
-    }
-
-    .btn-action-submit:hover {
-      border-color: var(--aperture-amber);
-      background: rgba(245, 130, 32, 0.15);
-      color: var(--aperture-amber);
-    }
-
-    .btn-action-primary {
-      background: rgba(245, 130, 32, 0.2);
-      border-color: var(--aperture-amber);
-      color: var(--aperture-amber);
-    }
-
-    .btn-action-primary:hover {
-      background: var(--aperture-amber);
-      color: #000000;
-    }
-
-    /* Master Volume Slider */
-    .slider-container {
-      margin: 10px 0;
-    }
-
-    .modern-slider {
-      width: 100%;
-      accent-color: var(--aperture-amber);
-      cursor: pointer;
-    }
-
-    /* Bottom Control Bar */
-    footer {
-      padding: 12px 28px;
-      background: rgba(13, 20, 32, 0.96);
-      border-top: 2px solid var(--border-subtle);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 20px;
-      z-index: 30;
-      backdrop-filter: blur(12px);
-    }
-
-    .quick-actions-bar {
-      display: flex;
-      gap: 8px;
       flex-wrap: wrap;
-      flex: 1;
-    }
-
-    .btn-pill {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      color: var(--text-main);
-      padding: 8px 14px;
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      border-radius: 6px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s;
-    }
-
-    .btn-pill:hover {
-      background: var(--bg-surface-elevated);
-      border-color: var(--aperture-amber);
-      color: var(--text-bright);
-    }
-
-    .btn-pill-song {
-      border-color: rgba(56, 189, 248, 0.4);
-      color: var(--portal-blue-light);
-    }
-
-    .btn-pill-song:hover {
-      background: var(--portal-blue);
-      color: #ffffff;
-      box-shadow: 0 0 12px var(--portal-blue-glow);
-    }
-
-    .btn-pill-danger {
-      border-color: rgba(239, 68, 68, 0.4);
-      color: var(--status-red);
-    }
-
-    .btn-pill-danger:hover {
-      background: var(--status-red);
-      color: #ffffff;
-    }
-
-    .terminal-form {
-      width: 440px;
-      display: flex;
-      gap: 8px;
-    }
-
-    .terminal-input {
-      flex: 1;
-      background: #070b12;
-      border: 1px solid var(--border-medium);
-      color: #ffffff;
-      padding: 9px 14px;
-      font-size: 13px;
-      font-family: var(--font-mono);
-      border-radius: 6px;
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
-    .terminal-input:focus {
-      border-color: var(--aperture-amber);
-      box-shadow: 0 0 10px var(--aperture-amber-glow);
-    }
-
-    /* Application Manager Modal */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(7, 10, 16, 0.85);
-      backdrop-filter: blur(8px);
-      z-index: 100;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-
-    .modal-container {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-medium);
-      border-top: 3px solid var(--aperture-amber);
-      border-radius: 8px;
-      width: 100%;
-      max-width: 780px;
-      max-height: 88vh;
-      display: flex;
-      flex-direction: column;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 20px var(--aperture-amber-glow);
-      overflow: hidden;
-      animation: modal-appear 0.2s ease-out;
-    }
-
-    @keyframes modal-appear {
-      from { opacity: 0; transform: scale(0.96) translateY(-10px); }
-      to { opacity: 1; transform: scale(1) translateY(0); }
-    }
-
-    .modal-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border-subtle);
-      display: flex;
       align-items: center;
       justify-content: space-between;
-      background: var(--bg-base);
+      gap: 16px;
     }
 
-    .modal-title {
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: var(--text-bright);
+    .logo-container {
       display: flex;
       align-items: center;
+      gap: 16px;
+    }
+
+    /* High-Quality ASCII Aperture Logo matching Picture 2 */
+    .ascii-logo {
+      color: var(--aperture-blue);
+      text-shadow: 0 0 10px var(--aperture-blue-glow);
+      font-size: 7.5px;
+      line-height: 8px;
+      white-space: pre;
+      user-select: none;
+      font-weight: bold;
+    }
+
+    .terminal-titles {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .term-brand {
+      color: var(--aperture-blue);
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .term-subtitle {
+      color: var(--cmd-dim);
+      font-size: 0.8rem;
+    }
+
+    /* Terminal Quick Control Badges */
+    .terminal-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .term-btn {
+      background: #14171f;
+      color: var(--cmd-bright);
+      border: 1px solid var(--cmd-border-bright);
+      padding: 5px 12px;
+      font-family: var(--font-cmd);
+      font-size: 0.8rem;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .term-btn:hover {
+      background: #1e2433;
+      border-color: var(--aperture-blue);
+      color: var(--aperture-blue);
+    }
+
+    .term-btn.active {
+      border-color: var(--term-green);
+      color: var(--term-green);
+      background: rgba(16, 185, 129, 0.12);
+    }
+
+    .term-btn.blue {
+      border-color: var(--aperture-blue);
+      color: var(--aperture-blue);
+      background: rgba(0, 162, 255, 0.12);
+    }
+
+    .term-btn.warn {
+      border-color: var(--term-red);
+      color: var(--term-red);
+    }
+    .term-btn.warn:hover {
+      background: rgba(239, 68, 68, 0.15);
+    }
+
+    /* Split Screen Work Area: 3-Column Layout (Terminal | ASCII Commands Directory | Live Trackers) */
+    .cmd-body {
+      display: grid;
+      grid-template-columns: 1fr minmax(270px, 310px) fit-content(530px);
+      flex: 1;
+      gap: 1px;
+      background: var(--cmd-border);
+      min-height: 0;
+    }
+
+    @media (max-width: 1400px) {
+      .cmd-body {
+        grid-template-columns: 1fr fit-content(530px);
+      }
+      .cmd-commands-pane {
+        display: none;
+      }
+    }
+
+    @media (max-width: 1050px) {
+      .cmd-body {
+        grid-template-columns: 1fr;
+      }
+      .cmd-trackers-pane {
+        width: 100% !important;
+        max-width: none !important;
+      }
+    }
+
+    /* Left Column: Interactive Command Terminal */
+    .cmd-console-pane {
+      background: var(--cmd-bg);
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      gap: 10px;
+    }
+
+    .console-scroll-area {
+      flex: 1;
+      min-height: 420px;
+      max-height: 600px;
+      overflow-y: auto;
+      overflow-x: auto;
+      background: #080808;
+      border: 1px solid var(--cmd-border);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.82rem;
+    }
+
+    .term-line {
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.35;
+    }
+
+    .term-prompt-line {
+      color: var(--aperture-blue);
+      font-weight: bold;
+    }
+
+    .term-output-line {
+      color: var(--cmd-bright);
+    }
+
+    .term-glados-line {
+      color: #93c5fd;
+    }
+
+    .term-err-line {
+      color: var(--term-red);
+    }
+
+    .term-sys-line {
+      color: var(--term-green);
+    }
+
+    .term-voice-line {
+      color: #38bdf8;
+      font-weight: bold;
+    }
+
+    .term-voice-badge {
+      color: #f59e0b;
+      font-weight: bold;
+    }
+
+    /* CMD Prompt Input Line */
+    .cmd-input-bar {
+      display: flex;
+      align-items: center;
+      background: #080808;
+      border: 1px solid var(--cmd-border-bright);
+      padding: 6px 10px;
       gap: 8px;
     }
 
-    .modal-title-accent {
-      color: var(--aperture-amber);
+    .cmd-prefix {
+      color: var(--aperture-blue);
+      font-weight: bold;
+      user-select: none;
+      flex-shrink: 0;
     }
 
-    .modal-close-btn {
+    .cmd-input {
+      flex: 1;
       background: transparent;
       border: none;
-      color: var(--text-muted);
-      font-size: 24px;
-      cursor: pointer;
-      line-height: 1;
-      padding: 0 6px;
-      transition: color 0.2s;
+      outline: none;
+      color: var(--cmd-bright);
+      font-family: var(--font-cmd);
+      font-size: 0.85rem;
     }
 
-    .modal-close-btn:hover {
-      color: var(--status-red);
-    }
-
-    .modal-body {
-      padding: 20px;
-      overflow-y: auto;
-      flex: 1;
-    }
-
-    .modal-section-title {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--text-muted);
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .modal-form {
-      background: var(--bg-base);
-      border: 1px solid var(--border-subtle);
-      border-radius: 6px;
-      padding: 16px;
-    }
-
-    .form-row {
-      display: flex;
-      gap: 12px;
-    }
-
-    .form-group {
+    /* Middle Column: ASCII Command Directory (Replaces Tacky Buttons) */
+    .cmd-commands-pane {
+      background: var(--cmd-bg);
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      padding: 12px;
+      gap: 10px;
     }
 
-    .form-label {
+    .commands-card-container {
+      flex: 1;
+      background: #080808;
+      border: 1px solid var(--cmd-border-bright);
+      padding: 10px 8px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .commands-ascii {
+      font-family: var(--font-cmd);
       font-size: 11px;
-      font-weight: 600;
-      color: var(--text-muted);
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
+      line-height: 1.35;
+      color: var(--cmd-bright);
+      white-space: pre;
+      margin: 0;
+      user-select: text;
     }
 
-    .form-hint {
-      font-size: 11px;
-      color: var(--text-dim);
-      font-family: var(--font-mono);
+    .cmd-link {
+      cursor: pointer;
+      color: #93c5fd;
+      font-weight: bold;
+      transition: color 0.15s, background 0.15s;
+      padding: 0 2px;
+      border-radius: 2px;
     }
 
-    .form-hint code {
-      color: var(--aperture-amber);
+    .cmd-link:hover {
+      background: rgba(0, 162, 255, 0.25);
+      color: #ffffff;
+      text-decoration: underline;
     }
 
-    .modal-table-container {
-      background: var(--bg-base);
-      border: 1px solid var(--border-subtle);
-      border-radius: 6px;
-      overflow: hidden;
-      max-height: 280px;
+    /* Right Column: Live Trackers (Fitted to exact ASCII width) */
+    .cmd-trackers-pane {
+      background: var(--cmd-surface);
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      gap: 10px;
+      width: fit-content;
+      max-width: 530px;
+      flex-shrink: 0;
       overflow-y: auto;
     }
 
-    .modal-table {
+    /* Tab Switcher for Telemetry Pane */
+    .tracker-tab-bar {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--cmd-border);
+      padding-bottom: 8px;
+    }
+
+    .tab-switch-btn {
+      flex: 1;
+      padding: 6px 10px;
+      background: #14171f;
+      border: 1px solid var(--cmd-border-bright);
+      color: var(--cmd-dim);
+      font-family: var(--font-cmd);
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .tab-switch-btn:hover {
+      color: var(--aperture-blue);
+      border-color: var(--aperture-blue);
+    }
+
+    .tab-switch-btn.active {
+      background: #192231;
+      border-color: var(--aperture-blue);
+      color: var(--aperture-blue);
+      box-shadow: 0 0 10px var(--aperture-blue-glow);
+    }
+
+    /* Exact Terminal Card Container - Snug Fit */
+    .terminal-card-container {
+      background: #080808;
+      border: 1px solid var(--cmd-border-bright);
+      padding: 8px 10px;
+      overflow-x: auto;
+      overflow-y: hidden;
       width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-      text-align: left;
+      box-sizing: border-box;
     }
 
-    .modal-table th {
-      background: #0f1624;
-      padding: 10px 14px;
-      color: var(--text-muted);
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      border-bottom: 1px solid var(--border-subtle);
+    .exact-terminal-ascii {
+      font-family: var(--font-cmd);
       font-size: 11px;
+      line-height: 1.25;
+      color: #93c5fd;
+      white-space: pre;
+      user-select: text;
+      margin: 0;
     }
 
-    .modal-table td {
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--border-subtle);
-      color: var(--text-main);
+    /* Flight Tracker Controls */
+    .flight-bar {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-top: 6px;
     }
 
-    .modal-table tr:hover {
-      background: rgba(26, 35, 50, 0.5);
+    .flight-input {
+      flex: 1;
+      background: #080808;
+      border: 1px solid var(--cmd-border-bright);
+      color: #ffffff;
+      padding: 4px 8px;
+      font-family: var(--font-cmd);
+      font-size: 0.8rem;
+      text-transform: uppercase;
     }
 
-    .modal-footer {
-      padding: 12px 20px;
-      background: var(--bg-base);
-      border-top: 1px solid var(--border-subtle);
+    /* ZimaOS Host Config Bar */
+    .zima-bar {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-top: 6px;
+    }
+
+    .zima-input {
+      flex: 1;
+      background: #080808;
+      border: 1px solid var(--cmd-border-bright);
+      color: #ffffff;
+      padding: 4px 8px;
+      font-family: var(--font-cmd);
+      font-size: 0.8rem;
+    }
+
+    /* CMD Status Footer */
+    .cmd-footer {
+      background: #14171f;
+      border-top: 1px solid var(--cmd-border);
+      padding: 6px 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      font-size: 0.75rem;
+      color: var(--cmd-dim);
+      flex-wrap: wrap;
+      gap: 8px;
     }
 
-    .modal-status-text {
-      font-size: 12px;
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-    }
-
-    .btn-sm-action {
-      background: rgba(245, 130, 32, 0.15);
-      border: 1px solid rgba(245, 130, 32, 0.4);
-      color: var(--aperture-amber);
-      font-size: 10px;
-      font-weight: 700;
-      padding: 3px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn-sm-action:hover {
-      background: var(--aperture-amber);
-      color: #0b0f17;
-    }
-
-    .btn-table-del {
-      background: rgba(239, 68, 68, 0.15);
-      border: 1px solid rgba(239, 68, 68, 0.4);
-      color: var(--status-red);
-      font-size: 11px;
-      font-weight: 600;
-      padding: 3px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: all 0.2s;
-      margin-left: 6px;
-    }
-
-    .btn-table-del:hover {
-      background: var(--status-red);
-      color: #ffffff;
+    .footer-status-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--term-green);
+      margin-right: 4px;
     }
   </style>
 </head>
 <body>
-  <div class="scanlines"></div>
-
-  <!-- Header -->
-  <header>
-    <div class="header-branding">
-      <div class="aperture-logo"></div>
-      <div class="header-title-group">
-        <div class="header-main-title">Aperture Laboratories // <span>GLaDOS Mainframe</span></div>
-        <div class="header-sub-title">Computer-Aided Enrichment Center Protocol v3.12</div>
+  <div class="cmd-window">
+    <!-- Classic Windows CMD Titlebar -->
+    <div class="cmd-titlebar">
+      <div class="cmd-titlebar-left">
+        <span>C:\Windows\System32\cmd.exe</span>
+        <span>-</span>
+        <span>Aperture Science Laboratories [GLaDOS-WEB Console]</span>
+      </div>
+      <div class="cmd-titlebar-controls">
+        <span>[-]</span>
+        <span>[+]</span>
+        <span>[X]</span>
       </div>
     </div>
-    <div class="header-telemetry">
-      <div class="status-badge">
-        <span class="status-pill-dot" id="statusDot"></span>
-        <span id="statusLabel">MONITORING SUBJECT</span>
-      </div>
-      <div class="status-badge" style="font-family: var(--font-mono); color: var(--aperture-amber);">
-        [CHAMBER 04 / 19]
-      </div>
-    </div>
-  </header>
 
-  <!-- Main Tri-Panel Grid -->
-  <main>
-    <!-- Left Wing: Flight Radar Telemetry & Chamber Environmental Monitors -->
-    <aside class="facility-panel">
-      <!-- Flightradar24 Airspace Telemetry Card -->
-      <div class="modern-card">
-        <div class="card-header">
-          <div class="card-title">
-            <span>Airspace Radar</span>
-          </div>
-          <span class="tag-blue" id="flightLiveBadge">LIVE RADAR</span>
-        </div>
-
-        <div class="flight-route-banner">
-          <div class="airport-node">
-            <span class="airport-code" id="flightOrigCode">JFK</span>
-            <span class="airport-city" id="flightOrigCity">New York</span>
-          </div>
-          <div class="route-arrow">
-            <span style="font-size: 9px; font-weight: 700; letter-spacing: 0.5px;">EN ROUTE</span>
-            <div class="route-line"></div>
-          </div>
-          <div class="airport-node">
-            <span class="airport-code" id="flightDestCode">LHR</span>
-            <span class="airport-city" id="flightDestCity">London</span>
-          </div>
-        </div>
-
-        <div class="data-row">
-          <span class="data-label">Callsign / Flight:</span>
-          <span class="data-value" id="flightCallsignDisplay" style="color: var(--portal-blue-light);">AA100 (AAL100)</span>
-        </div>
-        <div class="data-row">
-          <span class="data-label">Live Altitude:</span>
-          <span class="data-value" id="flightAltDisplay">34,000 FT</span>
-        </div>
-        <div class="data-row">
-          <span class="data-label">Ground Speed:</span>
-          <span class="data-value" id="flightSpeedDisplay">485 KTS (898 km/h)</span>
-        </div>
-        <div class="data-row">
-          <span class="data-label">Heading:</span>
-          <span class="data-value" id="flightHdgDisplay">078° ENE</span>
-        </div>
-        <div class="data-row">
-          <span class="data-label">Aircraft Model:</span>
-          <span class="data-value" id="flightModelDisplay">Boeing 777-223(ER)</span>
-        </div>
-        <div class="data-row">
-          <span class="data-label">Radar Status:</span>
-          <span class="data-value" id="flightStatusDisplay" style="color: var(--status-green);">● EN ROUTE</span>
-        </div>
-
-        <div class="input-action-row">
-          <input type="text" id="flightInputQuery" class="modern-input" placeholder="Flight # (e.g. DL450, AA100)" />
-          <button class="btn-action-submit btn-action-primary" onclick="trackFlightFromUi()">Track</button>
-        </div>
-        <div style="margin-top: 8px;">
-          <button class="btn-action-submit" style="width: 100%;" onclick="openFr24LiveMap()">
-            Open Flightradar24 Map
-          </button>
+    <!-- Header Banner: High Quality ASCII Iris Logo (Picture 2) + Wordmark -->
+    <header class="terminal-header">
+      <div class="logo-container">
+        <!-- High-Quality ASCII Logo matching Picture 2 in vivid blue -->
+        <pre class="ascii-logo">
+                 .------------.               
+          .---''    ###########  ''---.       
+        /###########   ######### ######\      
+      /################   ######  #######\    
+    /#########               #### #########\  
+   |########                    # ##########| 
+  |#########                       #########| 
+  |########                        #####  ##| 
+ |########                          ###  ####|
+ |#######                           ##  #####|
+ |#####  ##                           #######|
+ |####  ###                          ########|
+  |##  #####                       #########| 
+  |   #######                     ##########| 
+   |######## #                    ##########| 
+    \####### ####               ###########/  
+      \#####  ######   ##################/    
+        \### #########   ##############/      
+          '---.###########   #######.---'     
+               '------------'                 </pre>
+        <div class="terminal-titles">
+          <div class="term-brand">APERTURE SCIENCE COMPUTER-AIDED ENRICHMENT CENTER</div>
+          <div class="term-subtitle">GLaDOS v3.11 Production LLM Desktop Controller &amp; Telemetry Hub</div>
+          <div class="term-subtitle" style="color: var(--aperture-blue);">Terminal text-mode console active. Type 'help' for directory, 'hw' for PC, 'zima' for server.</div>
         </div>
       </div>
 
-      <!-- Facility Environmental Card -->
-      <div class="modern-card">
-        <div class="card-header">
-          <div class="card-title">
-            <span>Chamber Telemetry</span>
-          </div>
-          <span class="tag-green">NOMINAL</span>
-        </div>
-        <div class="data-row">
-          <span class="data-label">Neurotoxin Regulator:</span>
-          <span class="data-value" style="color: var(--aperture-amber);">0.00 PSI (ARMED)</span>
-        </div>
-        <div class="data-row">
-          <span class="data-label">Test Subject Heart Rate:</span>
-          <span class="data-value">72 BPM (Slightly Terrified)</span>
-        </div>
-        <div class="data-row">
-          <span class="data-label">Hydraulic Gantry Pressure:</span>
-          <span class="data-value">1,450 kPa</span>
-        </div>
+      <div class="terminal-controls">
+        <!-- Voice Recognition Toggle -->
+        <button id="btn-toggle-mic" class="term-btn" title="Toggle Local Microphone Speech-To-Text">
+          [MIC: OFF]
+        </button>
+
+        <!-- GLaDOS Voice Speech Output Toggle -->
+        <button id="btn-toggle-voice" class="term-btn active" title="Toggle GLaDOS Audio Speech Synthesis">
+          [VOICE: ACTIVE]
+        </button>
+
+        <!-- Launch ZimaOS SSH Terminal Window -->
+        <button id="btn-open-ssh" class="term-btn" title="Open SSH Terminal to ZimaOS Server">
+          [&gt;_ SSH TERMINAL]
+        </button>
+
+        <!-- Refresh Telemetry Button -->
+        <button id="btn-sync-telemetry" class="term-btn blue" title="Poll Sensors Now">
+          [SYNC SENSORS]
+        </button>
       </div>
-    </aside>
+    </header>
 
-    <!-- Center Wing: Real 3D GLaDOS Viewport (Three.js WebGL) -->
-    <section class="center-viewport">
-      <div class="viewport-controls-overlay">
-        <button class="btn-vp-action" onclick="resetCameraView()">Reset View</button>
+    <!-- Main Dual-Pane Terminal Workspace -->
+    <main class="cmd-body">
+      <!-- Left Column: Interactive Command Terminal -->
+      <section class="cmd-console-pane">
+        <div class="console-scroll-area" id="terminal-screen">
+          <div class="term-line term-sys-line">================================================================================</div>
+          <div class="term-line term-sys-line"> APERTURE SCIENCE COMPUTER-AIDED ENRICHMENT CENTER - CMD CONSOLE ACTIVE</div>
+          <div class="term-line term-sys-line"> Administrator : GLaDOS (Genetic Lifeform and Disk Operating System)</div>
+          <div class="term-line term-sys-line"> Type 'help' for commands, 'hw' for component monitor, 'zima' or 'server' for server.</div>
+          <div class="term-line term-sys-line">================================================================================</div>
+          <div class="term-line" style="color: var(--cmd-dim);">Session initialized. All local tool subsystems operational.</div>
+        </div>
+
+        <!-- Terminal Command Input Line -->
+        <div class="cmd-input-bar">
+          <span class="cmd-prefix">GLaDOS-CLI&gt;</span>
+          <input type="text" id="cmd-input" class="cmd-input" placeholder="Type a command (e.g. 'hw', 'server', 'server ssh', 'flight AA100', 'help')..." autofocus>
+          <button id="btn-send-cmd" class="term-btn blue" style="padding: 3px 10px;">[SEND]</button>
+        </div>
+
+      </section>
+
+      <!-- Middle Column: ASCII Command Directory (Replaces Tacky Buttons) -->
+      <section class="cmd-commands-pane">
+        <div class="commands-card-container">
+          <pre class="commands-ascii">
++================================+
+|   APERTURE DIRECTIVE MATRIX    |
+| [A-Z] SYSTEM COMMAND DIRECTORY |
++================================+
++--------------------------------+
+| [SYS] TELEMETRY &amp; HARDWARE     |
++--------------------------------+
+| <span class="cmd-link" onclick="executeCommand('hw')">hw</span>            : PC Diagnostics |
+| <span class="cmd-link" onclick="executeCommand('ai stats')">ai stats</span>      : GLaDOS AI HUD  |
+| <span class="cmd-link" onclick="executeCommand('server')">server</span>        : ZimaOS Status  |
+| <span class="cmd-link" onclick="executeCommand('server ssh')">server ssh</span>    : Remote Shell   |
+| <span class="cmd-link" onclick="executeCommand('flight AA100')">flight &lt;cs&gt;</span>   : ADS-B Radar    |
++--------------------------------+
+| [MED] MEDIA &amp; ACOUSTICS        |
++--------------------------------+
+| <span class="cmd-link" onclick="executeCommand('jellyfin')">jellyfin &lt;q&gt;</span>  : Stream Media   |
+| <span class="cmd-link" onclick="executeCommand('now playing')">now playing</span>   : Live Media HUD |
+| <span class="cmd-link" onclick="executeCommand('radio')">radio</span>         : Portal Radio   |
+| <span class="cmd-link" onclick="executeCommand('turret')">turret</span>        : Turret SFX     |
+| <span class="cmd-link" onclick="executeCommand('lemons')">lemons</span>        : Cave Johnson   |
+| <span class="cmd-link" onclick="executeCommand('sing still alive')">still alive</span>   : GLaDOS Song    |
+| <span class="cmd-link" onclick="executeCommand('stop')">stop</span>          : Halt Audio     |
++--------------------------------+
+| [CAP] RECORDING &amp; VISION       |
++--------------------------------+
+| <span class="cmd-link" onclick="executeCommand('clip that')">clip that</span>     : 30s Game Clip  |
+| <span class="cmd-link" onclick="executeCommand('clips')">clips</span>         : List Highlights|
+| <span class="cmd-link" onclick="executeCommand('look')">look</span>          : Screen Vision  |
+| <span class="cmd-link" onclick="executeCommand('roast me')">roast me</span>      : Subject Roast  |
++--------------------------------+
+| [BIO] SUBJECT COMPLIANCE       |
++--------------------------------+
+| <span class="cmd-link" onclick="executeCommand('wellness')">wellness</span>      : Biometric HUD  |
+| <span class="cmd-link" onclick="executeCommand('water')">water</span>         : Log Hydration  |
+| <span class="cmd-link" onclick="executeCommand('quip')">quip</span>          : Chamber Quip   |
+| <span class="cmd-link" onclick="executeCommand('lock pc')">lock pc</span>       : Secure Console |
+| <span class="cmd-link" onclick="executeCommand('cls')">cls</span>           : Clear Screen   |
++================================+
+[Click any directive to execute]</pre>
+        </div>
+      </section>
+
+      <!-- Right Column: Live Trackers (Exact Picture 3 & Picture 4 Layout) -->
+      <section class="cmd-trackers-pane">
+        <!-- Tracker View Switcher -->
+        <div class="tracker-tab-bar">
+          <button id="btn-tab-pc" class="tab-switch-btn active">[PC STATS &amp; HARDWARE]</button>
+          <button id="btn-tab-zima" class="tab-switch-btn">[ZIMAOS REMOTE SERVER]</button>
+        </div>
+
+        <!-- Live Telemetry Card (Picture 3 Exact) -->
+        <div class="terminal-card-container">
+          <pre class="exact-terminal-ascii" id="telemetry-card">
++====================================================================+
+|   APERTURE SCIENCE COMPONENT TELEMETRY &amp; LIVE HARDWARE MONITOR     |
+| [* TELEMETRY ACTIVE] Polling Sensors...       Refresh: every 1.5s  |
+| Press Ctrl+C at any time to return to GLaDOS-CLI console           |
++====================================================================+
++--------------------------------------------------------------------+
+|           APERTURE SCIENCE HARDWARE TELEMETRY &amp; THERMAL HUD        |
++--------------------------------------------------------------------+
+| Polling PC hardware sensors... Please wait...                      |
++--------------------------------------------------------------------+
+|            GLaDOS AI NEURAL CORE &amp; INFERENCE TELEMETRY             |
++--------------------------------------------------------------------+
+| Synchronizing neural inference &amp; memory telemetry...               |
++--------------------------------------------------------------------+
+          </pre>
+        </div>
+
+        <!-- ZimaOS Host Configuration (visible when ZimaOS tab is active) -->
+        <div class="zima-bar" id="zima-bar" style="display: none;">
+          <span style="font-size: 0.78rem; color: var(--aperture-blue); font-weight: bold;">[SERVER IP]:</span>
+          <input type="text" id="zima-ip-input" class="zima-input" placeholder="http://192.168.1.123" value="http://192.168.1.123">
+          <button id="btn-update-zima-ip" class="term-btn blue" style="padding: 3px 8px;">[UPDATE IP]</button>
+        </div>
+
+        <!-- Airspace Radar Tracker Card (Picture 4 Exact) -->
+        <div class="terminal-card-container">
+          <pre class="exact-terminal-ascii" id="flight-card">
++====================================================================+
+|    APERTURE SCIENCE AIRSPACE RADAR - REAL-TIME TELEMETRY TRACKER   |
+| [* LIVE ADS-B FEED] Callsign: STANDBY      Auto-refresh: every 3.5s|
+| Press Ctrl+C at any time to return to GLaDOS-CLI console           |
++====================================================================+
++--------------------------------------------------------------------+
+|           APERTURE SCIENCE AIRSPACE RADAR TELEMETRY HUD            |
++--------------------------------------------------------------------+
+| No active flight target acquired.                                  |
+| Enter callsign below (e.g. AA100, UA1, BA117) to lock radar feed.  |
++--------------------------------------------------------------------+
+          </pre>
+        </div>
+
+        <!-- Flight Tracker Search Bar -->
+        <div class="flight-bar">
+          <span style="font-size: 0.78rem; color: var(--aperture-blue); font-weight: bold;">[RADAR TARGET]:</span>
+          <input type="text" id="flight-query-input" class="flight-input" placeholder="Enter flight e.g. AA100, UA1, AF6...">
+          <button id="btn-track-flight" class="term-btn blue" style="padding: 3px 8px;">[LOCK RADAR]</button>
+          <button class="term-btn" style="padding: 3px 6px;" onclick="trackFlightPreset('AA100')">[AA100]</button>
+          <button class="term-btn" style="padding: 3px 6px;" onclick="trackFlightPreset('UA1')">[UA1]</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Terminal Status Footer -->
+    <footer class="cmd-footer">
+      <div>
+        <span class="footer-status-dot"></span>
+        <span id="footer-status">ONLINE</span>
+        <span> | </span>
+        <span id="footer-voice">[MIC: DISABLED]</span>
+        <span> | </span>
+        <span id="footer-tts">[TTS: ACTIVE]</span>
+        <span> | </span>
+        <span id="footer-tab">[TAB: PC HWINFO]</span>
       </div>
-
-      <div id="gladosCanvasContainer"></div>
-
-      <!-- Vocal Transcript Deck -->
-      <div class="vocal-console">
-        <div class="vocal-header">
-          <span>AUDITORY PROTOCOL & TRANSCRIPT</span>
-          <div class="eq-bar-group" id="eqBarGroup">
-            <div class="eq-bar"></div>
-            <div class="eq-bar"></div>
-            <div class="eq-bar"></div>
-            <div class="eq-bar"></div>
-            <div class="eq-bar"></div>
-            <div class="eq-bar"></div>
-            <div class="eq-bar"></div>
-            <div class="eq-bar"></div>
-          </div>
-        </div>
-        <div class="vocal-text" id="transcriptText">
-          Awaiting test subject auditory stimulus...
-        </div>
+      <div>
+        <span id="footer-clock">[SYS CLOCK: 00:00:00]</span>
+        <span> | </span>
+        <span id="footer-sync">[SENSORS: CONNECTED]</span>
       </div>
-    </section>
-
-    <!-- Right Wing: ZimaOS Server, Docker App Launcher & Media Deck -->
-    <aside class="facility-panel">
-      <!-- ZimaOS Mainframe Card -->
-      <div class="modern-card">
-        <div class="card-header">
-          <div class="card-title">
-            <span>ZimaOS Server</span>
-          </div>
-          <div style="display: flex; gap: 6px; align-items: center;">
-            <button class="btn-sm-action" onclick="openAppManagerModal()" title="Manage ZimaOS Applications">+ Manage</button>
-            <span class="tag-green" id="zimaStatusBadge">● ONLINE</span>
-          </div>
-        </div>
-        <div class="data-row">
-          <span class="data-label">Node Host:</span>
-          <span class="data-value" id="zimaHostText">zimaos.local</span>
-        </div>
-        <div class="data-row">
-          <span class="data-label">System CPU:</span>
-          <span class="data-value" id="zimaCpuText">12%</span>
-        </div>
-        <div class="data-row">
-          <span class="data-label">System Memory:</span>
-          <span class="data-value" id="zimaRamText">25% (2.1 / 8 GB)</span>
-        </div>
-
-        <!-- ZimaOS App Launcher Grid -->
-        <div style="margin-top: 12px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Application Launcher:</span>
-            <span style="font-size: 10px; color: var(--text-dim); cursor: pointer;" onclick="openAppManagerModal()">+ Add New</span>
-          </div>
-          <div class="app-grid" id="zimaAppGrid">
-            <!-- Dynamically populated from backend registry -->
-          </div>
-        </div>
-
-        <div style="margin-top: 10px; display: flex; gap: 8px;">
-          <button class="btn-action-submit" style="flex: 1;" onclick="refreshZimaStatus()">Refresh</button>
-          <button class="btn-action-submit" style="flex: 1;" onclick="openAppManagerModal()">+ Add App</button>
-          <button class="btn-action-submit btn-action-primary" style="flex: 1;" onclick="openZimaDashboard()">Dashboard</button>
-        </div>
-      </div>
-
-      <!-- Master Audio & Volume Deck -->
-      <div class="modern-card">
-        <div class="card-header">
-          <div class="card-title">
-            <span>Master Volume</span>
-          </div>
-          <span class="tag-amber" id="volPercentDisplay">50%</span>
-        </div>
-        <div class="slider-container">
-          <input 
-            type="range" 
-            id="masterVolumeSlider" 
-            class="modern-slider" 
-            min="0" 
-            max="100" 
-            value="50" 
-            oninput="handleVolumeSlider(this.value)" 
-          />
-        </div>
-        <div style="display: flex; gap: 6px;">
-          <button class="btn-action-submit" style="flex: 1;" onclick="triggerAction('volume_relative', {delta: -15})">-15%</button>
-          <button class="btn-action-submit" style="flex: 1;" onclick="triggerAction('volume_relative', {delta: 15})">+15%</button>
-          <button class="btn-action-submit" style="flex: 1;" onclick="triggerAction('prompt', {prompt: 'mute'})">Mute</button>
-        </div>
-
-        <!-- YouTube Music Search -->
-        <div style="margin-top: 14px; border-top: 1px solid var(--border-subtle); padding-top: 10px;">
-          <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">
-            YouTube Music:
-          </div>
-          <div class="input-action-row">
-            <input type="text" id="ytMusicSearchInput" class="modern-input" placeholder="Artist or song name..." />
-            <button class="btn-action-submit" onclick="searchYtMusic()">Play</button>
-          </div>
-        </div>
-      </div>
-    </aside>
-  </main>
-
-  <!-- Bottom Action Bar -->
-  <footer>
-    <div class="quick-actions-bar">
-      <button class="btn-pill btn-pill-song" onclick="triggerAction('sing', {song: 'still_alive'})">
-        Still Alive
-      </button>
-      <button class="btn-pill btn-pill-song" onclick="triggerAction('sing', {song: 'want_you_gone'})">
-        Want You Gone
-      </button>
-      <button class="btn-pill" onclick="triggerAction('radio')">
-        Portal Radio
-      </button>
-      <button class="btn-pill" onclick="triggerAction('turret')">
-        Turret Hello
-      </button>
-      <button class="btn-pill" onclick="triggerAction('roast')">
-        Roast Me
-      </button>
-      <button class="btn-pill" onclick="triggerAction('weather')">
-        Weather
-      </button>
-      <button class="btn-pill btn-pill-danger" onclick="triggerAction('stop_song'); triggerAction('stop_sfx');">
-        Stop Audio
-      </button>
-      <button class="btn-pill" onclick="triggerAction('quip')">
-        Quip
-      </button>
-    </div>
-
-    <form class="terminal-form" onsubmit="handlePromptSubmit(event)">
-      <input 
-        type="text" 
-        id="terminalPromptInput" 
-        class="terminal-input" 
-        placeholder="TEST_SUBJECT@APERTURE:~$ type command or speak..." 
-        autocomplete="off"
-      />
-      <button type="submit" class="btn-action-submit btn-action-primary">Transmit</button>
-    </form>
-  </footer>
-
-  <!-- Modal: ZimaOS Application Manager Dashboard -->
-  <div id="appManagerModal" class="modal-overlay" style="display: none;">
-    <div class="modal-container">
-      <div class="modal-header">
-        <div class="modal-title">
-          <span class="modal-title-accent">//</span>
-          <span>Aperture Application Dispatcher & ZimaOS Registry</span>
-        </div>
-        <button class="modal-close-btn" onclick="closeAppManagerModal()">&times;</button>
-      </div>
-      <div class="modal-body">
-        <!-- Add App Form -->
-        <div class="modal-section-title">Register Application Endpoint</div>
-        <form id="addAppForm" class="modal-form" onsubmit="handleRegisterApp(event)">
-          <div class="form-row">
-            <div class="form-group" style="flex: 1.2;">
-              <label class="form-label" for="newAppName">Application Name</label>
-              <input type="text" id="newAppName" class="modern-input" placeholder="e.g. Jellyfin, Portainer, qBittorrent" required />
-            </div>
-            <div class="form-group" style="flex: 1.6;">
-              <label class="form-label" for="newAppUrl">Target URL or Port</label>
-              <input type="text" id="newAppUrl" class="modern-input" placeholder=":8096 or http://192.168.1.50:8096" required />
-            </div>
-            <div class="form-group" style="flex: 1.1;">
-              <label class="form-label" for="newAppCategory">Category</label>
-              <select id="newAppCategory" class="modern-input" style="cursor: pointer;">
-                <option value="Media">Media</option>
-                <option value="Storage">Storage</option>
-                <option value="Smart Home">Smart Home</option>
-                <option value="Management">Management</option>
-                <option value="Productivity">Productivity</option>
-                <option value="General" selected>General</option>
-              </select>
-            </div>
-          </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; gap: 12px;">
-            <div class="form-hint">Tip: Entering a port like <code>:8096</code> automatically attaches your ZimaOS server host.</div>
-            <button type="submit" class="btn-action-submit btn-action-primary" style="padding: 8px 18px; white-space: nowrap;">+ Register Application</button>
-          </div>
-        </form>
-
-        <!-- Existing Registered Applications List -->
-        <div class="modal-section-title" style="margin-top: 22px; display: flex; justify-content: space-between; align-items: center;">
-          <span>Active Applications (<span id="modalAppCount">0</span>)</span>
-          <button class="btn-vp-action" style="padding: 3px 10px; font-size: 11px;" onclick="loadModalApps()">Refresh</button>
-        </div>
-        <div class="modal-table-container">
-          <table class="modal-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Category</th>
-                <th>Endpoint URL</th>
-                <th>Origin</th>
-                <th style="text-align: right;">Action</th>
-              </tr>
-            </thead>
-            <tbody id="modalAppTableBody">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <span class="modal-status-text" id="modalStatusText">Registry ready.</span>
-        <button class="btn-action-submit" onclick="closeAppManagerModal()">Close Window</button>
-      </div>
-    </div>
+    </footer>
   </div>
 
   <script>
-    // --- 1. THREE.JS 3D WEBGL ENGINE FOR GLaDOS (from GLaDOS.blend) ---
-    const container = document.getElementById('gladosCanvasContainer');
-    let scene, camera, renderer, gladosModel, controls;
-    let eyeLight, ambientLight, dirLight;
-    let targetRotationY = 0, currentRotationY = 0;
-    let targetRotationX = 0, currentRotationX = 0;
-    let targetSway = 0;
-    let animClock = new THREE.Clock();
+    /* =========================================================================
+       APERTURE SCIENCE GLaDOS TERMINAL CONTROLLER
+       Mimics Real CMD Terminal - Exact Pictures 2, 3, 4 - Zero Emojis
+       ========================================================================= */
 
-    function initThreeJS() {
-      const width = container.clientWidth || 800;
-      const height = container.clientHeight || 600;
+    let currentTab = "pc"; // "pc" or "zimaos"
+    let voiceRecognitionActive = false;
+    let gladosVoiceActive = true;
+    let commandHistory = [];
+    let historyIdx = -1;
+    let telemetryCache = null;
 
-      scene = new THREE.Scene();
-      scene.background = null; // Transparent canvas on top of chamber gradient
+    // Detect server base URL: handles both http://127.0.0.1:5000 and file:///
+    const API_BASE = (window.location.protocol === "file:" || !window.location.host) 
+      ? "http://127.0.0.1:5000" 
+      : "";
 
-      camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
-      camera.position.set(0, 0, 4.4);
+    // DOM Elements
+    const elCmdInput = document.getElementById("cmd-input");
+    const elBtnSend = document.getElementById("btn-send-cmd");
+    const elTerminalScreen = document.getElementById("terminal-screen");
+    const elTelemetryCard = document.getElementById("telemetry-card");
+    const elFlightCard = document.getElementById("flight-card");
+    const elBtnToggleMic = document.getElementById("btn-toggle-mic");
+    const elBtnToggleVoice = document.getElementById("btn-toggle-voice");
+    const elBtnOpenSsh = document.getElementById("btn-open-ssh");
+    const elBtnTabPc = document.getElementById("btn-tab-pc");
+    const elBtnTabZima = document.getElementById("btn-tab-zima");
+    const elZimaBar = document.getElementById("zima-bar");
+    const elZimaIpInput = document.getElementById("zima-ip-input");
+    const elBtnUpdateZimaIp = document.getElementById("btn-update-zima-ip");
+    const elFlightInput = document.getElementById("flight-query-input");
+    const elBtnTrackFlight = document.getElementById("btn-track-flight");
+    const elFooterClock = document.getElementById("footer-clock");
+    const elFooterVoice = document.getElementById("footer-voice");
+    const elFooterTts = document.getElementById("footer-tts");
+    const elFooterTab = document.getElementById("footer-tab");
+    const elFooterSync = document.getElementById("footer-sync");
 
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setSize(width, height);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.outputEncoding = THREE.sRGBEncoding;
-      renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.15;
-      container.appendChild(renderer.domElement);
+    // Real-Time System Clock
+    function updateClock() {
+      const now = new Date();
+      const t = now.toTimeString().split(" ")[0];
+      if (elFooterClock) elFooterClock.textContent = "[SYS CLOCK: " + t + "]";
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
 
-      if (typeof THREE.OrbitControls !== 'undefined') {
-        controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.maxDistance = 10;
-        controls.minDistance = 1.2;
-        controls.target.set(0, 0, 0);
+    let lastRenderedEventId = 0;
+    const localExecutedCommands = new Set();
+
+    // Print lines into terminal feed
+    function printTerminalLine(text, lineClass = "term-output-line") {
+      const div = document.createElement("div");
+      div.className = "term-line " + lineClass;
+      div.textContent = text;
+      elTerminalScreen.appendChild(div);
+      elTerminalScreen.scrollTop = elTerminalScreen.scrollHeight;
+    }
+
+    // Render incoming command / voice events into terminal screen
+    function renderTerminalEvent(evt) {
+      if (!evt || evt.id === undefined) return;
+      if (evt.id <= lastRenderedEventId) return;
+      lastRenderedEventId = Math.max(lastRenderedEventId, evt.id);
+
+      // If it's a web command already printed by local executeCommand, skip duplicate prompt
+      if (evt.source === "web" && localExecutedCommands.has(evt.command)) {
+        localExecutedCommands.delete(evt.command);
+        return;
       }
 
-      // Dynamic Aperture Chamber Lighting
-      ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
-      scene.add(ambientLight);
+      const isVoice = evt.source === "voice";
 
-      dirLight = new THREE.DirectionalLight(0xffffff, 1.8);
-      dirLight.position.set(2, 4, 4);
-      scene.add(dirLight);
-
-      const rimLight = new THREE.DirectionalLight(0x0284c7, 1.4);
-      rimLight.position.set(-3, -1, -3);
-      scene.add(rimLight);
-
-      // Point light placed directly at GLaDOS's golden optical eye
-      eyeLight = new THREE.PointLight(0xff9a00, 3.8, 6);
-      eyeLight.position.set(0, -0.2, 0.9);
-      scene.add(eyeLight);
-
-      // Load GLaDOS GLB exported from GLaDOS.blend
-      if (typeof THREE.GLTFLoader !== 'undefined') {
-        const loader = new THREE.GLTFLoader();
-        loader.load(
-          '/assets/model/glados.glb',
-          function (gltf) {
-            const box = new THREE.Box3().setFromObject(gltf.scene);
-            const center = box.getCenter(new THREE.Vector3());
-            const size = box.getSize(new THREE.Vector3());
-
-            // Center the model so its focal head/chest region (X~4.78, Y~4.2, Z~-6.32) is aligned at (0, 0, 0)
-            const focalPoint = new THREE.Vector3(center.x, 4.2, -6.32);
-            gltf.scene.position.set(-focalPoint.x, -focalPoint.y, -focalPoint.z);
-
-            gladosModel = new THREE.Group();
-            const targetHeight = 4.2;
-            const scale = targetHeight / (size.y || 11.2);
-            gladosModel.scale.set(scale, scale, scale);
-
-            // Rotate 180 degrees so GLaDOS directly faces the camera along +Z
-            gladosModel.rotation.y = Math.PI;
-
-            // Enhance materials for PBR rendering
-            gltf.scene.traverse(function (child) {
-              if (child.isMesh && child.material) {
-                child.material.metalness = 0.55;
-                child.material.roughness = 0.38;
-                if (child.material.name && child.material.name.includes('selfillum')) {
-                  child.material.emissive = new THREE.Color(0xff9a00);
-                  child.material.emissiveIntensity = 2.4;
-                }
-              }
-            });
-
-            gladosModel.add(gltf.scene);
-            scene.add(gladosModel);
-          },
-          undefined,
-          function (err) {
-            console.warn('GLB load error, using fallback:', err);
-          }
-        );
-      }
-
-      window.addEventListener('resize', onWindowResize);
-    }
-
-    function onWindowResize() {
-      if (!camera || !renderer || !container) return;
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
-    }
-
-    function resetCameraView() {
-      if (camera) {
-        camera.position.set(0, 0, 4.4);
-        if (controls) {
-          controls.target.set(0, 0, 0);
-          controls.update();
-        }
-      }
-    }
-
-    // Damped Mouse Parallax Tracking
-    window.addEventListener('mousemove', (e) => {
-      const cx = window.innerWidth / 2;
-      const cy = window.innerHeight / 2;
-      const nx = (e.clientX - cx) / cx;
-      const ny = (e.clientY - cy) / cy;
-      targetRotationY = nx * 0.35;
-      targetRotationX = ny * 0.22;
-    });
-
-    let gState = 'idle';
-
-    function animate3D() {
-      requestAnimationFrame(animate3D);
-      const delta = animClock.getDelta();
-      const time = animClock.getElapsedTime();
-
-      // Compound Inverted Pendulum Sway Physics
-      if (gladosModel) {
-        currentRotationY += (targetRotationY - currentRotationY) * 0.05;
-        currentRotationX += (targetRotationX - currentRotationX) * 0.05;
-
-        const baseRotY = Math.PI;
-
-        if (gState === 'speaking') {
-          // Rapid mechanical actuator jitter
-          const jitter = Math.sin(time * 18.0) * 0.035 + Math.cos(time * 26.0) * 0.02;
-          gladosModel.rotation.y = baseRotY - currentRotationY + jitter;
-          gladosModel.rotation.x = currentRotationX + (Math.sin(time * 12.0) * 0.02);
-          if (eyeLight) eyeLight.intensity = 3.8 + Math.sin(time * 22.0) * 1.5;
-        } else if (gState === 'singing') {
-          // Broad theatrical musical sweeping arc
-          const sweep = Math.sin(time * 2.2) * 0.14;
-          gladosModel.rotation.y = baseRotY - currentRotationY + sweep;
-          gladosModel.rotation.z = Math.cos(time * 2.2) * 0.08;
-          if (eyeLight) {
-            eyeLight.color.setHex(0x38bdf8);
-            eyeLight.intensity = 4.2 + Math.sin(time * 4.0) * 1.5;
-          }
-        } else {
-          // Smooth 7s compound pendulum sway
-          const swayY = Math.sin(time * 0.9) * 0.045;
-          const swayZ = Math.cos(time * 0.6) * 0.025;
-          gladosModel.rotation.y = baseRotY - currentRotationY + swayY;
-          gladosModel.rotation.x = currentRotationX;
-          gladosModel.rotation.z = swayZ;
-          if (eyeLight) {
-            eyeLight.color.setHex(0xff9a00);
-            eyeLight.intensity = 2.8 + Math.sin(time * 1.5) * 0.6;
-          }
-        }
-      }
-
-      if (controls) controls.update();
-      if (renderer && scene && camera) renderer.render(scene, camera);
-    }
-
-    try {
-      initThreeJS();
-      animate3D();
-    } catch (e) {
-      console.warn('Three.js failed to initialize:', e);
-    }
-
-    // --- 2. TELEMETRY & AUDIO EQUALIZER ---
-    const statusLabel = document.getElementById('statusLabel');
-    const statusDot = document.getElementById('statusDot');
-    const transcriptText = document.getElementById('transcriptText');
-    const eqBars = document.querySelectorAll('.eq-bar');
-    let eqTimer = null;
-
-    function runEqualizer(active, isSinging = false) {
-      if (active) {
-        if (!eqTimer) {
-          eqTimer = setInterval(() => {
-            eqBars.forEach(b => {
-              const h = Math.floor(Math.random() * (isSinging ? 18 : 14)) + 3;
-              b.style.height = h + 'px';
-              b.style.background = isSinging ? 'var(--portal-blue-light)' : 'var(--aperture-amber)';
-            });
-          }, 85);
-        }
+      if (isVoice) {
+        printTerminalLine("[* VOICE INPUT DETECTED: \"" + evt.command + "\"]", "term-voice-badge");
+        printTerminalLine("GLaDOS-CLI [VOICE]> " + evt.command, "term-voice-line");
       } else {
-        if (eqTimer) {
-          clearInterval(eqTimer);
-          eqTimer = null;
-        }
-        eqBars.forEach(b => {
-          b.style.height = '4px';
-          b.style.background = 'var(--aperture-amber)';
-        });
-      }
-    }
-
-    function applyAgentState(data) {
-      const state = (data.state || 'idle').toLowerCase();
-      gState = state;
-
-      if (state === 'speaking') {
-        statusLabel.innerText = 'TRANSMITTING VOCAL PROTOCOL';
-        statusDot.className = 'status-pill-dot speaking';
-        transcriptText.innerText = data.text || '"Speaking..."';
-        runEqualizer(true, false);
-      } else if (state === 'singing') {
-        statusLabel.innerText = 'VOCAL TRACK: ' + (data.song || 'PORTAL THEME');
-        statusDot.className = 'status-pill-dot singing';
-        transcriptText.innerText = data.text || ('"Now playing ' + (data.song || 'Portal credits song') + '..."');
-        runEqualizer(true, true);
-      } else if (state === 'listening') {
-        statusLabel.innerText = 'LISTENING FOR AUDIO INPUT';
-        statusDot.className = 'status-pill-dot';
-        transcriptText.innerText = 'Microphone active. Awaiting voice command...';
-        runEqualizer(false);
-      } else if (state === 'thinking') {
-        statusLabel.innerText = 'CALCULATING PARAMETERS';
-        statusDot.className = 'status-pill-dot speaking';
-        transcriptText.innerText = data.thought || 'Calculating test parameters...';
-        runEqualizer(false);
-      } else {
-        statusLabel.innerText = 'MONITORING SUBJECT';
-        statusDot.className = 'status-pill-dot';
-        if (data.text) {
-          transcriptText.innerText = data.text;
-        } else {
-          transcriptText.innerText = 'Awaiting test subject auditory stimulus...';
-        }
-        runEqualizer(false);
+        printTerminalLine("GLaDOS-CLI> " + evt.command, "term-prompt-line");
       }
 
-      // Update Tracked Flight if provided in event
-      if (data.tracked_flight) {
-        updateFlightHud(data.tracked_flight);
+      if (evt.output) {
+        printTerminalLine(evt.output, "term-output-line");
+      } else if (evt.response) {
+        printTerminalLine("[GLaDOS]: " + evt.response, "term-glados-line");
       }
+
+      elTerminalScreen.scrollTop = elTerminalScreen.scrollHeight;
     }
 
-    // Connect Server-Sent Events (SSE)
-    function connectSse() {
-      const sse = new EventSource('/api/events');
-      sse.onmessage = function (evt) {
-        try {
-          const payload = JSON.parse(evt.data);
-          applyAgentState(payload);
-        } catch (err) {
-          console.error('SSE JSON error:', err);
-        }
-      };
-      sse.onerror = function () {
-        sse.close();
-        setTimeout(connectSse, 3000);
-      };
-    }
+    // Execute Terminal Command synchronously
+    async function executeCommand(commandText) {
+      if (!commandText || !commandText.trim()) return;
+      const cmd = commandText.trim();
+      commandHistory.push(cmd);
+      historyIdx = commandHistory.length;
+      localExecutedCommands.add(cmd);
+      elCmdInput.value = "";
 
-    if (window.location.protocol.startsWith('http')) {
-      connectSse();
-      fetchTrackedFlight();
-      fetchZimaApps();
-    }
-
-    // --- 3. LIVE FLIGHTRADAR24 AIRSPACE HUD ---
-    let currentFr24Url = 'https://www.flightradar24.com';
-
-    function updateFlightHud(flight) {
-      if (!flight) return;
-      document.getElementById('flightCallsignDisplay').innerText = flight.callsign || 'N/A';
-      document.getElementById('flightOrigCode').innerText = (flight.origin || 'JFK').substring(0, 4);
-      document.getElementById('flightDestCode').innerText = (flight.dest || 'LHR').substring(0, 4);
-      
-      const altVal = flight.altitude_ft;
-      document.getElementById('flightAltDisplay').innerText = (altVal !== null && altVal !== undefined) ? `${altVal.toLocaleString()} FT` : 'Unavailable';
-      
-      const spdVal = flight.speed_kts;
-      const kmhVal = flight.speed_kmh;
-      document.getElementById('flightSpeedDisplay').innerText = (spdVal !== null && spdVal !== undefined) ? `${spdVal} KTS (${kmhVal} km/h)` : 'Unavailable';
-      
-      const hdgVal = flight.heading;
-      document.getElementById('flightHdgDisplay').innerText = (hdgVal !== null && hdgVal !== undefined) ? `${hdgVal}°` : '--';
-      
-      document.getElementById('flightModelDisplay').innerText = flight.model || 'Commercial Aircraft';
-      document.getElementById('flightStatusDisplay').innerText = '● ' + (flight.status || 'AIRBORNE').toUpperCase();
-      
-      if (flight.fr24_url) {
-        currentFr24Url = flight.fr24_url;
+      // Handle cls / clear locally
+      if (cmd.toLowerCase() === "cls" || cmd.toLowerCase() === "clear") {
+        elTerminalScreen.innerHTML = "";
+        printTerminalLine("================================================================================", "term-sys-line");
+        printTerminalLine(" APERTURE SCIENCE COMPUTER-AIDED ENRICHMENT CENTER - CMD CONSOLE CLEARED", "term-sys-line");
+        printTerminalLine("================================================================================", "term-sys-line");
+        return;
       }
-    }
 
-    async function fetchTrackedFlight() {
+      // Print prompt line into terminal screen
+      printTerminalLine("GLaDOS-CLI> " + cmd, "term-prompt-line");
+
       try {
-        const res = await fetch('/api/action', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'get_tracked_flight' })
+        const resp = await fetch(API_BASE + "/api/action", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "prompt", prompt: cmd })
         });
-        const data = await res.json();
-        if (data && data.flight) {
-          updateFlightHud(data.flight);
-        }
-      } catch (err) {
-        console.warn('Flight fetch failed:', err);
-      }
-    }
 
-    async function trackFlightFromUi() {
-      const input = document.getElementById('flightInputQuery');
-      const q = input.value.trim().toUpperCase();
-      if (!q) return;
-      document.getElementById('flightCallsignDisplay').innerText = q + ' (Pinging...)';
-      const res = await triggerAction('track_flight', { flight: q, open_browser: false });
-      if (res && res.message) {
-        transcriptText.innerText = res.message;
-        fetchTrackedFlight();
-      }
-    }
-
-    function openFr24LiveMap() {
-      window.open(currentFr24Url, '_blank');
-    }
-
-    // --- 4. ZIMAOS MAINFRAME & DOCKER APP LAUNCHER ---
-    async function fetchZimaApps() {
-      try {
-        const res = await fetch('/api/action', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'zimaos_apps', detailed: true })
-        });
-        const data = await res.json();
-        const grid = document.getElementById('zimaAppGrid');
-        if (!grid) return;
-
-        if (data && data.apps && data.apps.length > 0) {
-          grid.innerHTML = '';
-          data.apps.slice(0, 10).forEach(app => {
-            const item = document.createElement('div');
-            item.className = 'app-card-item';
-            const isCustom = Boolean(app.custom);
-            item.innerHTML = `
-              <div class="app-card-top">
-                <span class="app-name" title="${escapeHtml(app.name)}">${escapeHtml(app.name)}</span>
-                ${isCustom ? '<span style="font-size: 9px; font-weight: 700; color: var(--aperture-amber); border: 1px solid rgba(245, 130, 32, 0.4); padding: 1px 4px; border-radius: 3px;">CUSTOM</span>' : ''}
-              </div>
-              <button class="app-btn-launch" onclick="launchAppDirect('${escapeHtml(app.name)}')">Launch</button>
-            `;
-            grid.appendChild(item);
-          });
-        }
-      } catch (err) {
-        console.warn('ZimaOS apps fetch failed:', err);
-      }
-    }
-
-    async function launchAppDirect(appName) {
-      transcriptText.innerText = `Initializing ZimaOS application: ${appName}...`;
-      await triggerAction('launch_zimaos_app', { app: appName });
-    }
-
-    async function refreshZimaStatus() {
-      document.getElementById('zimaStatusBadge').innerText = '● CHECKING';
-      const res = await triggerAction('zimaos_status');
-      if (res && res.message) {
-        document.getElementById('zimaStatusBadge').innerText = '● ONLINE';
-        transcriptText.innerText = res.message;
-      }
-      fetchZimaApps();
-    }
-
-    async function openZimaDashboard() {
-      await triggerAction('zimaos_dashboard');
-    }
-
-    // --- Application Manager Modal Functions ---
-    function openAppManagerModal() {
-      const modal = document.getElementById('appManagerModal');
-      if (modal) {
-        modal.style.display = 'flex';
-        loadModalApps();
-      }
-    }
-
-    function closeAppManagerModal() {
-      const modal = document.getElementById('appManagerModal');
-      if (modal) {
-        modal.style.display = 'none';
-      }
-    }
-
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeAppManagerModal();
-    });
-
-    document.addEventListener('click', (e) => {
-      const modal = document.getElementById('appManagerModal');
-      if (e.target === modal) closeAppManagerModal();
-    });
-
-    async function loadModalApps() {
-      const tableBody = document.getElementById('modalAppTableBody');
-      const countEl = document.getElementById('modalAppCount');
-      const statusEl = document.getElementById('modalStatusText');
-      if (!tableBody) return;
-
-      tableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 16px;">Loading application registry...</td></tr>';
-      
-      try {
-        const res = await fetch('/api/action', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'zimaos_apps', detailed: true })
-        });
-        const data = await res.json();
-        const apps = (data && data.apps) ? data.apps : [];
-
-        if (countEl) countEl.innerText = apps.length;
-        if (statusEl) statusEl.innerText = `Loaded ${apps.length} application endpoint(s).`;
-
-        if (apps.length === 0) {
-          tableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-dim); padding: 18px;">No applications registered. Enter an app name and URL above.</td></tr>';
+        if (!resp.ok) {
+          printTerminalLine("[!] Error: HTTP " + resp.status + " from GLaDOS server.", "term-err-line");
           return;
         }
 
-        tableBody.innerHTML = '';
-        apps.forEach(app => {
-          const tr = document.createElement('tr');
-          const isCustom = Boolean(app.custom);
-          const originBadge = isCustom 
-            ? '<span class="tag-amber">Custom</span>' 
-            : '<span class="tag-blue">Container</span>';
-          
-          tr.innerHTML = `
-            <td style="font-weight: 700; color: var(--text-bright);">${escapeHtml(app.name)}</td>
-            <td><span style="color: var(--text-muted); font-size: 11px;">${escapeHtml(app.category || 'General')}</span></td>
-            <td style="font-family: var(--font-mono); font-size: 11px; color: var(--portal-blue-light);">${escapeHtml(app.url || app.port || 'Standard')}</td>
-            <td>${originBadge}</td>
-            <td style="text-align: right; white-space: nowrap;">
-              <button class="btn-sm-action" onclick="launchAppDirect('${escapeHtml(app.name)}')">Launch</button>
-              ${isCustom ? `<button class="btn-table-del" onclick="deleteCustomApp('${escapeHtml(app.name)}')">Delete</button>` : ''}
-            </td>
-          `;
-          tableBody.appendChild(tr);
+        const data = await resp.json();
+
+        // Print output to terminal screen
+        if (data.output) {
+          printTerminalLine(data.output, "term-output-line");
+        } else if (data.message) {
+          printTerminalLine("[GLaDOS]: " + data.message, "term-glados-line");
+        }
+
+        // Sync voice toggles if returned
+        if (data.voice_recognition !== undefined) setVoiceRecognitionState(data.voice_recognition);
+        if (data.glados_voice !== undefined) setGladosVoiceState(data.glados_voice);
+
+        // Update telemetry if command returned fresh telemetry
+        if (data.telemetry) {
+          if (data.telemetry.hardware) {
+            if (!telemetryCache) telemetryCache = {};
+            telemetryCache.hardware = data.telemetry.hardware;
+          }
+          if (data.telemetry.zimaos) {
+            if (!telemetryCache) telemetryCache = {};
+            telemetryCache.zimaos = data.telemetry.zimaos;
+          }
+          if (data.telemetry.flight) {
+            if (!telemetryCache) telemetryCache = {};
+            telemetryCache.flight = data.telemetry.flight;
+          }
+          if (data.telemetry.active_tab) {
+            setActiveTelemetryTab(data.telemetry.active_tab);
+          } else {
+            renderTelemetryCards();
+          }
+        } else {
+          // Poll telemetry
+          fetchTelemetry();
+        }
+
+      } catch (err) {
+        printTerminalLine("[!] Network Exception: Failed to communicate with GLaDOS at " + API_BASE + " (" + err + ")", "term-err-line");
+      }
+    }
+
+    // Input handlers
+    elBtnSend.addEventListener("click", () => executeCommand(elCmdInput.value));
+    elCmdInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        executeCommand(elCmdInput.value);
+      } else if (e.key === "ArrowUp") {
+        if (historyIdx > 0) {
+          historyIdx--;
+          elCmdInput.value = commandHistory[historyIdx] || "";
+        }
+      } else if (e.key === "ArrowDown") {
+        if (historyIdx < commandHistory.length - 1) {
+          historyIdx++;
+          elCmdInput.value = commandHistory[historyIdx] || "";
+        } else {
+          historyIdx = commandHistory.length;
+          elCmdInput.value = "";
+        }
+      }
+    });
+
+    // Voice recognition toggle
+    async function toggleVoiceRecognition() {
+      const nextState = !voiceRecognitionActive;
+      try {
+        const resp = await fetch(API_BASE + "/api/voice_control", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ voice_recognition: nextState })
         });
-      } catch (err) {
-        tableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--status-red); padding: 16px;">Failed to fetch application registry.</td></tr>';
-        if (statusEl) statusEl.innerText = 'Network connection failed.';
+        const d = await resp.json();
+        setVoiceRecognitionState(d.voice_recognition);
+        printTerminalLine("[*] Voice recognition " + (d.voice_recognition ? "ACTIVATED" : "DEACTIVATED") + ".", "term-sys-line");
+      } catch (e) {
+        printTerminalLine("[!] Failed to toggle voice recognition: " + e, "term-err-line");
       }
     }
 
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+    // GLaDOS voice synthesis toggle
+    async function toggleGladosVoice() {
+      const nextState = !gladosVoiceActive;
+      try {
+        const resp = await fetch(API_BASE + "/api/voice_control", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ glados_voice: nextState })
+        });
+        const d = await resp.json();
+        setGladosVoiceState(d.glados_voice);
+        printTerminalLine("[*] GLaDOS speech synthesis " + (d.glados_voice ? "ENABLED" : "MUTED") + ".", "term-sys-line");
+      } catch (e) {
+        printTerminalLine("[!] Failed to toggle GLaDOS voice: " + e, "term-err-line");
+      }
     }
 
-    async function handleRegisterApp(e) {
-      e.preventDefault();
-      const nameInput = document.getElementById('newAppName');
-      const urlInput = document.getElementById('newAppUrl');
-      const catInput = document.getElementById('newAppCategory');
-      const statusEl = document.getElementById('modalStatusText');
+    let speechRecognizer = null;
+    let lastSpokenText = "";
+    let lastSpokenTime = 0;
 
-      const name = nameInput.value.trim();
-      const url = urlInput.value.trim();
-      const category = catInput.value.trim() || 'General';
-
-      if (!name || !url) return;
-
-      if (statusEl) statusEl.innerText = `Registering application '${name}'...`;
+    function initBrowserSpeech() {
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) return;
 
       try {
-        const res = await triggerAction('add_zima_app', { name, url, category });
-        if (res && res.success) {
-          if (statusEl) statusEl.innerText = res.message || `Application '${name}' registered successfully.`;
-          nameInput.value = '';
-          urlInput.value = '';
-          loadModalApps();
-          fetchZimaApps();
-        } else {
-          if (statusEl) statusEl.innerText = res.message || 'Failed to register application.';
-        }
-      } catch (err) {
-        if (statusEl) statusEl.innerText = 'Network error registering application.';
+        speechRecognizer = new SpeechRec();
+        speechRecognizer.continuous = true;
+        speechRecognizer.interimResults = false;
+        speechRecognizer.lang = "en-US";
+
+        speechRecognizer.onresult = (event) => {
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              const transcript = event.results[i][0].transcript.trim();
+              if (!transcript) continue;
+
+              // Deduplicate if identical within 3s
+              const now = Date.now();
+              if (transcript.toLowerCase() === lastSpokenText.toLowerCase() && (now - lastSpokenTime < 3000)) {
+                continue;
+              }
+              lastSpokenText = transcript;
+              lastSpokenTime = now;
+
+              let cleanCmd = transcript;
+              const m = transcript.match(/\bglados\b\s*(.*)/i);
+              if (m && m[1]) cleanCmd = m[1].trim();
+
+              if (cleanCmd) {
+                printTerminalLine("[* BROWSER SPEECH DETECTED: \"" + transcript + "\"]", "term-voice-badge");
+                executeCommand(cleanCmd);
+              }
+            }
+          }
+        };
+
+        speechRecognizer.onerror = (e) => {
+          if (e.error !== "no-speech" && e.error !== "aborted") {
+            console.debug("SpeechRec status:", e.error);
+          }
+        };
+
+        speechRecognizer.onend = () => {
+          if (voiceRecognitionActive && speechRecognizer) {
+            try { speechRecognizer.start(); } catch(ex) {}
+          }
+        };
+      } catch (e) {
+        console.debug("SpeechRec unavailable:", e);
       }
     }
 
-    async function deleteCustomApp(appName) {
-      if (!confirm(`Remove '${appName}' from the application registry?`)) return;
-      const statusEl = document.getElementById('modalStatusText');
-      if (statusEl) statusEl.innerText = `Removing '${appName}'...`;
+    function setVoiceRecognitionState(active) {
+      voiceRecognitionActive = Boolean(active);
+      if (voiceRecognitionActive) {
+        elBtnToggleMic.textContent = "[MIC: ACTIVE]";
+        elBtnToggleMic.classList.add("active");
+        elFooterVoice.textContent = "[MIC: LISTENING]";
+        if (speechRecognizer) {
+          try { speechRecognizer.start(); } catch (ex) {}
+        }
+      } else {
+        elBtnToggleMic.textContent = "[MIC: OFF]";
+        elBtnToggleMic.classList.remove("active");
+        elFooterVoice.textContent = "[MIC: DISABLED]";
+        if (speechRecognizer) {
+          try { speechRecognizer.stop(); } catch (ex) {}
+        }
+      }
+    }
 
+    function setGladosVoiceState(active) {
+      gladosVoiceActive = Boolean(active);
+      if (gladosVoiceActive) {
+        elBtnToggleVoice.textContent = "[VOICE: ACTIVE]";
+        elBtnToggleVoice.classList.add("active");
+        elFooterTts.textContent = "[TTS: ACTIVE]";
+      } else {
+        elBtnToggleVoice.textContent = "[VOICE: MUTED]";
+        elBtnToggleVoice.classList.remove("active");
+        elFooterTts.textContent = "[TTS: MUTED]";
+      }
+    }
+
+    elBtnToggleMic.addEventListener("click", toggleVoiceRecognition);
+    elBtnToggleVoice.addEventListener("click", toggleGladosVoice);
+    if (elBtnOpenSsh) elBtnOpenSsh.addEventListener("click", () => executeCommand("server ssh"));
+
+    // Tab Switcher between PC Stats and ZimaOS
+    function setActiveTelemetryTab(tab) {
+      currentTab = tab === "zimaos" ? "zimaos" : "pc";
+      if (currentTab === "pc") {
+        elBtnTabPc.classList.add("active");
+        elBtnTabZima.classList.remove("active");
+        elZimaBar.style.display = "none";
+        elFooterTab.textContent = "[TAB: PC HWINFO]";
+      } else {
+        elBtnTabZima.classList.add("active");
+        elBtnTabPc.classList.remove("active");
+        elZimaBar.style.display = "flex";
+        elFooterTab.textContent = "[TAB: ZIMAOS SERVER]";
+      }
+      renderTelemetryCards();
+    }
+
+    elBtnTabPc.addEventListener("click", () => setActiveTelemetryTab("pc"));
+    elBtnTabZima.addEventListener("click", () => setActiveTelemetryTab("zimaos"));
+
+    // Render Telemetry & Flight cards (Matching Picture 3 & Picture 4 Exact)
+    function renderTelemetryCards() {
+      if (!telemetryCache) return;
+
+      // 1. Render Top Telemetry Card (PC or ZimaOS)
+      if (currentTab === "pc") {
+        const hw = telemetryCache.hardware;
+        if (hw && hw.full_terminal_card) {
+          elTelemetryCard.textContent = hw.full_terminal_card;
+        } else if (hw && hw.hud_card) {
+          const hdr = "+====================================================================+\n" +
+                      "|   APERTURE SCIENCE COMPONENT TELEMETRY & LIVE HARDWARE MONITOR     |\n" +
+                      "| [* TELEMETRY ACTIVE] Polling Sensors...       Refresh: every 1.5s  |\n" +
+                      "| Press Ctrl+C at any time to return to GLaDOS-CLI console           |\n" +
+                      "+====================================================================+\n";
+          elTelemetryCard.textContent = hdr + hw.hud_card;
+        }
+      } else {
+        const zima = telemetryCache.zimaos;
+        if (zima && zima.full_terminal_card) {
+          elTelemetryCard.textContent = zima.full_terminal_card;
+        } else if (zima && zima.hud_card) {
+          const host = (zima.host || "http://192.168.1.123").replace(/^https?:\/\//, "").replace(/\/$/, "");
+          const targetStr = ("Target: " + host).slice(0, 25).padEnd(25);
+          const hdr = "+====================================================================+\n" +
+                      "|   APERTURE SCIENCE REMOTE MAINFRAME - ZIMAOS TELEMETRY MONITOR     |\n" +
+                      "| [* TELEMETRY ACTIVE] " + targetStr + " Refresh: every 1.5s |\n" +
+                      "| Press Ctrl+C at any time to return to GLaDOS-CLI console           |\n" +
+                      "+====================================================================+\n";
+          elTelemetryCard.textContent = hdr + zima.hud_card;
+        }
+      }
+
+      // 2. Render Airspace Radar Card (Picture 4 Exact)
+      const flight = telemetryCache.flight || telemetryCache.tracked_flight;
+      if (flight && flight.full_terminal_card) {
+        elFlightCard.textContent = flight.full_terminal_card;
+      } else if (flight && flight.hud_card) {
+        const cs = flight.callsign || "AA100";
+        const hdr = "+====================================================================+\n" +
+                    "|    APERTURE SCIENCE AIRSPACE RADAR - REAL-TIME TELEMETRY TRACKER   |\n" +
+                    "| [* LIVE ADS-B FEED] Callsign: " + cs.padEnd(10) + "  Auto-refresh: every 3.5s|\n" +
+                    "| Press Ctrl+C at any time to return to GLaDOS-CLI console           |\n" +
+                    "+====================================================================+\n";
+        elFlightCard.textContent = hdr + flight.hud_card;
+      }
+    }
+
+    // Fetch Telemetry from Server
+    async function fetchTelemetry() {
       try {
-        const res = await triggerAction('delete_zima_app', { name: appName });
-        if (res && res.success) {
-          if (statusEl) statusEl.innerText = res.message || `Application '${appName}' deleted.`;
-          loadModalApps();
-          fetchZimaApps();
-        } else {
-          if (statusEl) statusEl.innerText = res.message || 'Failed to delete application.';
+        const resp = await fetch(API_BASE + "/api/telemetry");
+        if (resp.ok) {
+          const data = await resp.json();
+          telemetryCache = data;
+          if (data.terminal_events && Array.isArray(data.terminal_events)) {
+            data.terminal_events.forEach(renderTerminalEvent);
+          }
+          if (data.voice_recognition !== undefined) setVoiceRecognitionState(data.voice_recognition);
+          if (data.glados_voice !== undefined) setGladosVoiceState(data.glados_voice);
+          renderTelemetryCards();
+          elFooterSync.textContent = "[SENSORS: SYNCED]";
         }
       } catch (err) {
-        if (statusEl) statusEl.innerText = 'Network error deleting application.';
+        elFooterSync.textContent = "[SENSORS: RETRYING]";
       }
     }
 
-    // --- 5. AUDIO & ACTION DISPATCHER ---
-    async function triggerAction(actionName, extra = {}) {
-      if (window.location.protocol.startsWith('http')) {
-        try {
-          const res = await fetch('/api/action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: actionName, ...extra })
-          });
-          return await res.json();
-        } catch (err) {
-          console.error('Action error:', err);
-        }
+    document.getElementById("btn-sync-telemetry").addEventListener("click", () => {
+      fetchTelemetry();
+      printTerminalLine("[*] Sensor telemetry refreshed.", "term-sys-line");
+    });
+
+    // Update ZimaOS Host IP
+    elBtnUpdateZimaIp.addEventListener("click", async () => {
+      const ip = elZimaIpInput.value.trim();
+      if (!ip) return;
+      executeCommand("zima ip " + ip);
+    });
+
+    // Flight Tracker Execution
+    async function trackFlightPreset(callsign) {
+      if (!callsign) return;
+      elFlightInput.value = callsign;
+      executeCommand("flight " + callsign);
+    }
+
+    elBtnTrackFlight.addEventListener("click", () => {
+      const cs = elFlightInput.value.trim();
+      if (cs) trackFlightPreset(cs);
+    });
+
+    elFlightInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const cs = elFlightInput.value.trim();
+        if (cs) trackFlightPreset(cs);
       }
-      return { success: true };
+    });
+
+    // Server-Sent Events (SSE) Real-Time Stream
+    function initSSE() {
+      try {
+        const evtSource = new EventSource(API_BASE + "/api/events");
+        evtSource.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data.terminal_event) {
+              renderTerminalEvent(data.terminal_event);
+            }
+            if (data.hardware_telemetry || data.zimaos_telemetry || data.tracked_flight) {
+              if (!telemetryCache) telemetryCache = {};
+              if (data.hardware_telemetry) telemetryCache.hardware = data.hardware_telemetry;
+              if (data.zimaos_telemetry) telemetryCache.zimaos = data.zimaos_telemetry;
+              if (data.tracked_flight) telemetryCache.flight = data.tracked_flight;
+              renderTelemetryCards();
+            }
+            if (data.voice_recognition !== undefined) setVoiceRecognitionState(data.voice_recognition);
+            if (data.glados_voice !== undefined) setGladosVoiceState(data.glados_voice);
+          } catch (ex) {}
+        };
+      } catch (e) {}
     }
 
-    let volSliderTimeout = null;
-    function handleVolumeSlider(val) {
-      document.getElementById('volPercentDisplay').innerText = val + '%';
-      if (volSliderTimeout) clearTimeout(volSliderTimeout);
-      volSliderTimeout = setTimeout(() => {
-        triggerAction('volume_set', { level: parseInt(val, 10) });
-      }, 200);
-    }
-
-    async function searchYtMusic() {
-      const input = document.getElementById('ytMusicSearchInput');
-      const q = input.value.trim();
-      if (!q) return;
-      await triggerAction('youtube', { query: q, music: true });
-      input.value = '';
-    }
-
-    async function handlePromptSubmit(e) {
-      e.preventDefault();
-      const input = document.getElementById('terminalPromptInput');
-      const text = input.value.trim();
-      if (!text) return;
-      input.value = '';
-      applyAgentState({ state: 'thinking', thought: 'Analyzing prompt: "' + text + '"...' });
-      await triggerAction('prompt', { prompt: text });
-    }
+    // Startup
+    window.addEventListener("DOMContentLoaded", () => {
+      initBrowserSpeech();
+      fetchTelemetry();
+      initSSE();
+      // Polling interval every 1.5 seconds for true real-time tracker update
+      setInterval(fetchTelemetry, 1500);
+    });
   </script>
 </body>
 </html>

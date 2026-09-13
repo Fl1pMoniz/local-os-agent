@@ -29,6 +29,7 @@ class AgentConfig:
 
     # Voice & Wake Word Settings
     enable_tts: bool = os.getenv("ENABLE_TTS", "true").lower() in ("true", "1", "yes")
+    voice_recognition_enabled: bool = os.getenv("VOICE_RECOGNITION", "false").lower() in ("true", "1", "yes")
     tts_voice: str = os.getenv("TTS_VOICE", "glados")
     tts_rate: str = os.getenv("TTS_RATE", "-4%")  # Deliberate, unhurried Portal 2 delivery
     tts_pitch: str = os.getenv("TTS_PITCH", "+4Hz")  # Ellen McLain GLaDOS tonal lift
@@ -48,9 +49,12 @@ class AgentConfig:
         "sleep_pc",
     )
 
+    # CLI Text-Only Mode
+    cli_mode: bool = False
+
     @property
     def voice_enabled(self) -> bool:
-        return self.enable_tts
+        return self.enable_tts and not self.cli_mode
 
     def __post_init__(self) -> None:
         self.captures_dir.mkdir(parents=True, exist_ok=True)

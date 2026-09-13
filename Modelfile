@@ -1,4 +1,24 @@
 FROM llama3.2:3b
+
+# Optimized Context Window: 2048 is ideal for low VRAM usage (<250MB KV cache) while preserving full reasoning.
 PARAMETER num_ctx 2048
-PARAMETER temperature 0.3
-PARAMETER stop "}\n\n"
+
+# Sampling parameters optimized for strict JSON generation and precise function calling
+PARAMETER temperature 0.2
+PARAMETER top_p 0.9
+PARAMETER repeat_penalty 1.1
+
+# Proper stop tokens for Llama 3.x models to prevent runaway generation or hallucinated text after JSON
+PARAMETER stop "<|start_header_id|>"
+PARAMETER stop "<|end_header_id|>"
+PARAMETER stop "<|eot_id|>"
+PARAMETER stop "<|end_of_text|>"
+
+# Ensure the template perfectly aligns with Llama 3 instruct format
+TEMPLATE """{{ if .System }}<|start_header_id|>system<|end_header_id|>
+
+{{ .System }}<|eot_id|>{{ end }}{{ if .Prompt }}<|start_header_id|>user<|end_header_id|>
+
+{{ .Prompt }}<|eot_id|>{{ end }}<|start_header_id|>assistant<|end_header_id|>
+
+{{ .Response }}<|eot_id|>"""

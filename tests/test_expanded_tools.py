@@ -6,7 +6,15 @@ from unittest.mock import patch, MagicMock
 from tools.companion import get_active_window, roast_user, get_active_window_info
 from tools.sfx import get_sfx_path, play_portal_sfx, stop_sfx, VPK_SFX_MAP
 from tools.web import open_website, get_weather, wikipedia_lookup, KNOWN_URL_ALIASES
-from tools.system import get_system_stats, set_timer, get_clipboard, set_clipboard
+from tools.system import (
+    get_system_stats,
+    set_timer,
+    get_clipboard,
+    set_clipboard,
+    monitor_hardware,
+    get_hardware_telemetry,
+    run_live_system_monitor,
+)
 from agent import OSAgent, extract_json_payload
 
 
@@ -57,6 +65,46 @@ class TestExpandedTools(unittest.TestCase):
         if stats["gpu"] is not None:
             self.assertIn("device", stats["gpu"])
             self.assertIn("allocated_mb", stats["gpu"])
+
+    def test_hardware_monitor_telemetry(self):
+        # 1. Test telemetry data collection
+        telemetry = get_hardware_telemetry()
+        self.assertIsInstance(telemetry, dict)
+        self.assertIn("cpu", telemetry)
+        self.assertIn("ram", telemetry)
+        self.assertIn("disk", telemetry)
+        self.assertIn("uptime", telemetry)
+        self.assertIn("hud_card", telemetry)
+
+        cpu = telemetry["cpu"]
+        self.assertIn("percent", cpu)
+        self.assertIn("physical_cores", cpu)
+        self.assertIn("logical_cores", cpu)
+        self.assertIn("temp_c", cpu)
+        self.assertGreaterEqual(cpu["temp_c"], 0)
+
+        ram = telemetry["ram"]
+        self.assertIn("total_gb", ram)
+        self.assertIn("used_gb", ram)
+        self.assertIn("percent", ram)
+        self.assertGreater(ram["total_gb"], 0)
+
+        # 2. Test tool execution
+        success, res = monitor_hardware(live=False)
+        self.assertTrue(success)
+        self.assertIn("hud_card", res)
+        self.assertIn("APERTURE SCIENCE HARDWARE TELEMETRY & THERMAL HUD", res["hud_card"])
+        self.assertIn("GLaDOS AI NEURAL CORE & INFERENCE TELEMETRY", res["hud_card"])
+        self.assertIn("glados_ai", res)
+        self.assertIn("ai_ram_total_mb", res["glados_ai"])
+        self.assertIn("tokens_per_sec", res["glados_ai"])
+        self.assertIn("total_tokens_produced", res["glados_ai"])
+
+        # 3. Test bounded live monitor loop
+        try:
+            run_live_system_monitor(interval=0.01, max_ticks=2)
+        except Exception as e:
+            self.fail(f"run_live_system_monitor raised exception: {e}")
 
     def test_clipboard_operations(self):
         test_string = "Aperture Science Portal Gun Protocol 99"
@@ -130,6 +178,16 @@ class TestAgentDeterministicIntents(unittest.TestCase):
         plan_flight = agent.query_llm("GLaDOS track flight AA100")
         self.assertTrue(any(a.tool == "track_flight" and "AA100" in a.args.get("flight_query", "") for a in plan_flight.actions))
 
+        # Test Flight telemetry vs tracking queries
+        plan_tracked = agent.query_llm("GLaDOS info on tracked flight")
+        self.assertTrue(any(a.tool == "get_tracked_flight_info" for a in plan_tracked.actions))
+
+        plan_what_flight = agent.query_llm("GLaDOS what flight are you tracking?")
+        self.assertTrue(any(a.tool == "get_tracked_flight_info" for a in plan_what_flight.actions))
+
+        plan_telemetry = agent.query_llm("GLaDOS show flight telemetry")
+        self.assertTrue(any(a.tool == "get_tracked_flight_info" for a in plan_telemetry.actions))
+
         # Test ZimaOS server intent
         plan_zima = agent.query_llm("GLaDOS check my ZimaOS server")
         self.assertTrue(any(a.tool == "get_zimaos_status" for a in plan_zima.actions))
@@ -142,6 +200,13 @@ class TestAgentDeterministicIntents(unittest.TestCase):
 
         plan_zima_launch = agent.query_llm("GLaDOS launch Plex on ZimaOS")
         self.assertTrue(any(a.tool == "launch_zimaos_app" and "plex" in a.args.get("app_name", "").lower() for a in plan_zima_launch.actions))
+
+        # Test hardware monitor intent
+        plan_hw_live = agent.query_llm("I want a tool for a live tracker of my pc component usage and temps")
+        self.assertTrue(any(a.tool == "monitor_hardware" and a.args.get("live") is True for a in plan_hw_live.actions))
+
+        plan_hw = agent.query_llm("GLaDOS show pc component usage and temps")
+        self.assertTrue(any(a.tool == "monitor_hardware" for a in plan_hw.actions))
 
 
 class TestNewTools(unittest.TestCase):
@@ -165,6 +230,121 @@ class TestNewTools(unittest.TestCase):
         state = ui_state.get_state()
         self.assertIsNotNone(state.get("tracked_flight"))
         self.assertEqual(state["tracked_flight"]["callsign"], "AA100")
+
+    def test_get_tracked_flight_info_hud(self):
+        from tools.flight import get_tracked_flight_info
+        from ui.state import ui_state
+
+        test_flight = {
+            "callsign": "DL450",
+            "flight_number": "DAL450",
+            "model": "Boeing 767-332(ER)",
+            "origin": "ATL",
+            "dest": "GRU",
+            "altitude_ft": 35000,
+            "speed_kts": 490,
+            "speed_kmh": 907,
+            "heading": 145,
+            "reg": "N1200K",
+            "status": "Cruising",
+            "lat": -12.3456,
+            "lon": -45.6789,
+            "fr24_url": "https://www.flightradar24.com/DL450"
+        }
+        ui_state.update(tracked_flight=test_flight)
+
+        success, hud_output = get_tracked_flight_info()
+        self.assertTrue(success)
+        self.assertIn("DL450", hud_output)
+        self.assertIn("ATL -> GRU", hud_output)
+        self.assertIn("35,000 FT", hud_output)
+        self.assertIn("490 KTS", hud_output)
+        self.assertIn("145° (SE)", hud_output)
+        self.assertIn("Boeing 767-332(ER)", hud_output)
+        self.assertIn("N1200K", hud_output)
+        self.assertIn("CRUISING", hud_output)
+        self.assertIn("https://www.flightradar24.com/DL450", hud_output)
+        self.assertIn("-12.3456°, -45.6789°", hud_output)
+
+        # Verify all 11 HUD fields are present and match website interface
+        required_fields = [
+            "Callsign / Flight", "Airspace Route", "Radar Status", "Predicted Landing",
+            "Aircraft Model", "Registration", "Live Altitude",
+            "Ground Speed", "Flight Heading", "Coordinates", "Live Radar URL"
+        ]
+        for field in required_fields:
+            self.assertIn(field, hud_output)
+
+    def test_haversine_and_eta_calculation(self):
+        from tools.flight import haversine_distance_nm, calculate_predicted_landing
+
+        # Distance between JFK (40.6413, -73.7781) and LHR (51.4700, -0.4543) ~ 3000 NM
+        dist = haversine_distance_nm(40.6413, -73.7781, 51.4700, -0.4543)
+        self.assertGreater(dist, 2900)
+        self.assertLess(dist, 3200)
+
+        # Cruising at 500 knots, 1000 NM away should predict approx 120-130 minutes
+        # Lat 40, Lon -50 to Lat 40, Lon -30
+        dist_1000 = haversine_distance_nm(40.0, -50.0, 40.0, -30.0)
+        minutes, eta_str = calculate_predicted_landing(40.0, -50.0, 500, "LHR", 35000)
+        self.assertIsNotNone(minutes)
+        self.assertGreater(minutes, 60)
+        self.assertIn("min", eta_str)
+        self.assertIn("UTC", eta_str)
+
+    def test_track_flight_with_float_telemetry(self):
+        """Verifies that float heading (e.g. from live sector feeds like AEA185) formats without ValueError."""
+        from tools.flight import format_flight_telemetry
+
+        float_telemetry = {
+            "callsign": "AEA185",
+            "flight_number": "AEA185",
+            "model": "Boeing 787-9 Dreamliner",
+            "origin": "MAD",
+            "dest": "EZE",
+            "altitude_ft": 37998.4,
+            "speed_kts": 492.7,
+            "speed_kmh": 912.5,
+            "heading": 218.4,
+            "reg": "EC-MSZ",
+            "status": "Cruising",
+            "lat": 14.8123,
+            "lon": -24.5432,
+            "fr24_url": "https://www.flightradar24.com/AEA185"
+        }
+        hud = format_flight_telemetry(float_telemetry)
+        self.assertIn("AEA185", hud)
+        self.assertIn("218° (SW)", hud)
+        self.assertIn("37,998 FT", hud)
+        self.assertIn("493 KTS", hud)
+        self.assertIn("Predicted Landing", hud)
+
+    def test_run_dynamic_flight_tracker_max_ticks(self):
+        from tools.flight import run_dynamic_flight_tracker
+        from ui.state import ui_state
+
+        test_flight = {
+            "callsign": "SAT442",
+            "flight_number": "SP442",
+            "model": "DH8D",
+            "origin": "PDL",
+            "dest": "HOR",
+            "altitude_ft": 9750,
+            "speed_kts": 233,
+            "speed_kmh": 432,
+            "heading": 294,
+            "reg": "9H-LWA",
+            "status": "Climbing",
+            "lat": 37.9,
+            "lon": -26.0,
+            "predicted_minutes": 34,
+            "eta_str": "34 min (ETA ~13:04 UTC)",
+            "updated_at": 1789302644.0,
+            "fr24_url": "https://www.flightradar24.com/SAT442"
+        }
+        ui_state.update(tracked_flight=test_flight)
+        # Should execute exactly 1 tick and return cleanly without error
+        run_dynamic_flight_tracker("SAT442", interval=0.01, max_ticks=1)
 
     @patch("urllib.request.urlopen")
     def test_zimaos_status_mock(self, mock_urlopen):
@@ -238,6 +418,100 @@ class TestNewTools(unittest.TestCase):
         apps_after = get_custom_zima_apps()
         matched_after = [a for a in apps_after if a.get("name") == "TestPortainer"]
         self.assertEqual(len(matched_after), 0)
+
+    @patch("webbrowser.open")
+    def test_direct_youtube_music_playback(self, mock_browser):
+        from tools.media import clean_youtube_query, play_youtube
+
+        # Verify query cleaning
+        self.assertEqual(clean_youtube_query("open the song Bohemian Rhapsody and start playing it on youtube music"), "Bohemian Rhapsody")
+        self.assertEqual(clean_youtube_query("start playing Still Alive on youtube music"), "Still Alive")
+        self.assertEqual(clean_youtube_query("open the song and start playing it on youtube music"), "Still Alive Portal")
+
+        # Verify direct playback URL construction
+        success, msg = play_youtube("Bohemian Rhapsody Queen", music=True, open_browser=True)
+        self.assertTrue(success)
+        self.assertIn("YouTube Music", msg)
+        mock_browser.assert_called()
+        opened_url = mock_browser.call_args[0][0]
+        self.assertTrue(opened_url.startswith("https://music.youtube.com/"))
+
+    def test_zimaos_telemetry_hud(self):
+        from tools.zimaos import get_zimaos_telemetry, format_zimaos_hud, monitor_zimaos
+
+        # 1. Test telemetry structure
+        telemetry = get_zimaos_telemetry()
+        self.assertIsInstance(telemetry, dict)
+        self.assertIn("host", telemetry)
+        self.assertIn("online", telemetry)
+        self.assertIn("hud_card", telemetry)
+
+        # 2. Test HUD formatting with synthetic telemetry
+        synth_data = {
+            "host": "http://192.168.1.123",
+            "online": True,
+            "gateway": "ZimaOS-Gateway (12.5ms)",
+            "cpu": {"percent": 15.2, "temp_c": 42.0, "model": "Intel N100"},
+            "ram": {"total_gb": 16.0, "used_gb": 4.5, "percent": 28.1},
+            "disk": {"total_gb": 512.0, "used_gb": 120.0, "percent": 23.4},
+            "services": [{"port": 80, "name": "ZimaOS Web GUI"}, {"port": 8123, "name": "Home Assistant"}],
+            "auth_status": "[* ACTIVE]",
+        }
+        hud = format_zimaos_hud(synth_data)
+        self.assertIn("APERTURE SCIENCE HARDWARE TELEMETRY & THERMAL HUD", hud)
+        self.assertIn("Intel N100", hud)
+        self.assertIn("Home Assist", hud)
+
+        # 3. Test tool wrapper
+        success, res = monitor_zimaos(live=False)
+        self.assertTrue(success)
+        self.assertIsInstance(res, dict)
+        self.assertIn("hud_card", res)
+
+    def test_set_zimaos_host_tool(self):
+        from tools.zimaos import set_zimaos_host, get_zimaos_host
+        from config import config
+
+        # Test changing to custom IP
+        success, msg = set_zimaos_host("192.168.1.200")
+        self.assertTrue(success)
+        self.assertIn("192.168.1.200", msg)
+        self.assertEqual(get_zimaos_host(), "http://192.168.1.200")
+
+        # Test prefix stripping ("to 192.168.1.123")
+        success, msg = set_zimaos_host("to 192.168.1.123")
+        self.assertTrue(success)
+        self.assertEqual(get_zimaos_host(), "http://192.168.1.123")
+        self.assertEqual(config.zimaos_host, "http://192.168.1.123")
+
+    def test_zimaos_live_runner(self):
+        from tools.zimaos import run_live_zimaos_monitor
+        # Bounded run of 1 tick should complete without exceptions
+        try:
+            run_live_zimaos_monitor(interval=0.01, max_ticks=1)
+        except Exception as e:
+            self.fail(f"run_live_zimaos_monitor raised exception: {e}")
+
+    def test_zimaos_intent_routing(self):
+        agent = OSAgent(enable_voice=False)
+
+        # 1. Test live monitoring intent
+        with patch.object(agent.client.chat.completions, "create", side_effect=Exception("LLM simulated offline")):
+            plan = agent.query_llm("monitor my zimaos server live")
+            self.assertTrue(any(a.tool == "monitor_zimaos" and a.args.get("live") is True for a in plan.actions))
+
+        # 2. Test IP reconfiguration intent
+        with patch.object(agent.client.chat.completions, "create", side_effect=Exception("LLM simulated offline")):
+            plan = agent.query_llm("change my zimaos ip to 192.168.1.123")
+            self.assertTrue(any(a.tool == "set_zimaos_host" and "192.168.1.123" in a.args.get("new_host", "") for a in plan.actions))
+
+        # 3. Test generic zimaos check & monitor zimaos
+        with patch.object(agent.client.chat.completions, "create", side_effect=Exception("LLM simulated offline")):
+            plan_mon = agent.query_llm("monitor zimaos")
+            self.assertTrue(any(a.tool == "monitor_zimaos" for a in plan_mon.actions))
+
+            plan_stat = agent.query_llm("zimaos")
+            self.assertTrue(any(a.tool == "get_zimaos_status" for a in plan_stat.actions))
 
 
 if __name__ == "__main__":

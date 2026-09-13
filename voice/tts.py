@@ -181,9 +181,15 @@ class TextToSpeech:
                 logger.warning(f"MCI open failed with code {err}")
                 return
 
-            # Play file synchronously in the background thread
-            play_cmd = f"play {alias} wait"
-            winmm.mciSendStringW(play_cmd, None, 0, 0)
+            # Play file synchronously in the background thread with smart audio ducking
+            try:
+                from tools.audio_ducking import audio_ducked
+                with audio_ducked(target_fraction=0.20):
+                    play_cmd = f"play {alias} wait"
+                    winmm.mciSendStringW(play_cmd, None, 0, 0)
+            except Exception:
+                play_cmd = f"play {alias} wait"
+                winmm.mciSendStringW(play_cmd, None, 0, 0)
         finally:
             winmm.mciSendStringW(f"close {alias}", None, 0, 0)
             with self._lock:

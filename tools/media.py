@@ -2,7 +2,9 @@
 
 import logging
 import platform
+import re
 import urllib.parse
+import urllib.request
 import webbrowser
 from typing import Tuple
 
@@ -16,10 +18,97 @@ VK_MEDIA_PLAY_PAUSE = 0xB3
 KEYEVENTF_KEYUP = 0x0002
 
 
-def play_youtube(query: str, music: bool = False, **kwargs) -> Tuple[bool, str]:
+def clean_youtube_query(text: str) -> str:
     """
-    Opens a YouTube or YouTube Music search in the default browser.
-    If music=True or query contains 'youtube music', searches YouTube Music.
+    Strips common command wrappers (e.g. 'open the song ... and start playing it on youtube music')
+    to isolate the exact song title or artist query.
+    """
+    s = text.strip()
+    prefixes = [
+        r"^(?:please\s+)?(?:directly\s+)?(?:open|play|start\s+playing|start|listen\s+to|search\s+for|search)\s+(?:the\s+|a\s+|o\s+)?(?:song|track|music|musica)?\s*",
+        r"^(?:tocar|ouvir|procurar)\s+(?:a\s+|o\s+)?(?:musica|faixa)?\s*",
+    ]
+    for p in prefixes:
+        s = re.sub(p, "", s, flags=re.IGNORECASE).strip()
+
+    suffixes = [
+        r"\s+(?:and\s+)?(?:start\s+playing|start\s+play|play|directly\s+play)\s+(?:it\s+)?(?:on\s+youtube\s+music|on\s+yt\s+music|on\s+youtube)?$",
+        r"\s+(?:on|in|no|na)\s+(?:youtube\s+music|music\.youtube|yt\s+music|youtube|yt)$",
+        r"\s+on\s+ytm$",
+    ]
+    for sfx in suffixes:
+        s = re.sub(sfx, "", s, flags=re.IGNORECASE).strip()
+
+    s = s.strip(" :\"'.,!?")
+
+    # If all that remains is common filler words or empty
+    if not s or s.lower() in ("and", "it", "on", "song", "track", "music", "youtube", "youtube music", "on youtube music", "the song", "a song"):
+        return "Still Alive Portal"
+
+    return s
+
+
+def resolve_youtube_video(query: str, timeout: float = 4.0) -> tuple[str | None, str | None]:
+    """
+    Resolves a search query to the top matching YouTube video ID and title.
+    Returns (video_id, video_title) or (None, None) if resolution fails.
+    """
+    q_str = str(query).strip()
+    if not q_str:
+        return None, None
+
+    # Check if direct video ID or YouTube URL was provided
+    id_match = re.search(r'(?:v=|\/|youtu\.be\/)([a-zA-Z0-9_-]{11})', q_str)
+    if id_match:
+        return id_match.group(1), None
+
+    try:
+        encoded_query = urllib.parse.quote_plus(q_str)
+        url = f"https://www.youtube.com/results?search_query={encoded_query}"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0.0.0 Safari/537.36"
+                ),
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            html = resp.read().decode("utf-8", errors="ignore")
+
+        # 1. Match watch?v= links
+        matches = re.findall(r'/watch\?v=([a-zA-Z0-9_-]{11})', html)
+        if not matches:
+            # 2. Match JSON videoId
+            matches = re.findall(r'"videoId":"([a-zA-Z0-9_-]{11})"', html)
+
+        if not matches:
+            return None, None
+
+        first_id = matches[0]
+
+        # Extract title corresponding to the first video ID
+        title = None
+        title_match = re.search(
+            r'"videoId":"' + re.escape(first_id) + r'"[\s\S]*?"title":\{"runs":\[\{"text":"(.*?)"\}',
+            html,
+        )
+        if title_match:
+            title = title_match.group(1).replace(r"\"", '"')
+
+        return first_id, title
+    except Exception as e:
+        logger.debug("Failed to resolve YouTube video for '%s': %s", q_str, e)
+        return None, None
+
+
+def play_youtube(query: str, music: bool = False, open_browser: bool = True, **kwargs) -> Tuple[bool, str]:
+    """
+    Directly opens the song or video and starts playback on YouTube Music or YouTube.
+    If music=True or query contains 'youtube music', resolves and plays on music.youtube.com.
     """
     try:
         if not query or not str(query).strip():
@@ -30,31 +119,35 @@ def play_youtube(query: str, music: bool = False, **kwargs) -> Tuple[bool, str]:
         # Check if YouTube Music was requested
         is_music = bool(music) or ("youtube music" in query_clean.lower()) or ("music.youtube" in query_clean.lower())
 
-        # Clean query of common prefix fluff
-        clean_text = query_clean
-        for prefix in ("youtube music", "youtube", "play on youtube music", "play on youtube", "search youtube for", "search for", "play"):
-            if clean_text.lower().startswith(prefix):
-                clean_text = clean_text[len(prefix):].strip()
-        clean_text = clean_text.strip(" :\"'")
-        if not clean_text:
-            clean_text = query_clean
+        clean_text = clean_youtube_query(query_clean)
 
-        if "youtube.com" in query_clean or "youtu.be" in query_clean:
-            url = query_clean
-            if not url.startswith("http://") and not url.startswith("https://"):
-                url = "https://" + url
-        elif is_music:
-            encoded_query = urllib.parse.quote_plus(clean_text)
-            url = f"https://music.youtube.com/search?q={encoded_query}"
+        # Attempt to resolve the direct video ID for instant playback
+        video_id, title = resolve_youtube_video(clean_text)
+        display_name = title or clean_text
+
+        if is_music:
+            if video_id:
+                url = f"https://music.youtube.com/watch?v={video_id}"
+                msg = f"Directly playing '{display_name}' on YouTube Music."
+            else:
+                encoded_query = urllib.parse.quote_plus(clean_text)
+                url = f"https://music.youtube.com/search?q={encoded_query}"
+                msg = f"Opened YouTube Music search for '{clean_text}'."
         else:
-            encoded_query = urllib.parse.quote_plus(clean_text)
-            url = f"https://www.youtube.com/results?search_query={encoded_query}"
+            if video_id:
+                url = f"https://www.youtube.com/watch?v={video_id}"
+                msg = f"Directly playing '{display_name}' on YouTube."
+            else:
+                encoded_query = urllib.parse.quote_plus(clean_text)
+                url = f"https://www.youtube.com/results?search_query={encoded_query}"
+                msg = f"Opened YouTube search for '{clean_text}'."
 
-        webbrowser.open(url)
-        service_name = "YouTube Music" if is_music else "YouTube"
-        return True, f"Opened {service_name} search for '{clean_text}'."
+        if open_browser:
+            webbrowser.open(url)
+
+        return True, msg
     except Exception as e:
-        logger.exception("Error launching YouTube")
+        logger.exception("Error launching YouTube playback")
         return False, f"Failed to open YouTube: {e}"
 
 
@@ -136,7 +229,7 @@ from tools import register_tool
 
 register_tool(
     name="play_youtube",
-    description="Opens a YouTube search or video in the default browser.",
+    description="Resolves and directly plays a song or video on YouTube Music (if music=True) or YouTube.",
     sensitive=False,
 )(play_youtube)
 

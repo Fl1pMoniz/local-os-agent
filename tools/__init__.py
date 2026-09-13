@@ -22,8 +22,22 @@ class ToolDefinition:
 _REGISTRY: dict[str, ToolDefinition] = {}
 
 
-def register_tool(name: str | None = None, description: str = "", sensitive: bool = False):
+def register_tool(name: Any = None, description: str = "", sensitive: bool = False):
     """Decorator to register a tool function in the agent's toolset."""
+    if callable(name):
+        func = name
+        tool_name = func.__name__
+        tool_desc = description or (func.__doc__ or "").strip()
+        sig = inspect.signature(func)
+        _REGISTRY[tool_name] = ToolDefinition(
+            name=tool_name,
+            func=func,
+            description=tool_desc,
+            sensitive=sensitive,
+            signature=sig,
+        )
+        return func
+
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         tool_name = name or func.__name__
         tool_desc = description or (func.__doc__ or "").strip()
@@ -153,3 +167,12 @@ from tools import steam  # noqa: F401, E402
 from tools import system  # noqa: F401, E402
 from tools import web  # noqa: F401, E402
 from tools import zimaos  # noqa: F401, E402
+from tools import game_clipper  # noqa: F401, E402
+from tools import jellyfin  # noqa: F401, E402
+from tools import audio_ducking  # noqa: F401, E402
+from tools import soundboard  # noqa: F401, E402
+from tools import vision  # noqa: F401, E402
+from tools import discord_relay  # noqa: F401, E402
+from tools import subject_wellness  # noqa: F401, E402
+from tools import ai_telemetry  # noqa: F401, E402
+

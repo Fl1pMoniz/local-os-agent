@@ -47,3 +47,10 @@ captures/*
 voice/models/**/*.onnx
 *.bak
 
+# Credentials and secrets (never committed to GitHub)
+*credentials*.json
+*secrets*.json
+zimaos_credentials.json
+captures/zimaos_credentials.json
+captures/zimaos_config.json
+

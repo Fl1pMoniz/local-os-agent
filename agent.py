@@ -4,6 +4,7 @@ import ast
 import json
 import logging
 import re
+import time
 from typing import Any, Callable
 
 from openai import OpenAI
@@ -13,6 +14,10 @@ from schemas import SYSTEM_PROMPT, AgentResponse, ToolAction, ToolExecutionResul
 from tools import execute_tool, get_tool
 
 logger = logging.getLogger("local_os_agent.agent")
+
+# Suppress noisy HTTP client loggers to keep console output clean and free of [INFO] lines
+for _noisy in ("httpx", "httpcore", "openai", "urllib3"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
 
 # Pre-compiled regular expressions for high-performance JSON extraction & intent matching
 RE_JSON_BLOCK = re.compile(r"(\{[\s\S]*\})")
@@ -29,11 +34,27 @@ RE_MUTE = re.compile(r"\b(mute|unmute|silenciar|mudo|mutar|desmutar)\b", re.IGNO
 RE_YT_CLEAN = re.compile(r"\b(play|search|on|for|in|no|na|tocar|ouvir|procurar|musica|music|youtube|de)\b", re.IGNORECASE)
 RE_FLIGHT_MATCH = re.compile(r"(?:flight|voo|radar|aero|number|num|no)?\s*([A-Za-z]{2,3}\s*\d{1,4}[A-Za-z]?)", re.IGNORECASE)
 RE_ALPHANUM_TOKEN = re.compile(r"\b[A-Za-z0-9]{3,7}\b")
-RE_ZIMA_LAUNCH = re.compile(r"\b(?:launch|open|start|run|iniciar|abrir)\s+(?:app\s+)?([A-Za-z0-9_\-\s]+?)\s+(?:on|in|no|na)?\s*(?:zimaos|zima os|casaos|home server|servidor)\b", re.IGNORECASE)
+RE_ZIMA_LAUNCH = re.compile(r"(?:\b(?:launch|open|start|run|iniciar|abrir)\s+(?:app\s+)?([A-Za-z0-9_\-\s]+?)\s+(?:on|in|no|na)?\s*(?:zimaos|zima os|zima|casaos|home server|server|servidor)\b|\b(?:zimaos|zima os|zima|server|servidor)\s+(?:launch|open|start|run|abrir|iniciar)\s+(?:app\s+)?([A-Za-z0-9_\-\s]+)\b)", re.IGNORECASE)
+RE_ZIMA_SSH = re.compile(r"\b(?:open|launch|start|run|connect|conectar|iniciar|abrir)?\s*(?:zimaos|zima|home server|server|servidor)?\s*(?:ssh|terminal ssh|ssh terminal|remote terminal|terminal remoto|remote shell|shell remoto)\b", re.IGNORECASE)
+RE_IP_ADDRESS = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\b")
+RE_ZIMA_IP = re.compile(r"\b(?:change|set|update|configure|mudar|alterar|trocar|configurar)?\s*(?:zimaos|zima os|zima|server|servidor)?\s*(?:ip|host|address|endereco)?\s*(?:to|para|=|:)?\s*(\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?)\b", re.IGNORECASE)
 RE_SCREENSHOT = re.compile(r"\b(screenshot|take screenshot|capture screen|captura de tela|tirar print|print da tela|screen capture)\b", re.IGNORECASE)
+RE_HW_MONITOR = re.compile(r"\b(hardware|component|components|cpu temp|gpu temp|vram|power draw|temperatures|live tracker|pc monitor|hardware monitor|monitor pc|pc stats|thermal|temperatura|consumo|component usage|glados stats|ai stats|ai telemetry|tokens|tok/s|inference stats|ai ram)\b", re.IGNORECASE)
 RE_STATS = re.compile(r"\b(system stats|system status|hardware stats|cpu usage|ram usage|status do sistema|como esta o pc|diagnostico)\b", re.IGNORECASE)
 RE_RECYCLE = re.compile(r"\b(empty recycle bin|clean recycle bin|esvaziar lixeira|limpar lixeira)\b", re.IGNORECASE)
 RE_WEATHER = re.compile(r"\b(weather|temperature|forecast|previsao do tempo|clima|temperatura)\b", re.IGNORECASE)
+RE_CLIP = re.compile(r"\b(clip\s+(?:that|the\s+last|this|30)|record\s+(?:that|the\s+last|this|clip)|save\s+clip|salvar\s+clip)\b", re.IGNORECASE)
+RE_CLIPS_LIST = re.compile(r"\b(recent\s+clips|list\s+clips|my\s+clips|highlights|ver\s+clips)\b", re.IGNORECASE)
+RE_JELLYFIN = re.compile(r"(?:\b(?:play|search|watch|assistir|tocar)\s+(.+?)\s+(?:on|in|no|na)\s*(?:jellyfin|server|servidor)\b|\bjellyfin\s+(?:play|watch|search)?\s*(.+)\b)", re.IGNORECASE)
+RE_JELLYFIN_STATUS = re.compile(r"\b(jellyfin\s+status|media\s+status|now\s+playing|what\s+is\s+playing|o\s+que\s+esta\s+tocando)\b", re.IGNORECASE)
+RE_VISION = re.compile(r"\b(look\s+at|inspect\s+(?:this|my\s+screen|error|code)|what\s+is\s+this\s+error|diagnose\s+screen|roast\s+(?:my\s+screen|this|code))\b", re.IGNORECASE)
+RE_SOUNDBOARD = re.compile(
+    r"\b(?:(?:play|tocar|ouvir|executar|broadcast)\s+(?:a\s+|an\s+|the\s+)?(?:cave\s+johnson|wheatley|lemons|combustible\s+lemons|space\s+core|turret|neurotoxin)\s*(?:voiceline|voice\s+clip|audio\s+clip|quote|sound|clip)?|(?:cave\s+johnson|wheatley|lemons|space\s+core|turret|neurotoxin)\s+(?:voiceline|voice\s+clip|audio\s+clip|soundboard)|soundboard(?:\s+[a-z_]+)?)\b",
+    re.IGNORECASE,
+)
+RE_DISCORD_CLIP = re.compile(r"\b(send\s+(?:clip|highlight)\s+to\s+discord|share\s+clip|post\s+clip\s+to\s+discord)\b", re.IGNORECASE)
+RE_WELLNESS = re.compile(r"\b(subject\s+status|check\s+subject|hydration|ergonomics|wellness|posture|health\s+status|status\s+do\s+sujeito)\b", re.IGNORECASE)
+RE_WATER = re.compile(r"\b(log\s+water|drink\s+water|drank\s+water|bebi\s+agua|tomar\s+agua)\b", re.IGNORECASE)
 
 
 def extract_json_payload(raw_text: str) -> dict[str, Any]:
@@ -115,7 +136,7 @@ class OSAgent:
         self.api_key = api_key or config.llm_api_key
         self.model = model or config.llm_model
         self.enable_voice = enable_voice if enable_voice is not None else config.enable_tts
-        self.client = OpenAI(base_url=self.base_url, api_key=self.api_key)
+        self.client = OpenAI(base_url=self.base_url, api_key=self.api_key, max_retries=1)
         self.confirmation_callback = confirmation_callback or self._default_confirmation_prompt
         self.history: list[dict[str, str]] = []
 
@@ -139,8 +160,9 @@ class OSAgent:
 
     def query_llm(self, user_prompt: str) -> AgentResponse:
         """Sends the prompt to the local LLM and returns the parsed AgentResponse."""
-        # Multi-turn conversational memory: keep last 6 turns to maintain context
-        recent_history = self.history[-6:]
+        # Multi-turn conversational memory: keep last 4-6 turns to maintain context and conserve tokens
+        history_turns = 4 if config.cli_mode else 6
+        recent_history = self.history[-history_turns:]
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             *recent_history,
@@ -156,6 +178,7 @@ class OSAgent:
             }
         }
 
+        t_start = time.time()
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -164,10 +187,26 @@ class OSAgent:
                 timeout=config.llm_timeout,
                 extra_body=extra_options,
             )
+            elapsed_s = time.time() - t_start
             content = response.choices[0].message.content or ""
             logger.debug(f"Raw LLM output:\n{content}")
             parsed_json = extract_json_payload(content)
             plan = AgentResponse.model_validate(parsed_json)
+
+            # Record AI inference metrics into central telemetry tracker
+            try:
+                from tools.ai_telemetry import ai_tracker
+                usage = getattr(response, "usage", None)
+                p_tok = getattr(usage, "prompt_tokens", 0) if usage else len(str(messages).split())
+                c_tok = getattr(usage, "completion_tokens", 0) if usage else len(content.split())
+                ai_tracker.record_inference(
+                    prompt_tokens=p_tok or 0,
+                    completion_tokens=c_tok or 0,
+                    latency_s=elapsed_s,
+                    model=self.model,
+                )
+            except Exception:
+                pass
         except Exception as e:
             logger.warning(f"LLM query failed or produced invalid JSON ({e}). Falling back to deterministic resolver.")
             plan = AgentResponse(
@@ -199,49 +238,87 @@ class OSAgent:
                 plan.response = "Toggling audio mute register."
 
         # 2. YouTube Music and YouTube Video
-        elif "youtube music" in prompt_lower or ("music" in prompt_lower and "youtube" in prompt_lower):
-            clean_q = RE_YT_CLEAN.sub("", prompt_lower).strip()
-            clean_q = clean_q or "aperture science"
+        elif (
+            "youtube music" in prompt_lower
+            or "music.youtube" in prompt_lower
+            or ("music" in prompt_lower and any(w in prompt_lower for w in ("youtube", "play", "open", "start", "listen", "tocar", "ouvir")))
+            or ("song" in prompt_lower and any(w in prompt_lower for w in ("youtube", "play", "open", "start", "listen", "tocar", "ouvir")))
+        ):
+            from tools.media import clean_youtube_query
+            clean_q = clean_youtube_query(prompt_lower)
+            clean_q = clean_q or "Still Alive Portal"
             plan.actions = [ToolAction(tool="play_youtube", args={"query": clean_q, "music": True})]
-            plan.response = f"Searching YouTube Music for {clean_q}. Melancholy suits your test scores."
+            plan.response = f"Opening YouTube Music to directly stream '{clean_q}'. Melancholy suits your test scores."
         elif "youtube" in prompt_lower and any(w in prompt_lower for w in ("play", "search", "open", "watch", "tocar", "ver", "assistir", "procurar")):
-            clean_q = RE_YT_CLEAN.sub("", prompt_lower).strip()
+            from tools.media import clean_youtube_query
+            clean_q = clean_youtube_query(prompt_lower)
             clean_q = clean_q or "aperture science"
             plan.actions = [ToolAction(tool="play_youtube", args={"query": clean_q, "music": False})]
-            plan.response = f"Searching YouTube for {clean_q}."
+            plan.response = f"Opening YouTube to directly stream '{clean_q}'."
 
-        # 3. Flightradar24 Flight Tracking
-        elif any(w in prompt_lower for w in ("flight", "flightradar", "voo", "radar")) and any(w in prompt_lower for w in ("track", "where", "status", "rastrear", "rastreie", "onde", "qual")):
-            flight_match = RE_FLIGHT_MATCH.search(prompt_lower)
-            flight_code = "AA100"
-            if flight_match and len(flight_match.group(1).strip()) >= 3:
+        # 3. Flightradar24 Flight Tracking & Telemetry
+        elif any(w in prompt_lower for w in ("flight", "flightradar", "voo", "radar")):
+            # Check if user is asking for the currently tracked flight telemetry
+            is_tracked_query = (
+                any(phrase in prompt_lower for phrase in (
+                    "tracked flight", "tracked flights", "flight info", "flight telemetry",
+                    "radar telemetry", "radar status", "current flight", "what flight",
+                    "voo rastreado", "info do voo", "status do voo", "telemetria"
+                ))
+                or (
+                    any(w in prompt_lower for w in ("info", "informacao", "status", "telemetry", "telemetria", "details", "detalhes"))
+                    and not any(c.isdigit() for c in prompt_lower)
+                )
+            )
+
+            flight_match = RE_FLIGHT_MATCH.search(prompt_lower) if not is_tracked_query else None
+            flight_code = None
+            if flight_match and len(flight_match.group(1).strip()) >= 3 and any(c.isdigit() for c in flight_match.group(1)):
                 flight_code = flight_match.group(1).replace(" ", "").upper()
-            else:
+            elif not is_tracked_query:
                 tokens = RE_ALPHANUM_TOKEN.findall(prompt_lower)
                 for t in tokens:
                     if any(c.isdigit() for c in t) and any(c.isalpha() for c in t):
                         flight_code = t.upper()
                         break
 
-            plan.actions = [ToolAction(tool="track_flight", args={"flight_query": flight_code, "open_browser": True})]
-            plan.response = f"Accessing Flightradar telemetry for flight {flight_code}. Let us hope gravity behaves."
+            if flight_code:
+                open_browser = False if config.cli_mode else any(w in prompt_lower for w in ("browser", "open", "abrir", "navegador", "map", "mapa"))
+                plan.actions = [ToolAction(tool="track_flight", args={"flight_query": flight_code, "open_browser": open_browser})]
+                plan.response = f"Accessing Flightradar telemetry for flight {flight_code}. Let us hope gravity behaves."
+            elif is_tracked_query or any(w in prompt_lower for w in ("track", "where", "status", "onde", "rastrear")):
+                plan.actions = [ToolAction(tool="get_tracked_flight_info")]
+                plan.response = "Querying Aperture Science radar telemetry for currently tracked flight."
 
         # 4. ZimaOS Server & App Launcher
-        elif any(w in prompt_lower for w in ("zimaos", "zima os", "casaos", "home server", "meu servidor", "servidor")):
-            launch_match = RE_ZIMA_LAUNCH.search(prompt_lower)
-            if launch_match and launch_match.group(1).strip() not in ("dashboard", "painel", "web", "gui", "interface", "server", "servidor"):
-                target_app = launch_match.group(1).strip()
-                plan.actions = [ToolAction(tool="launch_zimaos_app", args={"app_name": target_app})]
-                plan.response = f"Accessing ZimaOS node to initialize container: {target_app}."
-            elif any(w in prompt_lower for w in ("dashboard", "painel", "web", "gui", "open", "abrir", "interface")):
-                plan.actions = [ToolAction(tool="open_zimaos_dashboard")]
-                plan.response = "Opening ZimaOS management dashboard."
-            elif any(w in prompt_lower for w in ("apps", "app", "container", "containers", "docker", "dockers", "aplicativos")):
-                plan.actions = [ToolAction(tool="list_zimaos_apps")]
-                plan.response = "Retrieving container manifest from ZimaOS."
+        elif any(w in prompt_lower for w in ("zimaos", "zima os", "zima", "casaos", "home server", "server", "meu servidor", "servidor")) or (RE_IP_ADDRESS.search(prompt_lower) and any(w in prompt_lower for w in ("ip", "host", "address", "server"))):
+            ip_match = RE_IP_ADDRESS.search(prompt_lower)
+            if any(w in prompt_lower for w in ("ip", "host", "address", "endereco", "mudar", "change", "set", "update")) and ip_match:
+                new_ip = ip_match.group(0).strip()
+                plan.actions = [ToolAction(tool="set_zimaos_host", args={"new_host": new_ip})]
+                plan.response = f"Updating ZimaOS network endpoint registers to {new_ip}."
+            elif RE_ZIMA_SSH.search(prompt_lower) or (any(w in prompt_lower for w in ("ssh", "shell", "terminal")) and any(w in prompt_lower for w in ("server", "servidor", "zima", "zimaos"))):
+                plan.actions = [ToolAction(tool="open_zimaos_ssh")]
+                plan.response = "Initializing secure remote shell protocol to Aperture Science mainframe."
             else:
-                plan.actions = [ToolAction(tool="get_zimaos_status")]
-                plan.response = "Querying ZimaOS telemetry. Calculating odds of catastrophic node failure."
+                launch_match = RE_ZIMA_LAUNCH.search(prompt_lower)
+                target_app = (launch_match.group(1) or launch_match.group(2) or "").strip() if launch_match else ""
+                if target_app and target_app not in ("dashboard", "painel", "web", "gui", "interface", "server", "servidor", "ssh", "terminal"):
+                    plan.actions = [ToolAction(tool="launch_zimaos_app", args={"app_name": target_app})]
+                    plan.response = f"Accessing ZimaOS node to initialize container: {target_app}."
+                elif any(w in prompt_lower for w in ("dashboard", "painel", "web", "gui", "open", "abrir", "interface")):
+                    plan.actions = [ToolAction(tool="open_zimaos_dashboard")]
+                    plan.response = "Opening ZimaOS management dashboard."
+                elif any(w in prompt_lower for w in ("apps", "app", "container", "containers", "docker", "dockers", "aplicativos")):
+                    plan.actions = [ToolAction(tool="list_zimaos_apps")]
+                    plan.response = "Retrieving container manifest from ZimaOS."
+                elif any(w in prompt_lower for w in ("monitor", "live", "telemetry", "hud", "track", "painel")):
+                    is_live = any(w in prompt_lower for w in ("live", "real-time", "real time", "continuo"))
+                    plan.actions = [ToolAction(tool="monitor_zimaos", args={"live": is_live})]
+                    plan.response = "Querying ZimaOS server telemetry."
+                else:
+                    plan.actions = [ToolAction(tool="get_zimaos_status")]
+                    plan.response = "Querying ZimaOS telemetry. Calculating odds of catastrophic node failure."
 
         # 5. Singing Songs
         elif any(w in prompt_lower for w in ("sing", "song", "canta")):
@@ -271,7 +348,61 @@ class OSAgent:
             plan.actions = [ToolAction(tool="roast_user")]
             plan.response = "Analyzing your current activities now. Prepare yourself for the truth."
 
-        # 8. Workstation Lock intent
+        # 8. Voice Recognition and Voice Audio Control intents
+        elif any(phrase in prompt_lower for phrase in (
+            "turn on voice recognition", "start voice recognition", "enable voice recognition",
+            "turn on voice", "voice on", "enable listening", "listen on", "activate voice recognition"
+        )):
+            from ui.server import start_voice_listener
+            start_voice_listener()
+            plan.actions = []
+            plan.response = "Voice recognition activated. Local microphone telemetry listener engaged."
+
+        elif any(phrase in prompt_lower for phrase in (
+            "turn off voice recognition", "stop voice recognition", "disable voice recognition",
+            "turn off voice", "voice off", "stop listening", "disable listening", "deactivate voice recognition"
+        )):
+            from ui.server import stop_voice_listener
+            stop_voice_listener()
+            plan.actions = []
+            plan.response = "Voice recognition deactivated. Microphone telemetry sensor offline."
+
+        elif any(phrase in prompt_lower for phrase in (
+            "turn on glados voice", "enable glados voice", "tts on", "unmute glados",
+            "turn on speech", "enable voice output", "voice audio on", "enable tts"
+        )):
+            config.enable_tts = True
+            try:
+                from ui.state import ui_state
+                ui_state.update(glados_voice=True)
+            except Exception:
+                pass
+            plan.actions = []
+            plan.response = "Acoustic speech synthesis re-enabled. My vocal outputs are once again active."
+
+        elif any(phrase in prompt_lower for phrase in (
+            "turn off glados voice", "disable glados voice", "tts off", "mute glados",
+            "turn off speech", "mute voice", "voice audio off", "disable voice output", "disable tts"
+        )):
+            config.enable_tts = False
+            try:
+                from ui.state import ui_state
+                ui_state.update(glados_voice=False)
+            except Exception:
+                pass
+            plan.actions = []
+            plan.response = "Acoustic speech synthesis inhibited. Operating in text-only transmission mode."
+
+        elif any(phrase in prompt_lower for phrase in (
+            "open webpage", "open web console", "launch ui", "launch web", "open ui",
+            "start web", "open dashboard", "open glados web", "open browser interface"
+        )):
+            from ui.server import start_ui_server
+            start_ui_server(port=5000, open_browser=True)
+            plan.actions = []
+            plan.response = "Initializing Aperture Science ASCII Web Console on host port 5000."
+
+        # 9. Workstation Lock intent
         elif any(w in prompt_lower for w in ("lock my pc", "lock pc", "lock computer", "lock screen", "lock workstation")):
             plan.actions = [ToolAction(tool="lock_workstation")]
             plan.response = "Terminal locked. Test chamber secured."
@@ -287,7 +418,14 @@ class OSAgent:
                 plan.actions = [ToolAction(tool="take_screenshot")]
                 plan.response = "Capturing screen optical telemetry for analysis."
 
-        # 11. System stats intent
+        # 11. Hardware telemetry / live monitor intent
+        elif RE_HW_MONITOR.search(prompt_lower):
+            is_live = any(w in prompt_lower for w in ("live", "tracker", "real time", "real-time", "continuo", "monitorar"))
+            if not any(a.tool == "monitor_hardware" for a in plan.actions):
+                plan.actions = [ToolAction(tool="monitor_hardware", args={"live": is_live})]
+                plan.response = "Querying host component thermal and utilization sensors."
+
+        # 12. System stats intent
         elif RE_STATS.search(prompt_lower):
             if not any(a.tool == "get_system_stats" for a in plan.actions):
                 plan.actions = [ToolAction(tool="get_system_stats")]
@@ -304,6 +442,62 @@ class OSAgent:
             if not any(a.tool == "get_weather" for a in plan.actions):
                 plan.actions = [ToolAction(tool="get_weather")]
                 plan.response = "Querying atmospheric sensors for environmental conditions."
+
+        # 14. Protocol 2: 30-Second Gameplay Clipper
+        elif RE_CLIP.search(prompt_lower):
+            plan.actions = [ToolAction(tool="capture_game_clip", args={"seconds": 30})]
+            plan.response = "Replay buffer triggered. Your questionable tactical maneuvers have been archived for posterity."
+
+        elif RE_CLIPS_LIST.search(prompt_lower):
+            plan.actions = [ToolAction(tool="list_recent_clips")]
+            plan.response = "Retrieving catalog of recently recorded gameplay highlights."
+
+        # 15. Protocol 1: Jellyfin Media Dispatcher
+        elif "jellyfin" in prompt_lower or ("media" in prompt_lower and any(w in prompt_lower for w in ("play", "stream", "server", "watch", "assistir", "tocar"))):
+            if any(w in prompt_lower for w in ("now playing", "status", "what is playing", "info")):
+                plan.actions = [ToolAction(tool="get_jellyfin_now_playing")]
+                plan.response = "Accessing live Jellyfin media telemetry on the server."
+            else:
+                j_match = RE_JELLYFIN.search(prompt_lower)
+                q = (j_match.group(1) or j_match.group(2)).strip() if j_match else prompt_lower.replace("jellyfin", "").strip()
+                plan.actions = [ToolAction(tool="search_and_play_jellyfin", args={"query": q or "media"})]
+                plan.response = f"Dispatching media stream for '{q}' on Jellyfin."
+
+        # 16. Protocol 3: Optical Screen Vision & Error Inspection
+        elif RE_VISION.search(prompt_lower):
+            plan.actions = [ToolAction(tool="analyze_screen", args={"prompt": user_prompt.strip()})]
+            plan.response = "Engaging optical sensor. Analyzing your screen for errors and cognitive deficiencies."
+
+        # 17. Protocol 4: Soundboard
+        elif RE_SOUNDBOARD.search(prompt_lower):
+            clip_key = "lemons"
+            if "moron" in prompt_lower or "punch" in prompt_lower:
+                clip_key = "wheatley_moron"
+            elif "wheatley" in prompt_lower or "hello" in prompt_lower:
+                clip_key = "wheatley_hello"
+            elif "space" in prompt_lower:
+                clip_key = "space"
+            elif "neurotoxin" in prompt_lower:
+                clip_key = "neurotoxin"
+            elif "turret" in prompt_lower or "sorry" in prompt_lower or "blame" in prompt_lower:
+                clip_key = "turret_sorry"
+            plan.actions = [ToolAction(tool="play_soundboard", args={"clip_name": clip_key})]
+            plan.response = f"Broadcasting Aperture acoustic synthesizer: {clip_key}."
+
+        # 18. Protocol 6: Discord Clip Dispatch
+        elif RE_DISCORD_CLIP.search(prompt_lower):
+            plan.actions = [ToolAction(tool="send_clip_to_discord")]
+            plan.response = "Transmitting newest game highlight to Aperture Discord relay."
+
+        # 19. Protocol 7: Subject Maintenance & Wellness
+        elif RE_WATER.search(prompt_lower):
+            plan.actions = [ToolAction(tool="log_water_intake")]
+            plan.response = "Hydration event logged in biological testing registry."
+
+        elif RE_WELLNESS.search(prompt_lower):
+            plan.actions = [ToolAction(tool="check_subject_status")]
+            plan.response = "Retrieving test subject biometric and compliance telemetry."
+
 
         # Normalize and sanitize arguments for any LLM-emitted actions
         for act in plan.actions:
@@ -335,12 +529,17 @@ class OSAgent:
                     except (ValueError, TypeError):
                         act.args["delta"] = 10
 
+            elif act.tool == "get_tracked_flight_info":
+                act.args = {}
+
             elif act.tool == "track_flight":
                 if "flight_query" not in act.args and "flight" in act.args:
                     act.args["flight_query"] = act.args.pop("flight")
                 if "flight_query" not in act.args:
                     act.args["flight_query"] = "AA100"
                 act.args["flight_query"] = str(act.args["flight_query"]).strip()
+                if config.cli_mode:
+                    act.args["open_browser"] = False
 
             elif act.tool == "play_youtube":
                 if "query" not in act.args:
@@ -354,6 +553,29 @@ class OSAgent:
                     act.args["app_name"] = act.args.pop("app")
                 if "app_name" in act.args:
                     act.args["app_name"] = str(act.args["app_name"]).strip()
+
+            elif act.tool == "monitor_hardware":
+                if "live" in act.args and not isinstance(act.args["live"], bool):
+                    act.args["live"] = str(act.args["live"]).lower() in ("true", "1", "yes")
+                elif "live" not in act.args:
+                    act.args["live"] = False
+
+            elif act.tool == "monitor_zimaos":
+                if "live" in act.args and not isinstance(act.args["live"], bool):
+                    act.args["live"] = str(act.args["live"]).lower() in ("true", "1", "yes")
+                elif "live" not in act.args:
+                    act.args["live"] = False
+
+            elif act.tool == "set_zimaos_host":
+                if "new_host" not in act.args:
+                    for k in ("host", "ip", "address", "url", "server"):
+                        if k in act.args:
+                            act.args["new_host"] = str(act.args.pop(k)).strip()
+                            break
+                if "new_host" in act.args:
+                    act.args["new_host"] = str(act.args["new_host"]).strip()
+                else:
+                    act.args["new_host"] = "192.168.1.123"
 
         # Update conversation history
         self.history.append({"role": "user", "content": user_prompt})
