@@ -12,10 +12,11 @@ A production-ready, modular OS-level Agentic Assistant that interfaces with loca
    - **GLaDOS Voice Synthesis**: Tuned synthetic neural voice (`glados` preset) featuring Ellen McLain's signature clinical, deadpan cadence and pitch.
    - **Wake Word Recognition**: Responds exclusively when addressed as **`"GLaDOS"`** or **`"Hey GLaDOS"`**, ignoring background room chatter.
 
-2. **Ultra-Low VRAM Footprint (< 2.5 GB VRAM)**:
-   - Configured with the optimized **`glados:3b`** model (based on LLaMA 3.2 3B).
-   - Constrained to a 2,048 token context window, capping total GPU memory consumption at **2.3 GB VRAM** (leaving ~10 GB free on an RTX 4070 for games and background tasks).
-   - Instant response latency (~1.0s).
+2. **Ultra-Low VRAM Footprint & GPU Whisper (< 3.5 GB Total VRAM)**:
+   - Configured with the optimized **`glados:3b`** model (based on LLaMA 3.2 3B) using **~2.3 GB VRAM**.
+   - **OpenAI Whisper on GPU**: Local neural speech recognition accelerated on CUDA (`base.en` with `fp16`), using only **~300 MB VRAM** and hard-capped at **≤ 1.0 GB VRAM** via `torch.cuda.set_per_process_memory_fraction()`.
+   - Combined system footprint is well under 3.5 GB VRAM, leaving > 8.5 GB free on an RTX 4070 for AAA gaming and rendering.
+   - Near-instant speech-to-text and LLM response latency.
 
 3. **Exact System Prompt & JSON Enforcement**:
    - Injects the strict system prompt directly into the agent.

@@ -64,6 +64,8 @@ class VoiceListener:
         self.language = language or config.stt_language
         self.whisper_model_name = whisper_model or config.whisper_model
         self.whisper_device = whisper_device or config.whisper_device
+        self.vram_limit_mb = config.whisper_vram_limit_mb
+        self._fp16 = False
 
         self._whisper_model = None
         self._load_whisper()
@@ -77,9 +79,34 @@ class VoiceListener:
 
         try:
             import whisper
+            import torch
 
-            logger.info(f"Loading OpenAI Whisper model ('{self.whisper_model_name}')...")
-            self._whisper_model = whisper.load_model(self.whisper_model_name, device=self.whisper_device)
+            target_device = self.whisper_device
+            if target_device.startswith("cuda"):
+                if torch.cuda.is_available():
+                    # Strictly limit GPU VRAM usage to <= 1GB (1024 MB)
+                    try:
+                        total_mem = torch.cuda.get_device_properties(0).total_memory
+                        max_allowed_bytes = min(self.vram_limit_mb * 1024 * 1024, 1024 * 1024 * 1024)
+                        fraction = max_allowed_bytes / total_mem
+                        torch.cuda.set_per_process_memory_fraction(fraction, 0)
+                        logger.info(
+                            f"Enforced Whisper GPU VRAM budget: {self.vram_limit_mb} MB "
+                            f"({fraction * 100:.2f}% of {total_mem / (1024**3):.1f} GB total VRAM)"
+                        )
+                    except Exception as mem_err:
+                        logger.warning(f"Could not set CUDA memory fraction: {mem_err}")
+                    self._fp16 = True
+                else:
+                    logger.warning("CUDA requested for Whisper but not available; falling back to CPU.")
+                    target_device = "cpu"
+                    self._fp16 = False
+            else:
+                self._fp16 = False
+
+            logger.info(f"Loading OpenAI Whisper ('{self.whisper_model_name}') on {target_device} (fp16={self._fp16})...")
+            self._whisper_model = whisper.load_model(self.whisper_model_name, device=target_device)
+            self.whisper_device = target_device
             logger.info("OpenAI Whisper model loaded successfully.")
         except Exception as e:
             logger.warning(f"Failed to load OpenAI Whisper ({e}); falling back to Google SpeechRecognition.")
@@ -176,13 +203,17 @@ class VoiceListener:
                 audio_float32 = audio_int16.astype(np.float32) / 32768.0
                 result = self._whisper_model.transcribe(
                     audio_float32,
-                    language="en",
-                    fp16=False,
+                    language=self.language,
+                    fp16=self._fp16,
                     verbose=False,
                 )
+                if self.whisper_device.startswith("cuda"):
+                    import torch
+                    torch.cuda.empty_cache()
+
                 text = (result.get("text") or "").strip().strip("\"'")
                 if text:
-                    logger.info(f"Transcribed voice command (OpenAI Whisper): '{text}'")
+                    logger.info(f"Transcribed voice command (OpenAI Whisper on {self.whisper_device}): '{text}'")
                     return text
                 return None
             except Exception as e:

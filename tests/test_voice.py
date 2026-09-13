@@ -70,11 +70,23 @@ class TestVoiceModule(unittest.TestCase):
         self.assertIn("failed", fail_quip.lower())
 
     def test_whisper_integration(self):
+        import torch
         from voice.listener import VoiceListener
+        from config import config
 
         listener = VoiceListener()
         self.assertIsNotNone(listener._whisper_model)
-        self.assertEqual(listener.whisper_model_name, "tiny.en")
+        self.assertEqual(listener.whisper_model_name, config.whisper_model)
+
+        expected_device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.assertTrue(listener.whisper_device.startswith(expected_device))
+        self.assertLessEqual(listener.vram_limit_mb, 1024)
+
+        if torch.cuda.is_available():
+            self.assertTrue(listener._fp16)
+            # Verify actual allocated VRAM is <= 1024 MB
+            allocated_mb = torch.cuda.memory_allocated() / (1024 * 1024)
+            self.assertLess(allocated_mb, 1024)
 
 
 if __name__ == "__main__":
