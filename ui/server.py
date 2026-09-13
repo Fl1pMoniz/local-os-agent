@@ -553,6 +553,8 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                                 "command": user_prompt,
                                 "output": f"[+] {msg}" if success else f"[-] {msg}",
                                 "message": msg,
+                                "glados_voice": config.enable_tts,
+                                "voice_recognition": ui_state.voice_recognition,
                             }
                         elif p_lower in ("zima", "zimaos", "zima live", "zima status", "zima hud", "server", "server status", "server hud", "server info"):
                             from tools.zimaos import get_zimaos_telemetry
@@ -727,6 +729,8 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                                 "output": output_str,
                                 "message": resp_text,
                                 "response": resp_text,
+                                "glados_voice": config.enable_tts,
+                                "voice_recognition": ui_state.voice_recognition,
                             }
 
                 self.send_response(HTTPStatus.OK)

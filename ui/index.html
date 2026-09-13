@@ -6,24 +6,28 @@
   <title>Command Prompt - Aperture Science Laboratories [GLaDOS-WEB]</title>
   <style>
     :root {
-      --cmd-bg: #0c0c0c;
-      --cmd-surface: #11141a;
-      --cmd-border: #222b38;
-      --cmd-border-bright: #3b495d;
+      --cmd-bg: #05080c;
+      --cmd-screen: #070b10;
+      --cmd-surface: #0b1118;
+      --cmd-border: #1a2a3a;
+      --cmd-border-bright: #2d4663;
+      --cmd-ascii: #00d4ff;
+      --cmd-ascii-dim: #1d405a;
       
-      --cmd-text: #cccccc;
-      --cmd-bright: #f0f0f0;
-      --cmd-dim: #767676;
+      --cmd-text: #b8c7d9;
+      --cmd-bright: #e2f1ff;
+      --cmd-dim: #5c728a;
       
-      /* Aperture Portal Blue */
-      --aperture-blue: #00a2ff;
-      --aperture-blue-dim: #0077c2;
-      --aperture-blue-glow: rgba(0, 162, 255, 0.4);
+      /* Aperture Portal Cyan / Blue */
+      --aperture-blue: #00d4ff;
+      --aperture-blue-dim: #0088aa;
+      --aperture-blue-glow: rgba(0, 212, 255, 0.4);
       
       /* Terminal Status Colors */
-      --term-green: #10b981;
-      --term-amber: #f59e0b;
-      --term-red: #ef4444;
+      --term-green: #00ff66;
+      --term-green-dim: rgba(0, 255, 102, 0.15);
+      --term-amber: #ffaa00;
+      --term-red: #ff3344;
       
       --font-cmd: "Consolas", "Lucida Console", "Cascadia Mono", "Courier New", monospace;
     }
@@ -35,206 +39,228 @@
     }
 
     html, body {
-      background-color: #05070a;
+      background-color: #020406;
       color: var(--cmd-text);
       font-family: var(--font-cmd);
-      font-size: clamp(11px, 0.95vw, 13px);
-      line-height: 1.35;
-      min-height: 100vh;
-      overflow-x: hidden;
-      overflow-y: auto;
+      font-size: clamp(11px, 0.88vw, 13px);
+      line-height: 1.3;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
     }
 
-    /* CMD Window Shell */
-    .cmd-window {
-      max-width: 1720px;
-      margin: 10px auto;
-      border: 1px solid #333333;
-      background-color: var(--cmd-bg);
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.8), 0 0 15px rgba(0, 162, 255, 0.15);
+    /* Full-Screen Unified Single Terminal Frame */
+    .terminal-mainframe {
       display: flex;
       flex-direction: column;
-      min-height: calc(100vh - 20px);
+      height: 100vh;
+      width: 100vw;
+      background: radial-gradient(circle at center, rgba(0, 212, 255, 0.02) 0%, rgba(0, 0, 0, 0.7) 100%),
+                  repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.22) 1px, transparent 1px, transparent 2px),
+                  var(--cmd-bg);
+      border: 2px solid var(--cmd-border-bright);
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.9), 0 0 25px rgba(0, 212, 255, 0.12);
+      overflow: hidden;
+      user-select: text;
     }
 
-    /* CMD Windows Classic Title Bar */
-    .cmd-titlebar {
-      background: #1f1f1f;
-      border-bottom: 1px solid #333333;
-      padding: 4px 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    /* Horizontal ASCII Frame Delimiters */
+    .ascii-bar {
+      font-family: var(--font-cmd);
+      color: var(--cmd-ascii-dim);
+      white-space: nowrap;
+      overflow: hidden;
       user-select: none;
+      font-size: 11px;
+      line-height: 11px;
+      padding: 0 4px;
+      letter-spacing: 0px;
     }
 
-    .cmd-titlebar-left {
+    .ascii-bar.bright {
+      color: var(--cmd-border-bright);
+    }
+
+    /* Unified Terminal Top Header Row */
+    .term-top-header {
       display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.78rem;
-      color: #e0e0e0;
-      font-weight: bold;
-    }
-
-    .cmd-titlebar-controls {
-      display: flex;
-      gap: 12px;
-      font-size: 0.85rem;
-      color: #aaaaaa;
-    }
-
-    .cmd-titlebar-controls span {
-      cursor: pointer;
-    }
-    .cmd-titlebar-controls span:hover {
-      color: #ffffff;
-    }
-
-    /* Terminal Header Banner */
-    .terminal-header {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--cmd-border);
-      background: var(--cmd-surface);
-      display: flex;
-      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
+      padding: 6px 14px;
+      background: rgba(11, 17, 24, 0.85);
+      border-bottom: 1px solid var(--cmd-border);
+      gap: 12px;
+      flex-shrink: 0;
     }
 
-    .logo-container {
+    .term-header-left {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 14px;
     }
 
-    /* High-Quality ASCII Aperture Logo matching Picture 2 */
     .ascii-logo {
       color: var(--aperture-blue);
-      text-shadow: 0 0 10px var(--aperture-blue-glow);
-      font-size: 7.5px;
-      line-height: 8px;
+      text-shadow: 0 0 8px var(--aperture-blue-glow);
+      font-size: 6.8px;
+      line-height: 7.2px;
       white-space: pre;
       user-select: none;
       font-weight: bold;
+      margin: 0;
     }
 
-    .terminal-titles {
+    .term-header-meta {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 2px;
     }
 
-    .term-brand {
+    .term-headline {
       color: var(--aperture-blue);
-      font-size: 1.15rem;
-      font-weight: 700;
+      font-size: 1.05rem;
+      font-weight: bold;
       letter-spacing: 1px;
+      text-shadow: 0 0 6px var(--aperture-blue-glow);
     }
 
-    .term-subtitle {
+    .term-subheadline {
       color: var(--cmd-dim);
-      font-size: 0.8rem;
+      font-size: 0.76rem;
     }
 
-    /* Terminal Quick Control Badges */
-    .terminal-controls {
+    .term-status-tag {
+      color: var(--term-green);
+      font-size: 0.72rem;
+      letter-spacing: 0.5px;
+    }
+
+    /* Text-Mode Bracket Buttons (Authentic Retro Terminal Control Buttons) */
+    .term-header-controls {
       display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
       align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
     }
 
     .term-btn {
-      background: #14171f;
+      background: transparent;
       color: var(--cmd-bright);
       border: 1px solid var(--cmd-border-bright);
-      padding: 5px 12px;
+      padding: 4px 10px;
       font-family: var(--font-cmd);
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       cursor: pointer;
       user-select: none;
-      transition: background 0.15s, border-color 0.15s;
+      letter-spacing: 0.5px;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
     }
 
     .term-btn:hover {
-      background: #1e2433;
+      background: var(--aperture-blue);
+      color: #000000;
       border-color: var(--aperture-blue);
-      color: var(--aperture-blue);
+      font-weight: bold;
     }
 
     .term-btn.active {
       border-color: var(--term-green);
       color: var(--term-green);
-      background: rgba(16, 185, 129, 0.12);
+      background: var(--term-green-dim);
+    }
+
+    .term-btn.active:hover {
+      background: var(--term-green);
+      color: #000000;
+      font-weight: bold;
     }
 
     .term-btn.blue {
       border-color: var(--aperture-blue);
       color: var(--aperture-blue);
-      background: rgba(0, 162, 255, 0.12);
+      background: rgba(0, 212, 255, 0.08);
     }
 
-    .term-btn.warn {
-      border-color: var(--term-red);
-      color: var(--term-red);
-    }
-    .term-btn.warn:hover {
-      background: rgba(239, 68, 68, 0.15);
+    .term-btn.blue:hover {
+      background: var(--aperture-blue);
+      color: #000000;
+      font-weight: bold;
     }
 
-    /* Split Screen Work Area: 3-Column Layout (Terminal | ASCII Commands Directory | Live Trackers) */
-    .cmd-body {
+    /* Main Terminal Workspace: 3 Columns Delineated by ASCII Borders */
+    .term-workspace {
       display: grid;
-      grid-template-columns: 1fr minmax(270px, 310px) fit-content(530px);
+      grid-template-columns: 1fr auto minmax(280px, 310px) auto minmax(500px, 540px);
       flex: 1;
-      gap: 1px;
-      background: var(--cmd-border);
       min-height: 0;
+      background: var(--cmd-screen);
+      overflow: hidden;
     }
 
-    @media (max-width: 1400px) {
-      .cmd-body {
-        grid-template-columns: 1fr fit-content(530px);
+    @media (max-width: 1360px) {
+      .term-workspace {
+        grid-template-columns: 1fr auto minmax(500px, 540px);
       }
-      .cmd-commands-pane {
-        display: none;
+      .term-matrix-pane, .v-divider-1 {
+        display: none !important;
       }
     }
 
-    @media (max-width: 1050px) {
-      .cmd-body {
+    @media (max-width: 980px) {
+      .term-workspace {
         grid-template-columns: 1fr;
       }
-      .cmd-trackers-pane {
-        width: 100% !important;
-        max-width: none !important;
+      .term-telemetry-pane, .v-divider-2 {
+        display: none !important;
       }
     }
 
-    /* Left Column: Interactive Command Terminal */
-    .cmd-console-pane {
-      background: var(--cmd-bg);
+    /* Vertical ASCII Delineator */
+    .term-v-divider {
+      width: 1px;
+      background: var(--cmd-border);
+      position: relative;
+    }
+
+    .term-pane {
       display: flex;
       flex-direction: column;
-      padding: 12px;
-      gap: 10px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Pane ASCII Title Bar */
+    .pane-title-ascii {
+      background: rgba(11, 17, 24, 0.95);
+      border-bottom: 1px solid var(--cmd-border);
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      color: var(--aperture-blue);
+      font-weight: bold;
+      user-select: none;
+      flex-shrink: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Column 1: Interactive Console Pane */
+    .term-console-pane {
+      background: var(--cmd-screen);
     }
 
     .console-scroll-area {
       flex: 1;
-      min-height: 420px;
-      max-height: 600px;
       overflow-y: auto;
       overflow-x: auto;
-      background: #080808;
-      border: 1px solid var(--cmd-border);
-      padding: 10px;
+      padding: 10px 14px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      font-size: 0.82rem;
+      gap: 5px;
+      font-size: 0.84rem;
+      background: transparent;
     }
 
     .term-line {
@@ -253,7 +279,7 @@
     }
 
     .term-glados-line {
-      color: #93c5fd;
+      color: #7dd3fc;
     }
 
     .term-err-line {
@@ -270,18 +296,29 @@
     }
 
     .term-voice-badge {
-      color: #f59e0b;
+      color: var(--term-amber);
       font-weight: bold;
     }
 
-    /* CMD Prompt Input Line */
+    .term-dim-line {
+      color: var(--cmd-dim);
+    }
+
+    /* Delineated Prompt Input Line */
+    .cmd-input-container {
+      flex-shrink: 0;
+      border-top: 1px solid var(--cmd-border);
+      background: rgba(11, 17, 24, 0.95);
+      padding: 6px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
     .cmd-input-bar {
       display: flex;
       align-items: center;
-      background: #080808;
-      border: 1px solid var(--cmd-border-bright);
-      padding: 6px 10px;
-      gap: 8px;
+      gap: 10px;
     }
 
     .cmd-prefix {
@@ -294,37 +331,37 @@
     .cmd-input {
       flex: 1;
       background: transparent;
-      border: none;
+      border: 1px solid var(--cmd-border);
       outline: none;
       color: var(--cmd-bright);
       font-family: var(--font-cmd);
       font-size: 0.85rem;
+      padding: 4px 8px;
     }
 
-    /* Middle Column: ASCII Command Directory (Replaces Tacky Buttons) */
-    .cmd-commands-pane {
-      background: var(--cmd-bg);
-      display: flex;
-      flex-direction: column;
-      padding: 12px;
-      gap: 10px;
+    .cmd-input:focus {
+      border-color: var(--aperture-blue);
+      box-shadow: 0 0 6px var(--aperture-blue-glow);
     }
 
-    .commands-card-container {
+    /* Column 2: Directive Matrix Pane */
+    .term-matrix-pane {
+      background: var(--cmd-screen);
+      border-left: 1px solid var(--cmd-border);
+      border-right: 1px solid var(--cmd-border);
+    }
+
+    .matrix-scroll-area {
       flex: 1;
-      background: #080808;
-      border: 1px solid var(--cmd-border-bright);
-      padding: 10px 8px;
       overflow-y: auto;
       overflow-x: hidden;
-      display: flex;
-      flex-direction: column;
+      padding: 8px 10px;
     }
 
     .commands-ascii {
       font-family: var(--font-cmd);
       font-size: 11px;
-      line-height: 1.35;
+      line-height: 1.34;
       color: var(--cmd-bright);
       white-space: pre;
       margin: 0;
@@ -333,74 +370,72 @@
 
     .cmd-link {
       cursor: pointer;
-      color: #93c5fd;
+      color: #7dd3fc;
       font-weight: bold;
-      transition: color 0.15s, background 0.15s;
       padding: 0 2px;
-      border-radius: 2px;
+      transition: color 0.1s, background 0.1s;
     }
 
     .cmd-link:hover {
-      background: rgba(0, 162, 255, 0.25);
-      color: #ffffff;
+      background: var(--aperture-blue);
+      color: #000000;
       text-decoration: underline;
     }
 
-    /* Right Column: Live Trackers (Fitted to exact ASCII width) */
-    .cmd-trackers-pane {
-      background: var(--cmd-surface);
+    /* Column 3: Live Telemetry & Sensors Pane */
+    .term-telemetry-pane {
+      background: var(--cmd-screen);
+    }
+
+    .telemetry-tab-ascii {
+      background: rgba(11, 17, 24, 0.95);
+      border-bottom: 1px solid var(--cmd-border);
+      padding: 6px 10px;
       display: flex;
       flex-direction: column;
-      padding: 12px;
-      gap: 10px;
-      width: fit-content;
-      max-width: 530px;
+      gap: 4px;
       flex-shrink: 0;
-      overflow-y: auto;
     }
 
-    /* Tab Switcher for Telemetry Pane */
-    .tracker-tab-bar {
+    .tab-ascii-buttons {
       display: flex;
       gap: 8px;
-      border-bottom: 1px solid var(--cmd-border);
-      padding-bottom: 8px;
     }
 
-    .tab-switch-btn {
+    .term-tab-btn {
       flex: 1;
-      padding: 6px 10px;
-      background: #14171f;
-      border: 1px solid var(--cmd-border-bright);
+      padding: 5px 8px;
+      background: transparent;
+      border: 1px solid var(--cmd-border);
       color: var(--cmd-dim);
       font-family: var(--font-cmd);
-      font-size: 0.8rem;
-      font-weight: bold;
+      font-size: 0.78rem;
       cursor: pointer;
       text-align: center;
+      user-select: none;
+      transition: all 0.12s;
     }
 
-    .tab-switch-btn:hover {
+    .term-tab-btn:hover {
       color: var(--aperture-blue);
       border-color: var(--aperture-blue);
     }
 
-    .tab-switch-btn.active {
-      background: #192231;
+    .term-tab-btn.active {
       border-color: var(--aperture-blue);
       color: var(--aperture-blue);
-      box-shadow: 0 0 10px var(--aperture-blue-glow);
+      background: rgba(0, 212, 255, 0.12);
+      font-weight: bold;
     }
 
-    /* Exact Terminal Card Container - Snug Fit */
-    .terminal-card-container {
-      background: #080808;
-      border: 1px solid var(--cmd-border-bright);
+    .telemetry-scroll-area {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
       padding: 8px 10px;
-      overflow-x: auto;
-      overflow-y: hidden;
-      width: 100%;
-      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
 
     .exact-terminal-ascii {
@@ -411,165 +446,153 @@
       white-space: pre;
       user-select: text;
       margin: 0;
+      background: transparent;
     }
 
-    /* Flight Tracker Controls */
-    .flight-bar {
+    .ascii-sub-bar {
       display: flex;
+      align-items: center;
       gap: 6px;
-      align-items: center;
-      margin-top: 6px;
-    }
-
-    .flight-input {
-      flex: 1;
-      background: #080808;
-      border: 1px solid var(--cmd-border-bright);
-      color: #ffffff;
-      padding: 4px 8px;
-      font-family: var(--font-cmd);
-      font-size: 0.8rem;
-      text-transform: uppercase;
-    }
-
-    /* ZimaOS Host Config Bar */
-    .zima-bar {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      margin-top: 6px;
-    }
-
-    .zima-input {
-      flex: 1;
-      background: #080808;
-      border: 1px solid var(--cmd-border-bright);
-      color: #ffffff;
-      padding: 4px 8px;
-      font-family: var(--font-cmd);
-      font-size: 0.8rem;
-    }
-
-    /* CMD Status Footer */
-    .cmd-footer {
-      background: #14171f;
-      border-top: 1px solid var(--cmd-border);
-      padding: 6px 14px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.75rem;
+      font-size: 0.78rem;
       color: var(--cmd-dim);
-      flex-wrap: wrap;
-      gap: 8px;
+      padding: 3px 6px;
+      border: 1px solid var(--cmd-border);
+      background: rgba(11, 17, 24, 0.6);
+      margin-top: 4px;
     }
 
-    .footer-status-dot {
-      display: inline-block;
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--term-green);
-      margin-right: 4px;
+    .ascii-mini-input {
+      background: #020406;
+      border: 1px solid var(--cmd-border);
+      color: var(--cmd-bright);
+      padding: 2px 6px;
+      font-family: var(--font-cmd);
+      font-size: 0.78rem;
+      width: 110px;
+    }
+
+    .ascii-mini-input:focus {
+      border-color: var(--aperture-blue);
+      outline: none;
+    }
+
+    .preset-links {
+      margin-left: auto;
+      color: var(--cmd-dim);
+      font-size: 0.74rem;
+    }
+
+    /* Terminal Unified Status Footer */
+    .term-status-footer {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 4px 14px;
+      background: rgba(11, 17, 24, 0.95);
+      border-top: 1px solid var(--cmd-border);
+      font-size: 0.74rem;
+      color: var(--cmd-dim);
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .status-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
     }
   </style>
 </head>
 <body>
-  <div class="cmd-window">
-    <!-- Classic Windows CMD Titlebar -->
-    <div class="cmd-titlebar">
-      <div class="cmd-titlebar-left">
-        <span>C:\Windows\System32\cmd.exe</span>
-        <span>-</span>
-        <span>Aperture Science Laboratories [GLaDOS-WEB Console]</span>
-      </div>
-      <div class="cmd-titlebar-controls">
-        <span>[-]</span>
-        <span>[+]</span>
-        <span>[X]</span>
-      </div>
-    </div>
+  <!-- Single Unified Terminal Screen Chassis -->
+  <div class="terminal-mainframe">
+    
+    <!-- Top Terminal Frame Delineator -->
+    <div class="ascii-bar bright">+==================================================================================================================================================================================================================+</div>
 
-    <!-- Header Banner: High Quality ASCII Iris Logo (Picture 2) + Wordmark -->
-    <header class="terminal-header">
-      <div class="logo-container">
-        <!-- High-Quality ASCII Logo matching Picture 2 in vivid blue -->
+    <!-- Unified Terminal Top Header -->
+    <header class="term-top-header">
+      <div class="term-header-left">
+        <!-- Aperture Science Diaphragm ASCII Logo -->
         <pre class="ascii-logo">
-                 .------------.               
-          .---''    ###########  ''---.       
-        /###########   ######### ######\      
-      /################   ######  #######\    
-    /#########               #### #########\  
-   |########                    # ##########| 
-  |#########                       #########| 
-  |########                        #####  ##| 
- |########                          ###  ####|
- |#######                           ##  #####|
- |#####  ##                           #######|
- |####  ###                          ########|
-  |##  #####                       #########| 
-  |   #######                     ##########| 
-   |######## #                    ##########| 
-    \####### ####               ###########/  
-      \#####  ######   ##################/    
-        \### #########   ##############/      
-          '---.###########   #######.---'     
-               '------------'                 </pre>
-        <div class="terminal-titles">
-          <div class="term-brand">APERTURE SCIENCE COMPUTER-AIDED ENRICHMENT CENTER</div>
-          <div class="term-subtitle">GLaDOS v3.11 Production LLM Desktop Controller &amp; Telemetry Hub</div>
-          <div class="term-subtitle" style="color: var(--aperture-blue);">Terminal text-mode console active. Type 'help' for directory, 'hw' for PC, 'zima' for server.</div>
+         .------------.       
+  .---''    ###########  ''---.
+/###########   ######### ######\
+|########                    # #|
+|########                          #|
+ \####### ####               ###/
+   \#####  ######   ###########/ 
+     '---.###########   ###.---' 
+          '------------'         </pre>
+        <div class="term-header-meta">
+          <div class="term-headline">APERTURE SCIENCE COMPUTER-AIDED ENRICHMENT CENTER // MAINFRAME TERMINAL</div>
+          <div class="term-subheadline">GLaDOS v3.11 Production LLM Desktop Controller &amp; Autonomous Telemetry Hub [GLADOS-WEB]</div>
+          <div class="term-status-tag">&gt; TERMINAL INTERACTIVE TEXT-MODE CONSOLE ACTIVE | TYPE 'help' FOR DIRECTORY, 'hw' FOR PC, 'server' FOR ZIMAOS</div>
         </div>
       </div>
 
-      <div class="terminal-controls">
-        <!-- Voice Recognition Toggle -->
+      <!-- Text-Mode Bracket Action Controls -->
+      <div class="term-header-controls">
         <button id="btn-toggle-mic" class="term-btn" title="Toggle Local Microphone Speech-To-Text">
           [MIC: OFF]
         </button>
-
-        <!-- GLaDOS Voice Speech Output Toggle -->
         <button id="btn-toggle-voice" class="term-btn active" title="Toggle GLaDOS Audio Speech Synthesis">
           [VOICE: ACTIVE]
         </button>
-
-        <!-- Launch ZimaOS SSH Terminal Window -->
-        <button id="btn-open-ssh" class="term-btn" title="Open SSH Terminal to ZimaOS Server">
+        <button id="btn-open-ssh" class="term-btn blue" title="Open SSH Terminal to ZimaOS Server">
           [&gt;_ SSH TERMINAL]
         </button>
-
-        <!-- Refresh Telemetry Button -->
         <button id="btn-sync-telemetry" class="term-btn blue" title="Poll Sensors Now">
           [SYNC SENSORS]
         </button>
       </div>
     </header>
 
-    <!-- Main Dual-Pane Terminal Workspace -->
-    <main class="cmd-body">
-      <!-- Left Column: Interactive Command Terminal -->
-      <section class="cmd-console-pane">
+    <!-- Sub-Header ASCII Delineator -->
+    <div class="ascii-bar bright">+==================================================================================================================================================================================================================+</div>
+
+    <!-- Main Workspace (Single Multi-Pane Terminal Grid) -->
+    <main class="term-workspace">
+      
+      <!-- PANE 1: Interactive Command Terminal -->
+      <section class="term-pane term-console-pane">
+        <div class="pane-title-ascii">
+          <span>+--- [CONSOLE: APERTURE DIRECTIVE TERMINAL - CMD ACTIVE] -----------------------------------+</span>
+          <span style="color: var(--term-green); font-size: 0.72rem;">[* LIVE]</span>
+        </div>
+
         <div class="console-scroll-area" id="terminal-screen">
-          <div class="term-line term-sys-line">================================================================================</div>
-          <div class="term-line term-sys-line"> APERTURE SCIENCE COMPUTER-AIDED ENRICHMENT CENTER - CMD CONSOLE ACTIVE</div>
-          <div class="term-line term-sys-line"> Administrator : GLaDOS (Genetic Lifeform and Disk Operating System)</div>
-          <div class="term-line term-sys-line"> Type 'help' for commands, 'hw' for component monitor, 'zima' or 'server' for server.</div>
-          <div class="term-line term-sys-line">================================================================================</div>
-          <div class="term-line" style="color: var(--cmd-dim);">Session initialized. All local tool subsystems operational.</div>
+          <div class="term-line term-sys-line">+==============================================================================+</div>
+          <div class="term-line term-sys-line">| APERTURE SCIENCE COMPUTER-AIDED ENRICHMENT CENTER - CMD CONSOLE ACTIVE       |</div>
+          <div class="term-line term-sys-line">| Administrator : GLaDOS (Genetic Lifeform and Disk Operating System)          |</div>
+          <div class="term-line term-sys-line">| Type 'help' for commands, 'hw' for component monitor, 'server' for ZimaOS.   |</div>
+          <div class="term-line term-sys-line">+==============================================================================+</div>
+          <div class="term-line term-dim-line">Session initialized. All local tool subsystems operational.</div>
         </div>
 
-        <!-- Terminal Command Input Line -->
-        <div class="cmd-input-bar">
-          <span class="cmd-prefix">GLaDOS-CLI&gt;</span>
-          <input type="text" id="cmd-input" class="cmd-input" placeholder="Type a command (e.g. 'hw', 'server', 'server ssh', 'flight AA100', 'help')..." autofocus>
-          <button id="btn-send-cmd" class="term-btn blue" style="padding: 3px 10px;">[SEND]</button>
+        <!-- Integrated Terminal Command Input Bar with ASCII Delineation -->
+        <div class="cmd-input-container">
+          <div class="ascii-bar">+--------------------------------------------------------------------------------------------------------------------------------------------------------------+</div>
+          <div class="cmd-input-bar">
+            <span class="cmd-prefix">GLaDOS-CLI&gt;</span>
+            <input type="text" id="cmd-input" class="cmd-input" placeholder="Type a command (e.g. 'hw', 'server', 'server ssh', 'flight AA100', 'help')..." autofocus>
+            <button id="btn-send-cmd" class="term-btn blue" style="padding: 3px 12px;">[SEND]</button>
+          </div>
+          <div class="ascii-bar">+--------------------------------------------------------------------------------------------------------------------------------------------------------------+</div>
         </div>
-
       </section>
 
-      <!-- Middle Column: ASCII Command Directory (Replaces Tacky Buttons) -->
-      <section class="cmd-commands-pane">
-        <div class="commands-card-container">
+      <!-- Vertical Divider 1 -->
+      <div class="term-v-divider v-divider-1"></div>
+
+      <!-- PANE 2: ASCII Command Directory Matrix -->
+      <section class="term-pane term-matrix-pane">
+        <div class="pane-title-ascii">
+          <span>+--- [DIRECTIVE MATRIX] --------+</span>
+          <span style="color: var(--cmd-dim); font-size: 0.72rem;">[A-Z]</span>
+        </div>
+
+        <div class="matrix-scroll-area">
           <pre class="commands-ascii">
 +================================+
 |   APERTURE DIRECTIVE MATRIX    |
@@ -613,108 +636,93 @@
         </div>
       </section>
 
-      <!-- Right Column: Live Trackers (Exact Picture 3 & Picture 4 Layout) -->
-      <section class="cmd-trackers-pane">
-        <!-- Tracker View Switcher -->
-        <div class="tracker-tab-bar">
-          <button id="btn-tab-pc" class="tab-switch-btn active">[PC STATS &amp; HARDWARE]</button>
-          <button id="btn-tab-zima" class="tab-switch-btn">[ZIMAOS REMOTE SERVER]</button>
+      <!-- Vertical Divider 2 -->
+      <div class="term-v-divider v-divider-2"></div>
+
+      <!-- PANE 3: Live Telemetry & Radar Sensors -->
+      <section class="term-pane term-telemetry-pane">
+        <!-- ASCII Tab Delineation -->
+        <div class="telemetry-tab-ascii">
+          <div class="ascii-bar">+====================================================================+</div>
+          <div class="tab-ascii-buttons">
+            <button id="btn-tab-pc" class="term-tab-btn active">[PC STATS &amp; HARDWARE]</button>
+            <button id="btn-tab-zima" class="term-tab-btn">[ZIMAOS REMOTE SERVER]</button>
+          </div>
+          <div class="ascii-bar">+====================================================================+</div>
         </div>
 
-        <!-- Live Telemetry Card (Picture 3 Exact) -->
-        <div class="terminal-card-container">
+        <div class="telemetry-scroll-area">
+          <!-- ZimaOS Host Config Bar (visible only in zimaos tab) -->
+          <div id="zima-bar" class="ascii-sub-bar" style="display:none;">
+            <span>| ZIMAOS HOST : </span>
+            <input type="text" id="zima-ip-input" class="ascii-mini-input" placeholder="192.168.1.123">
+            <button id="btn-update-zima-ip" class="term-btn blue" style="padding: 1px 6px; font-size: 0.72rem;">[UPDATE IP]</button>
+            <span> |</span>
+          </div>
+
+          <!-- Live Hardware / ZimaOS Telemetry Card -->
           <pre class="exact-terminal-ascii" id="telemetry-card">
 +====================================================================+
 |   APERTURE SCIENCE COMPONENT TELEMETRY &amp; LIVE HARDWARE MONITOR     |
 | [* TELEMETRY ACTIVE] Polling Sensors...       Refresh: every 1.5s  |
 | Press Ctrl+C at any time to return to GLaDOS-CLI console           |
 +====================================================================+
-+--------------------------------------------------------------------+
-|           APERTURE SCIENCE HARDWARE TELEMETRY &amp; THERMAL HUD        |
-+--------------------------------------------------------------------+
 | Polling PC hardware sensors... Please wait...                      |
-+--------------------------------------------------------------------+
-|            GLaDOS AI NEURAL CORE &amp; INFERENCE TELEMETRY             |
-+--------------------------------------------------------------------+
-| Synchronizing neural inference &amp; memory telemetry...               |
-+--------------------------------------------------------------------+
-          </pre>
-        </div>
++====================================================================+</pre>
 
-        <!-- ZimaOS Host Configuration (visible when ZimaOS tab is active) -->
-        <div class="zima-bar" id="zima-bar" style="display: none;">
-          <span style="font-size: 0.78rem; color: var(--aperture-blue); font-weight: bold;">[SERVER IP]:</span>
-          <input type="text" id="zima-ip-input" class="zima-input" placeholder="http://192.168.1.123" value="http://192.168.1.123">
-          <button id="btn-update-zima-ip" class="term-btn blue" style="padding: 3px 8px;">[UPDATE IP]</button>
-        </div>
+          <!-- ASCII Divider between Telemetry and Airspace Radar -->
+          <div class="ascii-bar bright">+====================================================================+</div>
 
-        <!-- Airspace Radar Tracker Card (Picture 4 Exact) -->
-        <div class="terminal-card-container">
+          <!-- Live Airspace Radar Tracker Card -->
           <pre class="exact-terminal-ascii" id="flight-card">
 +====================================================================+
 |    APERTURE SCIENCE AIRSPACE RADAR - REAL-TIME TELEMETRY TRACKER   |
-| [* LIVE ADS-B FEED] Callsign: STANDBY      Auto-refresh: every 3.5s|
+| [* LIVE ADS-B FEED] Callsign: AA100           Auto-refresh: every 3.5s|
 | Press Ctrl+C at any time to return to GLaDOS-CLI console           |
 +====================================================================+
-+--------------------------------------------------------------------+
-|           APERTURE SCIENCE AIRSPACE RADAR TELEMETRY HUD            |
-+--------------------------------------------------------------------+
-| No active flight target acquired.                                  |
-| Enter callsign below (e.g. AA100, UA1, BA117) to lock radar feed.  |
-+--------------------------------------------------------------------+
-          </pre>
-        </div>
+| Synchronizing active ADS-B airspace radar receiver...              |
++====================================================================+</pre>
 
-        <!-- Flight Tracker Search Bar -->
-        <div class="flight-bar">
-          <span style="font-size: 0.78rem; color: var(--aperture-blue); font-weight: bold;">[RADAR TARGET]:</span>
-          <input type="text" id="flight-query-input" class="flight-input" placeholder="Enter flight e.g. AA100, UA1, AF6...">
-          <button id="btn-track-flight" class="term-btn blue" style="padding: 3px 8px;">[LOCK RADAR]</button>
-          <button class="term-btn" style="padding: 3px 6px;" onclick="trackFlightPreset('AA100')">[AA100]</button>
-          <button class="term-btn" style="padding: 3px 6px;" onclick="trackFlightPreset('UA1')">[UA1]</button>
+          <!-- Flight Tracker Interactive Controls Bar -->
+          <div class="ascii-sub-bar flight-bar">
+            <span>| TRACK: </span>
+            <input type="text" id="flight-query-input" class="ascii-mini-input" placeholder="AA100" maxlength="10">
+            <button id="btn-track-flight" class="term-btn blue" style="padding: 1px 6px; font-size: 0.72rem;">[TRACK]</button>
+            <span class="preset-links">PRESETS: <span class="cmd-link" onclick="trackFlightPreset('SAT442')">[SAT442]</span> <span class="cmd-link" onclick="trackFlightPreset('TP200')">[TP200]</span></span>
+            <span> |</span>
+          </div>
+          <div class="ascii-bar">+--------------------------------------------------------------------+</div>
         </div>
       </section>
+
     </main>
 
-    <!-- Terminal Status Footer -->
-    <footer class="cmd-footer">
-      <div>
-        <span class="footer-status-dot"></span>
-        <span id="footer-status">ONLINE</span>
-        <span> | </span>
-        <span id="footer-voice">[MIC: DISABLED]</span>
-        <span> | </span>
-        <span id="footer-tts">[TTS: ACTIVE]</span>
-        <span> | </span>
-        <span id="footer-tab">[TAB: PC HWINFO]</span>
-      </div>
-      <div>
-        <span id="footer-clock">[SYS CLOCK: 00:00:00]</span>
-        <span> | </span>
-        <span id="footer-sync">[SENSORS: CONNECTED]</span>
-      </div>
+    <!-- Bottom Terminal Status Frame -->
+    <div class="ascii-bar bright">+==================================================================================================================================================================================================================+</div>
+    <footer class="term-status-footer">
+      <span class="status-item">[STATUS: ONLINE]</span>
+      <span id="footer-clock" class="status-item">[SYS CLOCK: 00:00:00]</span>
+      <span id="footer-voice" class="status-item">[MIC: DISABLED]</span>
+      <span id="footer-tts" class="status-item">[TTS: ACTIVE]</span>
+      <span id="footer-tab" class="status-item">[TAB: PC HWINFO]</span>
+      <span id="footer-sync" class="status-item">[SENSORS: SYNCED]</span>
+      <span class="status-item" style="margin-left: auto;">[TERMINAL: VT100 / APERTURE-OS]</span>
     </footer>
+    <div class="ascii-bar bright">+==================================================================================================================================================================================================================+</div>
+
   </div>
 
   <script>
-    /* =========================================================================
-       APERTURE SCIENCE GLaDOS TERMINAL CONTROLLER
-       Mimics Real CMD Terminal - Exact Pictures 2, 3, 4 - Zero Emojis
-       ========================================================================= */
+    const API_BASE = window.location.origin;
 
-    let currentTab = "pc"; // "pc" or "zimaos"
     let voiceRecognitionActive = false;
     let gladosVoiceActive = true;
+    let currentTab = "pc";
+    let telemetryCache = null;
     let commandHistory = [];
     let historyIdx = -1;
-    let telemetryCache = null;
 
-    // Detect server base URL: handles both http://127.0.0.1:5000 and file:///
-    const API_BASE = (window.location.protocol === "file:" || !window.location.host) 
-      ? "http://127.0.0.1:5000" 
-      : "";
-
-    // DOM Elements
+    // DOM References
     const elCmdInput = document.getElementById("cmd-input");
     const elBtnSend = document.getElementById("btn-send-cmd");
     const elTerminalScreen = document.getElementById("terminal-screen");
@@ -974,18 +982,20 @@
     }
 
     function setVoiceRecognitionState(active) {
-      voiceRecognitionActive = Boolean(active);
+      const next = Boolean(active);
+      if (voiceRecognitionActive === next) return;
+      voiceRecognitionActive = next;
       if (voiceRecognitionActive) {
         elBtnToggleMic.textContent = "[MIC: ACTIVE]";
         elBtnToggleMic.classList.add("active");
-        elFooterVoice.textContent = "[MIC: LISTENING]";
+        if (elFooterVoice) elFooterVoice.textContent = "[MIC: LISTENING]";
         if (speechRecognizer) {
           try { speechRecognizer.start(); } catch (ex) {}
         }
       } else {
         elBtnToggleMic.textContent = "[MIC: OFF]";
         elBtnToggleMic.classList.remove("active");
-        elFooterVoice.textContent = "[MIC: DISABLED]";
+        if (elFooterVoice) elFooterVoice.textContent = "[MIC: DISABLED]";
         if (speechRecognizer) {
           try { speechRecognizer.stop(); } catch (ex) {}
         }
@@ -993,15 +1003,17 @@
     }
 
     function setGladosVoiceState(active) {
-      gladosVoiceActive = Boolean(active);
+      const next = Boolean(active);
+      if (gladosVoiceActive === next) return;
+      gladosVoiceActive = next;
       if (gladosVoiceActive) {
         elBtnToggleVoice.textContent = "[VOICE: ACTIVE]";
         elBtnToggleVoice.classList.add("active");
-        elFooterTts.textContent = "[TTS: ACTIVE]";
+        if (elFooterTts) elFooterTts.textContent = "[TTS: ACTIVE]";
       } else {
         elBtnToggleVoice.textContent = "[VOICE: MUTED]";
         elBtnToggleVoice.classList.remove("active");
-        elFooterTts.textContent = "[TTS: MUTED]";
+        if (elFooterTts) elFooterTts.textContent = "[TTS: MUTED]";
       }
     }
 
@@ -1016,12 +1028,12 @@
         elBtnTabPc.classList.add("active");
         elBtnTabZima.classList.remove("active");
         elZimaBar.style.display = "none";
-        elFooterTab.textContent = "[TAB: PC HWINFO]";
+        if (elFooterTab) elFooterTab.textContent = "[TAB: PC HWINFO]";
       } else {
         elBtnTabZima.classList.add("active");
         elBtnTabPc.classList.remove("active");
         elZimaBar.style.display = "flex";
-        elFooterTab.textContent = "[TAB: ZIMAOS SERVER]";
+        if (elFooterTab) elFooterTab.textContent = "[TAB: ZIMAOS SERVER]";
       }
       renderTelemetryCards();
     }
@@ -1029,7 +1041,7 @@
     elBtnTabPc.addEventListener("click", () => setActiveTelemetryTab("pc"));
     elBtnTabZima.addEventListener("click", () => setActiveTelemetryTab("zimaos"));
 
-    // Render Telemetry & Flight cards (Matching Picture 3 & Picture 4 Exact)
+    // Render Telemetry & Flight cards
     function renderTelemetryCards() {
       if (!telemetryCache) return;
 
@@ -1062,7 +1074,7 @@
         }
       }
 
-      // 2. Render Airspace Radar Card (Picture 4 Exact)
+      // 2. Render Airspace Radar Card
       const flight = telemetryCache.flight || telemetryCache.tracked_flight;
       if (flight && flight.full_terminal_card) {
         elFlightCard.textContent = flight.full_terminal_card;
@@ -1090,10 +1102,10 @@
           if (data.voice_recognition !== undefined) setVoiceRecognitionState(data.voice_recognition);
           if (data.glados_voice !== undefined) setGladosVoiceState(data.glados_voice);
           renderTelemetryCards();
-          elFooterSync.textContent = "[SENSORS: SYNCED]";
+          if (elFooterSync) elFooterSync.textContent = "[SENSORS: SYNCED]";
         }
       } catch (err) {
-        elFooterSync.textContent = "[SENSORS: RETRYING]";
+        if (elFooterSync) elFooterSync.textContent = "[SENSORS: RETRYING]";
       }
     }
 

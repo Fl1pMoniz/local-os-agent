@@ -20,13 +20,22 @@ class AgentUIState:
         self.thought: str = ""
         self.tracked_flight: dict[str, Any] | None = None
         self.voice_recognition: bool = False
-        self.glados_voice: bool = True
         self.active_telemetry_tab: str = "pc"  # "pc" or "zimaos"
         self.hardware_telemetry: dict[str, Any] | None = None
         self.zimaos_telemetry: dict[str, Any] | None = None
         self.terminal_events: list[dict[str, Any]] = []
         self._event_counter: int = 0
         self.subscribers: list[queue.Queue] = []
+
+    @property
+    def glados_voice(self) -> bool:
+        from config import config
+        return bool(config.enable_tts)
+
+    @glados_voice.setter
+    def glados_voice(self, val: bool) -> None:
+        from config import config
+        config.enable_tts = bool(val)
 
     def get_state(self) -> dict[str, Any]:
         with self._lock:
