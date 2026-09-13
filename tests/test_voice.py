@@ -69,6 +69,13 @@ class TestVoiceModule(unittest.TestCase):
         fail_quip = get_contextual_quip("launch_app", success=False)
         self.assertIn("failed", fail_quip.lower())
 
+    def test_whisper_integration(self):
+        from voice.listener import VoiceListener
+
+        listener = VoiceListener()
+        self.assertIsNotNone(listener._whisper_model)
+        self.assertEqual(listener.whisper_model_name, "tiny.en")
+
 
 if __name__ == "__main__":
     unittest.main()

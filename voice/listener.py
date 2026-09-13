@@ -45,8 +45,8 @@ def extract_wake_word_command(text: str, wake_word: str | None = None) -> tuple[
 
 class VoiceListener:
     """
-    Microphone audio listener utilizing sounddevice for capture and
-    speech_recognition for transcribing natural language commands.
+    Microphone audio listener utilizing sounddevice for high-fidelity capture and
+    OpenAI Whisper (https://github.com/openai/whisper) for local neural Speech-to-Text.
     """
 
     def __init__(
@@ -55,12 +55,35 @@ class VoiceListener:
         energy_threshold: int = 400,
         silence_limit: float = 1.2,
         language: str | None = None,
+        whisper_model: str | None = None,
+        whisper_device: str | None = None,
     ):
         self.sample_rate = sample_rate
         self.energy_threshold = energy_threshold
         self.silence_limit = silence_limit
         self.language = language or config.stt_language
+        self.whisper_model_name = whisper_model or config.whisper_model
+        self.whisper_device = whisper_device or config.whisper_device
+
+        self._whisper_model = None
+        self._load_whisper()
         self.recognizer = sr.Recognizer()
+
+    def _load_whisper(self) -> None:
+        """Loads OpenAI Whisper model locally for private offline transcription."""
+        if config.stt_engine.lower() == "google":
+            logger.info("STT configured to Google SpeechRecognition.")
+            return
+
+        try:
+            import whisper
+
+            logger.info(f"Loading OpenAI Whisper model ('{self.whisper_model_name}')...")
+            self._whisper_model = whisper.load_model(self.whisper_model_name, device=self.whisper_device)
+            logger.info("OpenAI Whisper model loaded successfully.")
+        except Exception as e:
+            logger.warning(f"Failed to load OpenAI Whisper ({e}); falling back to Google SpeechRecognition.")
+            self._whisper_model = None
 
     def calibrate_ambient_noise(self, duration: float = 1.0) -> int:
         """Measures background ambient noise level to calibrate dynamic threshold."""
@@ -144,19 +167,36 @@ class VoiceListener:
         if not buffer or not is_speaking:
             return None
 
-        # Combine all audio chunks into a single byte stream
-        full_audio = np.concatenate(buffer).tobytes()
-        audio_data = sr.AudioData(full_audio, self.sample_rate, 2)
+        # Combine all audio chunks into int16 array
+        audio_int16 = np.concatenate(buffer)
 
+        # 1. Primary Engine: OpenAI Whisper (https://github.com/openai/whisper)
+        if self._whisper_model is not None:
+            try:
+                audio_float32 = audio_int16.astype(np.float32) / 32768.0
+                result = self._whisper_model.transcribe(
+                    audio_float32,
+                    language="en",
+                    fp16=False,
+                    verbose=False,
+                )
+                text = (result.get("text") or "").strip().strip("\"'")
+                if text:
+                    logger.info(f"Transcribed voice command (OpenAI Whisper): '{text}'")
+                    return text
+                return None
+            except Exception as e:
+                logger.warning(f"OpenAI Whisper transcription error: {e}; trying SpeechRecognition fallback.")
+
+        # 2. Fallback Engine: SpeechRecognition (Google Web Speech API)
         try:
+            full_audio = audio_int16.tobytes()
+            audio_data = sr.AudioData(full_audio, self.sample_rate, 2)
             text = self.recognizer.recognize_google(audio_data, language=self.language)
-            logger.info(f"Transcribed voice command: '{text}'")
+            logger.info(f"Transcribed voice command (Google STT fallback): '{text}'")
             return text
         except sr.UnknownValueError:
             logger.debug("Speech recognition could not understand audio.")
-            return None
-        except sr.RequestError as re:
-            logger.warning(f"Speech recognition service request error: {re}")
             return None
         except Exception as e:
             logger.error(f"Transcription error: {e}")

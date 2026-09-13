@@ -28,7 +28,10 @@ class AgentConfig:
     tts_voice: str = os.getenv("TTS_VOICE", "glados")
     tts_rate: str = os.getenv("TTS_RATE", "-4%")  # Deliberate, unhurried Portal 2 delivery
     tts_pitch: str = os.getenv("TTS_PITCH", "+4Hz")  # Ellen McLain GLaDOS tonal lift
-    stt_language: str = os.getenv("STT_LANGUAGE", "en-US")
+    stt_engine: str = os.getenv("STT_ENGINE", "whisper")  # "whisper" (OpenAI Whisper) or "google"
+    whisper_model: str = os.getenv("WHISPER_MODEL", "tiny.en")  # "tiny.en" for fast low-latency CPU inference
+    whisper_device: str = os.getenv("WHISPER_DEVICE", "cpu")  # "cpu" preserves 100% GPU VRAM for Ollama
+    stt_language: str = os.getenv("STT_LANGUAGE", "en")
     wake_word: str = os.getenv("WAKE_WORD", "glados").lower()
     require_wake_word: bool = os.getenv("REQUIRE_WAKE_WORD", "true").lower() in ("true", "1", "yes")
     audio_cache_dir: Path = base_dir / "captures" / "audio"
