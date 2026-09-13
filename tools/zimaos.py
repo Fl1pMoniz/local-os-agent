@@ -1175,8 +1175,8 @@ def open_zimaos_ssh(ssh_user: str | None = None, port: int | str | None = None, 
     # Resolve user
     user = (ssh_user or "").strip()
     if not user:
-        creds = load_zimaos_credentials()
-        user = creds.get("ssh_user") or creds.get("username") or "fl1pmoniz"
+        user_loaded, _ = load_zimaos_credentials()
+        user = user_loaded or "fl1pmoniz"
 
     # Resolve port
     port_str = str(port or 22).strip()

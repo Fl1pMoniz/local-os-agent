@@ -6,7 +6,7 @@ import pathlib
 
 from agent import OSAgent
 from schemas import AgentResponse, ToolAction
-from tools.game_clipper import capture_game_clip, list_recent_clips, format_clip_card
+from tools.game_clipper import capture_game_clip, list_recent_clips, format_clip_card, launch_obs
 from tools.jellyfin import search_and_play_jellyfin, get_jellyfin_now_playing, format_now_playing_card
 from tools.vision import analyze_screen, format_vision_card
 from tools.soundboard import play_soundboard, stop_soundboard
@@ -30,6 +30,12 @@ class TestMultifacetedProtocols(unittest.TestCase):
         self.assertEqual(res["active_game"], "Portal 2")
         self.assertIn("terminal_card", res)
         self.assertIn("APERTURE SCIENCE REPLAY ARCHIVE", res["terminal_card"])
+
+    @patch("tools.game_clipper._is_obs_running", return_value=True)
+    def test_launch_obs_already_running(self, mock_running):
+        res = launch_obs()
+        self.assertTrue(res["success"])
+        self.assertIn("already running", res["message"])
 
     def test_format_clip_card(self):
         card = format_clip_card("Cyberpunk 2077", "C:\\Videos\\test.mp4", 15.5, "30s")

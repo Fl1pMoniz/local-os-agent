@@ -60,8 +60,9 @@ The agent exposes 43 registered tools divided across specialized Aperture protoc
 * `search_and_play_jellyfin(query)`: Queries movies, series, or albums hosted on your local ZimaOS Jellyfin container (`http://192.168.1.123:8097`) and opens streaming playback.
 * `get_jellyfin_now_playing()`: Generates a live ASCII Now Playing HUD displaying active streams, titles, media type, and playback progress.
 
-### Protocol 2: 30-Second Gameplay Clipper
-* `capture_game_clip(seconds=30)`: Triggers OBS Studio's Replay Buffer (`SaveReplayBuffer`) or Windows Game Bar DVR (`Win+Alt+G`) to archive the last 30 seconds of gameplay. Automatically detects the active game title and discovers the saved `.mp4` file.
+### Protocol 2: 30-Second Gameplay Clipper & OBS FOSS Integration
+* `capture_game_clip(seconds=30)`: Triggers OBS Studio's Replay Buffer via native OBS WebSocket (`SaveReplayBuffer`) or hardware GPU encoder (NVIDIA ShadowPlay `Alt+F10`) to archive highlights. Automatically detects active game metadata and discovers newly written `.mp4` and `.mkv` files across game subdirectories (Windows Game Bar dependency completely removed).
+* `launch_obs(start_buffer=True)`: Launches OBS Studio in the background or minimized to tray with the Replay Buffer primed and WebSocket active.
 * `list_recent_clips(limit=5)`: Lists recently captured gameplay highlights, timestamps, and file sizes.
 
 ### Protocol 3: Optical Screen Vision & Error Inspection
