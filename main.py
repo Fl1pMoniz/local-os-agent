@@ -103,11 +103,22 @@ def execute_and_display(agent: OSAgent, prompt: str) -> None:
     print("Thinking...")
 
     try:
+        from ui.state import ui_state
+        ui_state.update(state="thinking", thought="Formulating execution plan...", text="")
+    except Exception:
+        pass
+
+    try:
         plan = agent.query_llm(prompt)
         print(f"\n[Agent Thought]: {plan.thought}")
 
         if plan.response:
             print(f"\n[GLaDOS]: \"{plan.response}\"")
+            try:
+                from ui.state import ui_state
+                ui_state.update(state="speaking", text=plan.response)
+            except Exception:
+                pass
             if config.voice_enabled:
                 from voice import speak
                 speak(plan.response)
@@ -156,9 +167,20 @@ def interactive_voice_loop(agent: OSAgent) -> None:
 
     while True:
         try:
+            try:
+                from ui.state import ui_state
+                ui_state.update(state="listening", text="Awaiting test subject auditory stimulus...")
+            except Exception:
+                pass
+
             print(f"\n[🧪 Listening for '{config.wake_word.title()}'...]")
 
             def on_speech():
+                try:
+                    from ui.state import ui_state
+                    ui_state.update(state="thinking", thought="Audio signal detected, processing...")
+                except Exception:
+                    pass
                 print("  -> Audio signal detected, recording...", end="", flush=True)
 
             text = listener.listen_command(
@@ -260,6 +282,7 @@ def main() -> None:
     parser.add_argument("--base-url", type=str, default=config.llm_base_url, help="LLM base URL")
     parser.add_argument("--model", "-m", type=str, default=config.llm_model, help="LLM model name")
     parser.add_argument("--voice", "-v", action="store_true", help="Launch directly in voice interaction mode")
+    parser.add_argument("--ui", action="store_true", help="Launch GLaDOS animated visual interface in browser")
     parser.add_argument("--voice-name", type=str, default=None, help="TTS Voice preset or full name (libby, aria, ava, maisie)")
     parser.add_argument("--preview-voices", action="store_true", help="Audition all available voice presets out loud")
     parser.add_argument("--no-tts", action="store_true", help="Disable voice speech feedback")
@@ -270,6 +293,10 @@ def main() -> None:
 
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
+
+    if args.ui:
+        from ui.server import start_ui_server
+        start_ui_server(port=5000, open_browser=True)
 
     if args.preview_voices:
         preview_all_voices()

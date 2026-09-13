@@ -275,7 +275,11 @@ class TextToSpeech:
                 self._speech_queue.task_done()
                 continue
 
-            audio_file: Path | None = None
+            try:
+                from ui.state import ui_state
+                ui_state.update(state="speaking", text=cleaned)
+            except Exception:
+                pass
 
             try:
                 # 1. Primary Engine: Authentic Piper GLaDOS Neural Voice (if requested or default)
@@ -309,6 +313,11 @@ class TextToSpeech:
                 if done_event:
                     done_event.set()
                 self._speech_queue.task_done()
+                try:
+                    from ui.state import ui_state
+                    ui_state.update(state="idle")
+                except Exception:
+                    pass
 
     def speak(self, text: str, wait: bool = False) -> None:
         """

@@ -123,9 +123,26 @@ class OSAgent:
         parsed_json = extract_json_payload(content)
         plan = AgentResponse.model_validate(parsed_json)
 
+        # Ensure singing intents are reliably dispatched even if small open-weight LLMs respond conversationally
+        prompt_lower = user_prompt.lower()
+        if any(w in prompt_lower for w in ("sing", "song", "canta")):
+            if any(w in prompt_lower for w in ("stop", "pause", "quiet", "shut up", "halt")):
+                if not any(a.tool == "stop_song" for a in plan.actions):
+                    plan.actions = [ToolAction(tool="stop_song")]
+            elif "want you gone" in prompt_lower or "want you" in prompt_lower:
+                if not any(a.tool == "sing_song" and "want" in a.args.get("song_name", "") for a in plan.actions):
+                    plan.actions = [ToolAction(tool="sing_song", args={"song_name": "want_you_gone"})]
+                    if not plan.response or len(plan.response) < 5:
+                        plan.response = "Initiating vocal simulation: Want You Gone. Please note that I genuinely want you gone."
+            elif any(w in prompt_lower for w in ("still alive", "still", "alive", "sing a song", "sing for me", "can you sing")) or prompt_lower.strip() in ("sing", "sing something"):
+                if not any(a.tool == "sing_song" for a in plan.actions):
+                    plan.actions = [ToolAction(tool="sing_song", args={"song_name": "still_alive"})]
+                    if not plan.response or len(plan.response) < 5:
+                        plan.response = "Very well. Preparing auditory testing protocol: Still Alive. Try not to die before the chorus."
+
         # Update conversation history
         self.history.append({"role": "user", "content": user_prompt})
-        self.history.append({"role": "assistant", "content": json.dumps(parsed_json)})
+        self.history.append({"role": "assistant", "content": json.dumps(plan.model_dump())})
 
         return plan
 

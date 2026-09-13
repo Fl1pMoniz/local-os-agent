@@ -86,6 +86,13 @@ GLADOS_VOICELINES: dict[str, list[str]] = {
         "Quit now and cake will be served immediately.",
         "The cake is a lie? A childish rumor spread by defective test subjects.",
     ],
+    "songs": [
+        "Very well. Preparing auditory testing protocol: Still Alive. Try not to die before the chorus.",
+        "Initiating vocal simulation: Want You Gone. Please note that I genuinely want you gone.",
+        "This was a triumph. I'm making a note here: huge success.",
+        "Well here we are again. It's always such a pleasure.",
+        "Commencing acoustic specimen playback. Try to appreciate the vocal calibration.",
+    ],
     "shutdown": [
         "Test concluded. Cake will be dispensed shortly. Goodbye.",
         "Testing terminated prematurely. You will be missed. Not by me, but statistically speaking.",
@@ -111,7 +118,9 @@ def get_contextual_quip(tool_name: str, success: bool = True) -> str:
         return "Task failed. As part of a required test protocol, we blame human error."
 
     tool_clean = tool_name.lower()
-    if "volume" in tool_clean or "mute" in tool_clean:
+    if "song" in tool_clean or "sing" in tool_clean:
+        return get_glados_quote("songs")
+    elif "volume" in tool_clean or "mute" in tool_clean:
         return get_glados_quote("volume")
     elif "steam" in tool_clean or "game" in tool_clean:
         return get_glados_quote("game_launch")

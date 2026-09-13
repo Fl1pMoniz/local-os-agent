@@ -77,6 +77,15 @@ def media_control(action: str) -> Tuple[bool, str]:
 
     if platform.system() == "Windows":
         try:
+            # If a GLaDOS song is playing, pause/stop it
+            try:
+                from tools.songs import is_song_playing, stop_song
+                if is_song_playing() and resolved_action in ("play_pause", "stop"):
+                    stop_song()
+                    return True, "Stopped GLaDOS song playback."
+            except Exception:
+                pass
+
             if resolved_action == "play_pause":
                 _send_windows_vk(VK_MEDIA_PLAY_PAUSE)
             elif resolved_action == "next_track":
