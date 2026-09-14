@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import shutil
 from typing import Any
 
 from app.ports.clipper import ClipperPort

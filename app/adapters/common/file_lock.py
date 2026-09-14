@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import IO, Any
 
 import portalocker
+
 from app.ports.system import InstanceLockPort
 
 logger = logging.getLogger("glados.adapters.file_lock")

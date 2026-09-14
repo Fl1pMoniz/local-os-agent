@@ -8,54 +8,131 @@ Designed to run locally on consumer GPUs (e.g., RTX 4070 12GB) alongside resourc
 
 ## Setup & Installation
 
-GLaDOS Local OS Agent uses modern Python packaging via `pyproject.toml` and is managed with `uv` for lightning-fast, reproducible dependency synchronization across Windows, Linux, and macOS.
+GLaDOS Local OS Agent is engineered with modern Python packaging via `pyproject.toml` (PEP 621) and managed with `uv` for reproducible, cross-platform dependency synchronization across Windows, Linux (Ubuntu, Debian, Arch, Fedora), and macOS.
 
 ### 1. Prerequisites
-- **Python**: Version 3.10 or higher.
-- **uv** (Recommended package manager): Install via `pip install uv` or official standalone installer:
-  - Windows: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
-  - Linux/macOS: `curl -LsSf https://astral.sh/uv/install.sh | sh`
-- **Local LLM Engine**: [Ollama](https://ollama.com/) running locally (`ollama run glados:3b` or any OpenAI-compatible server at `http://localhost:11434`).
+- **Python**: Version 3.10 to 3.14 installed and available on PATH.
+- **Git**: Installed for repository cloning.
+- **uv** (Recommended modern Python package manager):
+  - **Windows (PowerShell)**:
+    ```powershell
+    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+    ```
+  - **Linux & macOS (Bash)**:
+    ```bash
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    ```
+- **Local LLM Engine**: [Ollama](https://ollama.com/) (recommended) or [LM Studio](https://lmstudio.ai/) running locally:
+  ```bash
+  # Start Ollama and download the recommended model
+  ollama run llama3.2:3b
+  # Or create the custom Aperture GLaDOS persona:
+  ollama create glados:3b -f Modelfile
+  ```
 
-### 2. Windows Installation
+---
+
+### 2. Windows Installation Guide
+
+#### Step 2.1: Clone the Repository
+Open PowerShell or Windows Terminal:
 ```powershell
-# Clone the repository
 git clone https://github.com/Fl1pMoniz/local-os-agent.git
 cd local-os-agent
+```
 
-# Create virtual environment and synchronize dependencies
-uv venv
-.\.venv\Scripts\activate
+#### Step 2.2: Synchronize Dependencies with `uv`
+`uv` automatically detects Windows platform markers (`pycaw`, `comtypes`, `pywin32`) and creates an isolated virtual environment:
+```powershell
 uv sync --all-extras
 ```
 
-### 3. Linux & macOS Installation
+#### Step 2.3: Launch GLaDOS
+You can launch either the interactive terminal console or the Amber CRT Web UI:
+```powershell
+# Option A: Clinical CLI Terminal
+.\glados.bat
+# Or using uv directly:
+uv run glados
+
+# Option B: Voice Listener Mode (Wake word "GLaDOS" + Neural Speech)
+.\glados.bat --voice
+
+# Option C: Amber CRT Web Management UI (Opens in browser at http://127.0.0.1:5000)
+.\glados-web.bat
+# Or using uv directly:
+uv run glados-web
+```
+
+---
+
+### 3. Linux Installation Guide (Debian, Ubuntu, Arch, Fedora)
+
+The base Python code is 100% cross-compatible with zero hard dependencies on Win32 DLLs. Operating system facilities are dynamically routed via Ports and Adapters (PipeWire/PulseAudio, playerctl, loginctl).
+
+#### Step 3.1: Install System Media & Audio Dependencies
+Install optional native desktop utilities according to your Linux distribution:
+- **Ubuntu / Debian / Linux Mint**:
+  ```bash
+  sudo apt update
+  sudo apt install -y pipewire-pulse pulseaudio-utils playerctl xdotool ffmpeg
+  ```
+- **Arch Linux / Manjaro**:
+  ```bash
+  sudo pacman -S --needed pipewire-pulse playerctl xdotool ffmpeg
+  ```
+- **Fedora / RHEL**:
+  ```bash
+  sudo dnf install -y pipewire-pulseaudio playerctl xdotool ffmpeg
+  ```
+
+#### Step 3.2: Clone the Repository
 ```bash
-# Clone the repository
 git clone https://github.com/Fl1pMoniz/local-os-agent.git
 cd local-os-agent
-
-# Create virtual environment and synchronize dependencies
-uv venv
-source .venv/bin/activate
-uv sync --all-extras
-
-# Optional Linux system packages for native media keys and audio control:
-# Debian/Ubuntu: sudo apt install pipewire-pulse playerctl
-# Arch Linux:    sudo pacman -S pipewire-pulse playerctl
 ```
+
+#### Step 3.3: Synchronize Dependencies with `uv`
+On Linux, Windows-only dependencies (`pycaw`, `comtypes`, `pywin32`) are automatically skipped:
+```bash
+uv sync --all-extras
+```
+
+#### Step 3.4: Make Launchers Executable & Run
+```bash
+# Grant execution permissions to POSIX bash launchers
+chmod +x glados glados-web
+
+# Option A: Clinical CLI Terminal
+./glados
+# Or using uv directly:
+uv run glados
+
+# Option B: Voice Listener Mode (Microphone + Neural Speech)
+./glados --voice
+
+# Option C: Amber CRT Web Management UI (Opens browser at http://127.0.0.1:5000)
+./glados-web
+# Or using uv directly:
+uv run glados-web
+```
+
+---
 
 ### 4. Development & Quality Assurance
 ```bash
-# Execute the full pytest test suite
+# Execute the full 149-test pytest suite
 uv run pytest
 
-# Fast unit tests only (< 2 seconds)
+# Fast unit tests only (< 1 second)
 uv run pytest -m "unit"
 
-# Lint and format code with Ruff
+# Platform and headless resolution tests
+uv run pytest -m "cross_platform or headless"
+
+# Code formatting and lint verification
 uv run ruff check .
-uv run ruff format .
+uv run ruff format --check .
 ```
 
 ---
@@ -233,18 +310,27 @@ Settings can be customized via `.env` or system environment variables:
 
 ---
 
-## Testing
+## Testing & Continuous Verification
 
-Run the automated test suite to verify tool execution, schema parsing, and protocol safety:
+Run the comprehensive pytest test suite to verify tool execution, schema parsing, protocol safety, and cross-platform adapter resolution:
 
-```powershell
-python -m unittest discover tests
+```bash
+# Run all 149 tests across 17 test modules
+uv run pytest
+
+# Run fast unit tests only (< 1 second)
+uv run pytest -m "unit"
+
+# Run cross-platform and headless tests
+uv run pytest -m "cross_platform or headless"
+
+# Run with verbose test names and timings
+uv run pytest -v --durations=10
 ```
 
-The test suite covers **110 unit tests** spanning:
-* Outermost JSON block extraction and syntax repair for small model outputs.
-* Intent pattern matching across English and Portuguese phrasing variations.
-* Voiceline triggering: explicit playback commands execute soundboard clips, while general inquiries about Cave Johnson or Wheatley generate conversational AI answers.
-* Fast AI RAM process discovery, token tracking, and 70-column ASCII HUD card formatting.
-* Media dispatching, 30s game clip capture, Discord webhook posting, and wellness tracking.
-* Web UI endpoints, SSE terminal events, and audio ducking.
+The test suite covers **149 automated test cases** spanning:
+* **Dependency Injection & IoC**: Container resolution, portalocker file locking, platform adapter selection (Windows, Linux, Headless/Mock).
+* **LangChain Tool-Calling & Schemas**: Parameter validation, range checks, typed Pydantic models, and offline survival command fallbacks.
+* **Dual-Channel Logging & Presentation**: Uncluttered stdout UI stream, rotating debug files, and monospaced ASCII bordered HUD formatters.
+* **Speech & Audio**: Voice wake word detection, Piper/Edge TTS inference, silence detection, and acoustic exclusion.
+* **Aperture Protocols**: ADS-B airspace radar, ZimaOS homelab server integration, 30-second game highlights, and Amber CRT Web UI endpoints.
