@@ -1,19 +1,31 @@
 """Tests for JSON extraction, schemas, and exact SYSTEM_PROMPT."""
 
 import unittest
+
 from agent import SYSTEM_PROMPT, extract_json_payload
-from schemas import AgentResponse, ToolAction
+from schemas import AgentResponse
 
 
 class TestSchemas(unittest.TestCase):
     def test_system_prompt_exactness(self):
         """Verify the exact SYSTEM_PROMPT text matches prompt specification."""
         self.assertIn("You are GLaDOS (Genetic Lifeform and Disk Operating System)", SYSTEM_PROMPT)
-        self.assertIn("1. set_volume(level: int): Sets master system volume (0-100).", SYSTEM_PROMPT)
-        self.assertIn("2. change_volume_relative(delta: int): Adjusts volume up or down relatively", SYSTEM_PROMPT)
-        self.assertIn("3. set_app_volume(app_name: str, level: int): Sets volume of a specific application (0-100)", SYSTEM_PROMPT)
+        self.assertIn(
+            "1. set_volume(level: int): Sets master system volume (0-100).", SYSTEM_PROMPT
+        )
+        self.assertIn(
+            "2. change_volume_relative(delta: int): Adjusts volume up or down relatively",
+            SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "3. set_app_volume(app_name: str, level: int): Sets volume of a specific application (0-100)",
+            SYSTEM_PROMPT,
+        )
         self.assertIn("4. mute_toggle(): Toggles the system mute state.", SYSTEM_PROMPT)
-        self.assertIn("5. play_youtube(query: str, music: bool = False): Opens YouTube or YouTube Music", SYSTEM_PROMPT)
+        self.assertIn(
+            "5. play_youtube(query: str, music: bool = False): Opens YouTube or YouTube Music",
+            SYSTEM_PROMPT,
+        )
         self.assertIn("track_flight", SYSTEM_PROMPT)
         self.assertIn("get_zimaos_status", SYSTEM_PROMPT)
         self.assertIn("list_zimaos_apps", SYSTEM_PROMPT)
@@ -65,4 +77,3 @@ class TestSchemas(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

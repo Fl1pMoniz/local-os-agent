@@ -6,7 +6,6 @@ import re
 import urllib.parse
 import urllib.request
 import webbrowser
-from typing import Tuple
 
 logger = logging.getLogger("local_os_agent.tools.media")
 
@@ -42,7 +41,19 @@ def clean_youtube_query(text: str) -> str:
     s = s.strip(" :\"'.,!?")
 
     # If all that remains is common filler words or empty
-    if not s or s.lower() in ("and", "it", "on", "song", "track", "music", "youtube", "youtube music", "on youtube music", "the song", "a song"):
+    if not s or s.lower() in (
+        "and",
+        "it",
+        "on",
+        "song",
+        "track",
+        "music",
+        "youtube",
+        "youtube music",
+        "on youtube music",
+        "the song",
+        "a song",
+    ):
         return "Still Alive Portal"
 
     return s
@@ -58,7 +69,7 @@ def resolve_youtube_video(query: str, timeout: float = 4.0) -> tuple[str | None,
         return None, None
 
     # Check if direct video ID or YouTube URL was provided
-    id_match = re.search(r'(?:v=|\/|youtu\.be\/)([a-zA-Z0-9_-]{11})', q_str)
+    id_match = re.search(r"(?:v=|\/|youtu\.be\/)([a-zA-Z0-9_-]{11})", q_str)
     if id_match:
         return id_match.group(1), None
 
@@ -80,7 +91,7 @@ def resolve_youtube_video(query: str, timeout: float = 4.0) -> tuple[str | None,
             html = resp.read().decode("utf-8", errors="ignore")
 
         # 1. Match watch?v= links
-        matches = re.findall(r'/watch\?v=([a-zA-Z0-9_-]{11})', html)
+        matches = re.findall(r"/watch\?v=([a-zA-Z0-9_-]{11})", html)
         if not matches:
             # 2. Match JSON videoId
             matches = re.findall(r'"videoId":"([a-zA-Z0-9_-]{11})"', html)
@@ -93,7 +104,9 @@ def resolve_youtube_video(query: str, timeout: float = 4.0) -> tuple[str | None,
         # Extract title corresponding to the first video ID
         title = None
         title_match = re.search(
-            r'"videoId":"' + re.escape(first_id) + r'"[\s\S]*?"title":\{"runs":\[\{"text":"(.*?)"\}',
+            r'"videoId":"'
+            + re.escape(first_id)
+            + r'"[\s\S]*?"title":\{"runs":\[\{"text":"(.*?)"\}',
             html,
         )
         if title_match:
@@ -105,7 +118,9 @@ def resolve_youtube_video(query: str, timeout: float = 4.0) -> tuple[str | None,
         return None, None
 
 
-def play_youtube(query: str, music: bool = False, open_browser: bool = True, **kwargs) -> Tuple[bool, str]:
+def play_youtube(
+    query: str, music: bool = False, open_browser: bool = True, **kwargs
+) -> tuple[bool, str]:
     """
     Directly opens the song or video and starts playback on YouTube Music or YouTube.
     If music=True or query contains 'youtube music', resolves and plays on music.youtube.com.
@@ -117,7 +132,11 @@ def play_youtube(query: str, music: bool = False, open_browser: bool = True, **k
         query_clean = str(query).strip()
 
         # Check if YouTube Music was requested
-        is_music = bool(music) or ("youtube music" in query_clean.lower()) or ("music.youtube" in query_clean.lower())
+        is_music = (
+            bool(music)
+            or ("youtube music" in query_clean.lower())
+            or ("music.youtube" in query_clean.lower())
+        )
 
         clean_text = clean_youtube_query(query_clean)
 
@@ -154,11 +173,12 @@ def play_youtube(query: str, music: bool = False, open_browser: bool = True, **k
 def _send_windows_vk(vk_code: int) -> None:
     """Send key down and key up events for a virtual keycode on Windows."""
     import ctypes
+
     ctypes.windll.user32.keybd_event(vk_code, 0, 0, 0)
     ctypes.windll.user32.keybd_event(vk_code, 0, KEYEVENTF_KEYUP, 0)
 
 
-def media_control(action: str) -> Tuple[bool, str]:
+def media_control(action: str) -> tuple[bool, str]:
     """
     Simulates global media key events.
     Accepted actions: 'play_pause', 'next_track', 'prev_track'.
@@ -193,6 +213,7 @@ def media_control(action: str) -> Tuple[bool, str]:
             # If a GLaDOS song is playing, pause/stop it
             try:
                 from tools.songs import is_song_playing, stop_song
+
                 if is_song_playing() and resolved_action in ("play_pause", "stop"):
                     stop_song()
                     return True, "Stopped GLaDOS song playback."
@@ -213,6 +234,7 @@ def media_control(action: str) -> Tuple[bool, str]:
         # Cross-platform fallback using pyautogui if available
         try:
             import pyautogui
+
             if resolved_action == "play_pause":
                 pyautogui.press("playpause")
             elif resolved_action == "next_track":
@@ -238,4 +260,3 @@ register_tool(
     description='Controls media playback. Accepted actions: "play_pause", "next_track", "prev_track".',
     sensitive=False,
 )(media_control)
-

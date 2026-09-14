@@ -2,11 +2,10 @@
 
 import difflib
 import logging
-import os
 import platform
-from pathlib import Path
-from typing import Any, Tuple
 import webbrowser
+from pathlib import Path
+from typing import Any
 
 from config import config
 
@@ -73,7 +72,8 @@ def _parse_vdf_file(filepath: Path) -> dict[str, Any]:
     """
     try:
         import vdf
-        with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+
+        with open(filepath, encoding="utf-8", errors="replace") as f:
             return vdf.load(f)
     except ImportError:
         logger.warning("Dedicated 'vdf' package not found; using internal fallback parser.")
@@ -88,7 +88,7 @@ def _fallback_vdf_parse(filepath: Path) -> dict[str, Any]:
     result: dict[str, Any] = {}
     stack: list[dict[str, Any]] = [result]
 
-    with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+    with open(filepath, encoding="utf-8", errors="replace") as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith("//"):
@@ -105,6 +105,7 @@ def _fallback_vdf_parse(filepath: Path) -> dict[str, Any]:
             if len(parts) == 1:
                 # Quoted string alone or separated by whitespace
                 import re
+
                 tokens = re.findall(r'"([^"]*)"', line)
                 if len(tokens) == 2:
                     stack[-1][tokens[0]] = tokens[1]
@@ -130,6 +131,7 @@ def discover_installed_steam_games(force_refresh: bool = False) -> dict[str, int
     """
     global _games_cache, _cache_timestamp
     import time
+
     now = time.time()
     if not force_refresh and _games_cache and (now - _cache_timestamp) < CACHE_TTL:
         return dict(_games_cache)
@@ -183,7 +185,7 @@ def discover_installed_steam_games(force_refresh: bool = False) -> dict[str, int
     return games
 
 
-def find_best_game_match(query: str, games_catalog: dict[str, int]) -> Tuple[str, int] | None:
+def find_best_game_match(query: str, games_catalog: dict[str, int]) -> tuple[str, int] | None:
     """
     Fuzzy match user input against installed game names using difflib and substring ranking.
     """
@@ -223,7 +225,7 @@ def find_best_game_match(query: str, games_catalog: dict[str, int]) -> Tuple[str
     return None
 
 
-def launch_steam_game(game_name: str) -> Tuple[bool, str]:
+def launch_steam_game(game_name: str) -> tuple[bool, str]:
     """
     Fuzzy matches a game name to its Steam ID and launches it via the Steam protocol.
     """
@@ -238,7 +240,10 @@ def launch_steam_game(game_name: str) -> Tuple[bool, str]:
         match = find_best_game_match(game_name, games_catalog)
         if not match:
             available_preview = ", ".join(list(games_catalog.keys())[:5])
-            return False, f"Could not find a match for '{game_name}'. (Installed examples: {available_preview})"
+            return (
+                False,
+                f"Could not find a match for '{game_name}'. (Installed examples: {available_preview})",
+            )
 
         matched_name, app_id = match
         uri = f"steam://rungameid/{app_id}"
@@ -257,4 +262,3 @@ register_tool(
     description="Fuzzy matches a game name to its Steam ID and launches it.",
     sensitive=False,
 )(launch_steam_game)
-

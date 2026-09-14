@@ -1,0 +1,12 @@
+# Automated pre-commit hooks for GLaDOS local-os-agent
+# Enforces fast Rust-based linting and formatting via Ruff before code lands in git
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.3.4
+    hooks:
+      # Run linter and apply safe automatic fixes
+      - id: ruff
+        args: [--fix]
+      # Run code formatter
+      - id: ruff-format
+

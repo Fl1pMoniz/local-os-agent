@@ -1,7 +1,7 @@
 """Tests for Text-to-Speech synthesis and voice text cleaning."""
 
 import unittest
-from pathlib import Path
+
 from voice.tts import TextToSpeech, clean_text_for_speech
 
 
@@ -80,8 +80,9 @@ class TestVoiceModule(unittest.TestCase):
 
     def test_whisper_integration(self):
         import torch
-        from voice.listener import VoiceListener
+
         from config import config
+        from voice.listener import VoiceListener
 
         listener = VoiceListener()
         self.assertIsNotNone(listener._whisper_model)
@@ -97,11 +98,11 @@ class TestVoiceModule(unittest.TestCase):
             allocated_mb = torch.cuda.memory_allocated() / (1024 * 1024)
             self.assertLess(allocated_mb, 1024)
 
-
     def test_audio_mutual_exclusion(self):
+        import threading
+
         from voice.audio_arbiter import GLOBAL_AUDIO_LOCK, stop_all_audio
         from voice.tts import tts_engine
-        import threading
 
         # 1. Verify global lock is available and re-entrant
         self.assertIsNotNone(GLOBAL_AUDIO_LOCK)
@@ -121,5 +122,3 @@ class TestVoiceModule(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-

@@ -1,6 +1,5 @@
 """Central state dispatcher for the GLaDOS visual UI."""
 
-import json
 import logging
 import queue
 import threading
@@ -30,11 +29,13 @@ class AgentUIState:
     @property
     def glados_voice(self) -> bool:
         from config import config
+
         return bool(config.enable_tts)
 
     @glados_voice.setter
     def glados_voice(self, val: bool) -> None:
         from config import config
+
         config.enable_tts = bool(val)
 
     def get_state(self) -> dict[str, Any]:
@@ -63,6 +64,7 @@ class AgentUIState:
     ) -> dict[str, Any]:
         """Records a terminal/voice execution event and broadcasts it to all connected SSE clients."""
         import datetime
+
         with self._lock:
             self._event_counter += 1
             event = {
@@ -174,4 +176,3 @@ class AgentUIState:
 
 
 ui_state = AgentUIState()
-

@@ -1,6 +1,7 @@
 """Tests for agent plan execution, multi-tool chaining, and safety confirmation callback."""
 
 import unittest
+
 from agent import OSAgent
 from schemas import AgentResponse, ToolAction
 
@@ -54,6 +55,7 @@ class TestAgentExecution(unittest.TestCase):
 
     def test_safety_gatekeeper_confirmation_denial(self):
         """Test sensitive tool cancellation when rejected by user."""
+
         def mock_deny(thought: str, tool_name: str, args: dict) -> bool:
             return False  # User types 'n' or rejects
 
@@ -75,4 +77,3 @@ class TestAgentExecution(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

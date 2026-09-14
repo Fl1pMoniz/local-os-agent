@@ -1,8 +1,8 @@
 """Tests for Steam VDF parsing and fuzzy game matching."""
 
 import unittest
-from pathlib import Path
-from tools.steam import _parse_vdf_file, find_best_game_match, discover_installed_steam_games
+
+from tools.steam import discover_installed_steam_games, find_best_game_match
 
 
 class TestSteamDiscovery(unittest.TestCase):
@@ -53,4 +53,3 @@ class TestSteamDiscovery(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

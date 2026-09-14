@@ -16,8 +16,8 @@ import time
 import urllib.parse
 import urllib.request
 import webbrowser
-from datetime import datetime, timezone, timedelta
-from typing import Any, Tuple
+from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from config import config
 from tools import register_tool
@@ -29,38 +29,98 @@ TRACKED_FLIGHT_FILE = config.captures_dir / "tracked_flight.json"
 # Top worldwide commercial airport coordinates (IATA -> (lat, lon))
 POPULAR_AIRPORTS: dict[str, tuple[float, float]] = {
     # Americas
-    "JFK": (40.6413, -73.7781), "EWR": (40.6895, -74.1745), "LGA": (40.7769, -73.8740),
-    "LAX": (33.9416, -118.4085), "ORD": (41.9742, -87.9073), "ATL": (33.6407, -84.4277),
-    "DFW": (32.8998, -97.0403), "DEN": (39.8561, -104.6737), "SFO": (37.6213, -122.3790),
-    "MIA": (25.7959, -80.2870), "BOS": (42.3656, -71.0096), "MCO": (28.4312, -81.3081),
-    "SEA": (47.4502, -122.3088), "LAS": (36.0840, -115.1537), "PHX": (33.4373, -112.0078),
-    "IAH": (29.9902, -95.3368), "CLT": (35.2140, -80.9431), "DTW": (42.2162, -83.3554),
-    "MSP": (44.8848, -93.2223), "PHL": (39.8729, -75.2437), "YYZ": (43.6777, -79.6248),
-    "YVR": (49.1967, -123.1815), "YUL": (45.4657, -73.7455), "MEX": (19.4361, -99.0719),
-    "CUN": (21.0365, -86.8771), "PTY": (9.0714, -79.3835), "BOG": (4.7016, -74.1469),
-    "GRU": (-23.4356, -46.4731), "GIG": (-22.8089, -43.2436), "BSB": (-15.8697, -47.9172),
-    "EZE": (-34.8222, -58.5358), "SCL": (-33.3930, -70.7858), "LIM": (-12.0219, -77.1143),
-    "SDQ": (18.4297, -69.6689), "PUJ": (18.5674, -68.3634), "SJU": (18.4394, -66.0018),
+    "JFK": (40.6413, -73.7781),
+    "EWR": (40.6895, -74.1745),
+    "LGA": (40.7769, -73.8740),
+    "LAX": (33.9416, -118.4085),
+    "ORD": (41.9742, -87.9073),
+    "ATL": (33.6407, -84.4277),
+    "DFW": (32.8998, -97.0403),
+    "DEN": (39.8561, -104.6737),
+    "SFO": (37.6213, -122.3790),
+    "MIA": (25.7959, -80.2870),
+    "BOS": (42.3656, -71.0096),
+    "MCO": (28.4312, -81.3081),
+    "SEA": (47.4502, -122.3088),
+    "LAS": (36.0840, -115.1537),
+    "PHX": (33.4373, -112.0078),
+    "IAH": (29.9902, -95.3368),
+    "CLT": (35.2140, -80.9431),
+    "DTW": (42.2162, -83.3554),
+    "MSP": (44.8848, -93.2223),
+    "PHL": (39.8729, -75.2437),
+    "YYZ": (43.6777, -79.6248),
+    "YVR": (49.1967, -123.1815),
+    "YUL": (45.4657, -73.7455),
+    "MEX": (19.4361, -99.0719),
+    "CUN": (21.0365, -86.8771),
+    "PTY": (9.0714, -79.3835),
+    "BOG": (4.7016, -74.1469),
+    "GRU": (-23.4356, -46.4731),
+    "GIG": (-22.8089, -43.2436),
+    "BSB": (-15.8697, -47.9172),
+    "EZE": (-34.8222, -58.5358),
+    "SCL": (-33.3930, -70.7858),
+    "LIM": (-12.0219, -77.1143),
+    "SDQ": (18.4297, -69.6689),
+    "PUJ": (18.5674, -68.3634),
+    "SJU": (18.4394, -66.0018),
     # Europe
-    "LHR": (51.4700, -0.4543), "LGW": (51.1537, -0.1821), "CDG": (49.0097, 2.5479),
-    "ORY": (48.7262, 2.3652), "FRA": (50.0379, 8.5622), "MUC": (48.3537, 11.7750),
-    "AMS": (52.3105, 4.7683), "MAD": (40.4839, -3.5680), "BCN": (41.2974, 2.0833),
-    "FCO": (41.8003, 12.2389), "MXP": (45.6301, 8.7255), "ZRH": (47.4582, 8.5555),
-    "VIE": (48.1103, 16.5697), "BRU": (50.9010, 4.4856), "CPH": (55.6180, 12.6508),
-    "OSL": (60.1976, 11.1004), "ARN": (59.6498, 17.9238), "HEL": (60.3172, 24.9633),
-    "DUB": (53.4264, -6.2499), "MAN": (53.3588, -2.2727), "EDI": (55.9508, -3.3725),
-    "LIS": (38.7742, -9.1342), "OPO": (41.2421, -8.6786), "ATH": (37.9364, 23.9484),
-    "IST": (41.2753, 28.7519), "SAW": (40.8986, 29.3092), "WAW": (52.1672, 20.9679),
+    "LHR": (51.4700, -0.4543),
+    "LGW": (51.1537, -0.1821),
+    "CDG": (49.0097, 2.5479),
+    "ORY": (48.7262, 2.3652),
+    "FRA": (50.0379, 8.5622),
+    "MUC": (48.3537, 11.7750),
+    "AMS": (52.3105, 4.7683),
+    "MAD": (40.4839, -3.5680),
+    "BCN": (41.2974, 2.0833),
+    "FCO": (41.8003, 12.2389),
+    "MXP": (45.6301, 8.7255),
+    "ZRH": (47.4582, 8.5555),
+    "VIE": (48.1103, 16.5697),
+    "BRU": (50.9010, 4.4856),
+    "CPH": (55.6180, 12.6508),
+    "OSL": (60.1976, 11.1004),
+    "ARN": (59.6498, 17.9238),
+    "HEL": (60.3172, 24.9633),
+    "DUB": (53.4264, -6.2499),
+    "MAN": (53.3588, -2.2727),
+    "EDI": (55.9508, -3.3725),
+    "LIS": (38.7742, -9.1342),
+    "OPO": (41.2421, -8.6786),
+    "ATH": (37.9364, 23.9484),
+    "IST": (41.2753, 28.7519),
+    "SAW": (40.8986, 29.3092),
+    "WAW": (52.1672, 20.9679),
     # Middle East & Asia & Oceania & Africa
-    "DXB": (25.2532, 55.3657), "AUH": (24.4330, 54.6511), "DOH": (25.2731, 51.6081),
-    "RUH": (24.9576, 46.6988), "JED": (21.6796, 39.1565), "HND": (35.5494, 139.7798),
-    "NRT": (35.7720, 140.3929), "KIX": (34.4320, 135.2304), "ICN": (37.4602, 126.4407),
-    "PEK": (40.0799, 116.6031), "PKX": (39.5098, 116.4105), "PVG": (31.1443, 121.8083),
-    "HKG": (22.3080, 113.9185), "TPE": (25.0797, 121.2342), "BKK": (13.6900, 100.7501),
-    "SIN": (1.3644, 103.9915), "KUL": (2.7456, 101.7099), "CGK": (-6.1256, 106.6559),
-    "DEL": (28.5562, 77.1000), "BOM": (19.0896, 72.8656), "BLR": (13.1986, 77.7066),
-    "SYD": (-33.9399, 151.1753), "MEL": (-37.6690, 144.8410), "BNE": (-27.3842, 153.1175),
-    "AKL": (-37.0082, 174.7850), "JNB": (-26.1367, 28.2411), "CPT": (-33.9715, 18.6021),
+    "DXB": (25.2532, 55.3657),
+    "AUH": (24.4330, 54.6511),
+    "DOH": (25.2731, 51.6081),
+    "RUH": (24.9576, 46.6988),
+    "JED": (21.6796, 39.1565),
+    "HND": (35.5494, 139.7798),
+    "NRT": (35.7720, 140.3929),
+    "KIX": (34.4320, 135.2304),
+    "ICN": (37.4602, 126.4407),
+    "PEK": (40.0799, 116.6031),
+    "PKX": (39.5098, 116.4105),
+    "PVG": (31.1443, 121.8083),
+    "HKG": (22.3080, 113.9185),
+    "TPE": (25.0797, 121.2342),
+    "BKK": (13.6900, 100.7501),
+    "SIN": (1.3644, 103.9915),
+    "KUL": (2.7456, 101.7099),
+    "CGK": (-6.1256, 106.6559),
+    "DEL": (28.5562, 77.1000),
+    "BOM": (19.0896, 72.8656),
+    "BLR": (13.1986, 77.7066),
+    "SYD": (-33.9399, 151.1753),
+    "MEL": (-37.6690, 144.8410),
+    "BNE": (-27.3842, 153.1175),
+    "AKL": (-37.0082, 174.7850),
+    "JNB": (-26.1367, 28.2411),
+    "CPT": (-33.9715, 18.6021),
     "CAI": (30.1219, 31.4056),
 }
 
@@ -80,8 +140,22 @@ def heading_to_cardinal(deg: float | int | None) -> str:
     try:
         val = int((float(deg) / 22.5) + 0.5) % 16
         directions = [
-            "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
-            "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"
+            "N",
+            "NNE",
+            "NE",
+            "ENE",
+            "E",
+            "ESE",
+            "SE",
+            "SSE",
+            "S",
+            "SSW",
+            "SW",
+            "WSW",
+            "W",
+            "WNW",
+            "NW",
+            "NNW",
         ]
         return directions[val]
     except (ValueError, TypeError):
@@ -286,6 +360,7 @@ def get_tracked_flight() -> dict[str, Any] | None:
     flight_res = None
     try:
         from ui.state import ui_state
+
         state = ui_state.get_state()
         if state and state.get("tracked_flight"):
             flight_res = state["tracked_flight"]
@@ -294,7 +369,7 @@ def get_tracked_flight() -> dict[str, Any] | None:
 
     if not flight_res and TRACKED_FLIGHT_FILE.exists():
         try:
-            with open(TRACKED_FLIGHT_FILE, "r", encoding="utf-8") as f:
+            with open(TRACKED_FLIGHT_FILE, encoding="utf-8") as f:
                 data = json.load(f)
                 if isinstance(data, dict) and data.get("callsign"):
                     flight_res = data
@@ -312,7 +387,7 @@ def clean_flight_query(query: str) -> str:
     clean = query.strip().upper()
     for prefix in ("TRACK FLIGHT", "WHERE IS FLIGHT", "WHERE IS", "TRACK", "FLIGHT", "VOO"):
         if clean.startswith(prefix):
-            clean = clean[len(prefix):].strip()
+            clean = clean[len(prefix) :].strip()
     clean = re.sub(r"^([A-Z]{2,3})\s+(\d+)$", r"\1\2", clean)
     return clean.strip(" #:")
 
@@ -336,7 +411,7 @@ def fetch_live_sector_telemetry(lat: float, lon: float, flight_id: str) -> dict[
     try:
         feed_url = (
             f"https://data-cloud.flightradar24.com/zones/fcgi/feed.js?"
-            f"bounds={lat+1.5:.2f},{lat-1.5:.2f},{lon-1.5:.2f},{lon+1.5:.2f}&faa=1&satellite=1&mlat=1&flarm=1&adsb=1"
+            f"bounds={lat + 1.5:.2f},{lat - 1.5:.2f},{lon - 1.5:.2f},{lon + 1.5:.2f}&faa=1&satellite=1&mlat=1&flarm=1&adsb=1"
         )
         req = urllib.request.Request(feed_url, headers=BROWSER_HEADERS)
         with urllib.request.urlopen(req, timeout=6) as resp:
@@ -404,10 +479,10 @@ def refresh_flight_data(callsign: str) -> dict[str, Any] | None:
         model = (telemetry and telemetry.get("model")) or detail.get("ac_type") or "Aircraft"
         orig = (telemetry and telemetry.get("origin")) or detail.get("schd_from") or "Unknown"
         dest = (telemetry and telemetry.get("dest")) or detail.get("schd_to") or "Unknown"
-        alt = (telemetry and telemetry.get("altitude_ft"))
-        spd = (telemetry and telemetry.get("speed_kts"))
-        spd_kmh = (telemetry and telemetry.get("speed_kmh"))
-        hdg = (telemetry and telemetry.get("heading"))
+        alt = telemetry and telemetry.get("altitude_ft")
+        spd = telemetry and telemetry.get("speed_kts")
+        spd_kmh = telemetry and telemetry.get("speed_kmh")
+        hdg = telemetry and telemetry.get("heading")
         reg = (telemetry and telemetry.get("reg")) or detail.get("reg") or ""
 
         vspd = (telemetry and telemetry.get("vertical_speed_fpm")) or 0
@@ -446,11 +521,12 @@ def refresh_flight_data(callsign: str) -> dict[str, Any] | None:
             "predicted_minutes": pred_mins,
             "eta_str": eta_str,
             "updated_at": time.time(),
-            "fr24_url": f"https://www.flightradar24.com/{clean}"
+            "fr24_url": f"https://www.flightradar24.com/{clean}",
         }
 
         try:
             from ui.state import ui_state
+
             ui_state.update(tracked_flight=flight_data)
         except Exception:
             pass
@@ -514,7 +590,7 @@ def ensure_flight_auto_updater() -> None:
     description="Tracks a live aircraft using Flightradar24 real-time telemetry (altitude, speed, route, aircraft type, predicted minutes until landing, and status).",
     sensitive=False,
 )
-def track_flight(flight_query: str, open_browser: bool = False, **kwargs) -> Tuple[bool, str]:
+def track_flight(flight_query: str, open_browser: bool = False, **kwargs) -> tuple[bool, str]:
     """
     Looks up live flight telemetry from Flightradar24 and initializes auto-updating tracking.
     """
@@ -530,7 +606,10 @@ def track_flight(flight_query: str, open_browser: bool = False, **kwargs) -> Tup
             if results:
                 first = results[0]
                 label = first.get("label", clean)
-                return False, f"Flight '{clean}' ({label}) was found in archives, but is not currently airborne on live radar."
+                return (
+                    False,
+                    f"Flight '{clean}' ({label}) was found in archives, but is not currently airborne on live radar.",
+                )
             return False, f"No active flight matching '{clean}' could be located on Flightradar24."
 
         # Start auto-updater daemon
@@ -549,7 +628,9 @@ def track_flight(flight_query: str, open_browser: bool = False, **kwargs) -> Tup
         alt_str = f"{int(round(float(alt))):,} feet" if alt is not None else "Altitude unavailable"
         if spd is not None:
             spd_val = int(round(float(spd)))
-            kmh_val = int(round(float(spd_kmh))) if spd_kmh is not None else int(round(spd_val * 1.852))
+            kmh_val = (
+                int(round(float(spd_kmh))) if spd_kmh is not None else int(round(spd_val * 1.852))
+            )
             spd_str = f"{spd_val} knots ({kmh_val} km/h)"
         else:
             spd_str = "Speed unavailable"
@@ -587,11 +668,14 @@ def track_flight(flight_query: str, open_browser: bool = False, **kwargs) -> Tup
     description="Retrieves the real-time flight telemetry HUD (Callsign, Route, Altitude, Speed, Heading, Model, Registration, Radar Status, Predicted Landing, and FR24 URL) for the currently tracked flight.",
     sensitive=False,
 )
-def get_tracked_flight_info(auto_refresh: bool = True, **kwargs) -> Tuple[bool, str]:
+def get_tracked_flight_info(auto_refresh: bool = True, **kwargs) -> tuple[bool, str]:
     """Provides complete radar telemetry HUD for the currently tracked flight, auto-updating if needed."""
     flight = get_tracked_flight()
     if not flight:
-        return False, "No active flight is currently tracked on radar. Specify a flight number (e.g. 'track flight AA100' or 'DL450') to acquire telemetry."
+        return (
+            False,
+            "No active flight is currently tracked on radar. Specify a flight number (e.g. 'track flight AA100' or 'DL450') to acquire telemetry.",
+        )
 
     callsign = flight.get("callsign")
     last_updated = flight.get("updated_at", 0)
@@ -608,10 +692,12 @@ def get_tracked_flight_info(auto_refresh: bool = True, **kwargs) -> Tuple[bool, 
     hud = format_flight_telemetry(flight)
     callsign = flight.get("callsign", "Target")
     status = flight.get("status", "Active")
-    pred_mins = flight.get("predicted_minutes")
+    _pred_mins = flight.get("predicted_minutes")
     eta_text = flight.get("eta_str")
     eta_line = f" Landing in {eta_text}." if eta_text and "min" in eta_text else ""
-    summary = f"Aperture Science radar tracking active for {callsign} ({status}).{eta_line}\n\n{hud}"
+    summary = (
+        f"Aperture Science radar tracking active for {callsign} ({status}).{eta_line}\n\n{hud}"
+    )
     return True, summary
 
 
@@ -652,7 +738,9 @@ def run_dynamic_flight_tracker(
 
     if not flight or not flight.get("callsign"):
         print("\n[!] No active flight is currently tracked on radar.")
-        print("    Specify a flight number to track (e.g. 'live track SAT442' or 'track AEA185').\n")
+        print(
+            "    Specify a flight number to track (e.g. 'live track SAT442' or 'track AEA185').\n"
+        )
         return
 
     callsign = flight.get("callsign", "Target")
@@ -703,7 +791,9 @@ def run_dynamic_flight_tracker(
                 time.sleep(0.1)
 
     except KeyboardInterrupt:
-        sys.stdout.write("\n\n[*] Exited dynamic radar tracker. Returning to GLaDOS-CLI console.\n\n")
+        sys.stdout.write(
+            "\n\n[*] Exited dynamic radar tracker. Returning to GLaDOS-CLI console.\n\n"
+        )
         sys.stdout.flush()
 
 

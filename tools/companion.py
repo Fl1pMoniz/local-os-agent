@@ -4,7 +4,6 @@ import ctypes
 import logging
 import platform
 import random
-from typing import Tuple
 
 from tools import register_tool
 
@@ -60,6 +59,7 @@ def get_active_window_info() -> tuple[str, str]:
         user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
 
         import psutil
+
         try:
             proc = psutil.Process(pid.value)
             proc_name = proc.name().lower()
@@ -72,25 +72,71 @@ def get_active_window_info() -> tuple[str, str]:
         return "Desktop", "Windows Desktop"
 
 
-@register_tool("get_active_window", description="Returns the name and title of the currently focused window or game.")
-def get_active_window() -> Tuple[bool, str]:
+@register_tool(
+    "get_active_window",
+    description="Returns the name and title of the currently focused window or game.",
+)
+def get_active_window() -> tuple[bool, str]:
     """Returns the process name and window title of the active application."""
     proc_name, title = get_active_window_info()
     return True, f"Active Window: '{title}' (Process: {proc_name})"
 
 
-@register_tool("roast_user", description="Analyzes your currently active application or game and delivers an authentic GLaDOS roast.")
-def roast_user() -> Tuple[bool, str]:
+@register_tool(
+    "roast_user",
+    description="Analyzes your currently active application or game and delivers an authentic GLaDOS roast.",
+)
+def roast_user() -> tuple[bool, str]:
     """Inspects the foreground window and delivers a context-aware GLaDOS roast."""
     proc_name, title = get_active_window_info()
     text_clean = f"{proc_name} {title}".lower()
 
     # Determine category
-    if any(k in text_clean for k in ["code", "visual studio", "pycharm", "sublime", "notepad++", "git", "terminal", "powershell", "python"]):
+    if any(
+        k in text_clean
+        for k in [
+            "code",
+            "visual studio",
+            "pycharm",
+            "sublime",
+            "notepad++",
+            "git",
+            "terminal",
+            "powershell",
+            "python",
+        ]
+    ):
         category = "coding"
-    elif any(k in text_clean for k in ["steam", "game", "hollow", "minecraft", "portal", "blasphemous", "balatro", "isaac", "dead cells", "roblox"]):
+    elif any(
+        k in text_clean
+        for k in [
+            "steam",
+            "game",
+            "hollow",
+            "minecraft",
+            "portal",
+            "blasphemous",
+            "balatro",
+            "isaac",
+            "dead cells",
+            "roblox",
+        ]
+    ):
         category = "gaming"
-    elif any(k in text_clean for k in ["chrome", "firefox", "edge", "youtube", "discord", "reddit", "twitter", "twitch", "browser"]):
+    elif any(
+        k in text_clean
+        for k in [
+            "chrome",
+            "firefox",
+            "edge",
+            "youtube",
+            "discord",
+            "reddit",
+            "twitter",
+            "twitch",
+            "browser",
+        ]
+    ):
         category = "browsing"
     elif any(k in text_clean for k in ["spotify", "music", "vlc", "foobar", "apple music"]):
         category = "music"
@@ -100,4 +146,3 @@ def roast_user() -> Tuple[bool, str]:
     roast = random.choice(ROAST_CATEGORIES[category])
     logger.info(f"Delivering GLaDOS roast for {category} ('{title}'): {roast}")
     return True, roast
-

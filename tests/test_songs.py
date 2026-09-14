@@ -1,9 +1,9 @@
 """Tests for GLaDOS songs ('Still Alive' and 'Want You Gone')."""
 
 import unittest
-from pathlib import Path
-from tools.songs import get_song_file, is_song_playing, sing_song, stop_song
+
 from tools import execute_tool, get_tool
+from tools.songs import get_song_file, is_song_playing, sing_song, stop_song
 
 
 class TestGLaDOSSongs(unittest.TestCase):
@@ -56,4 +56,3 @@ class TestGLaDOSSongs(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

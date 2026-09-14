@@ -2,16 +2,17 @@
 
 import logging
 import platform
-from typing import Any, Tuple
+from typing import Any
 
 logger = logging.getLogger("local_os_agent.tools.audio")
 
 
 def _get_windows_volume_endpoint():
     """Retrieve Windows master IAudioEndpointVolume interface via pycaw."""
-    from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-    from comtypes import CLSCTX_ALL
     import ctypes
+
+    from comtypes import CLSCTX_ALL
+    from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 
     # Initialize COM library for the thread if not already initialized
     try:
@@ -50,7 +51,9 @@ def get_current_volume() -> int:
     return 50
 
 
-def set_volume(level: Any = 50, volume: Any = None, value: Any = None, **kwargs) -> Tuple[bool, str]:
+def set_volume(
+    level: Any = 50, volume: Any = None, value: Any = None, **kwargs
+) -> tuple[bool, str]:
     """
     Sets master system volume (0–100).
     Accepts synonyms: level, volume, value, supporting strings with '%' and floats.
@@ -79,7 +82,7 @@ def set_volume(level: Any = 50, volume: Any = None, value: Any = None, **kwargs)
         return False, f"Failed to set volume: {e}"
 
 
-def change_volume_relative(delta: Any = 10, **kwargs) -> Tuple[bool, str]:
+def change_volume_relative(delta: Any = 10, **kwargs) -> tuple[bool, str]:
     """
     Increases or decreases system volume relatively by delta percent (e.g. +15, -15).
     """
@@ -99,7 +102,7 @@ def change_volume_relative(delta: Any = 10, **kwargs) -> Tuple[bool, str]:
         return False, f"Failed to adjust volume: {e}"
 
 
-def mute_toggle() -> Tuple[bool, str]:
+def mute_toggle() -> tuple[bool, str]:
     """Toggles the system master mute state."""
     try:
         if platform.system() == "Windows":
@@ -116,7 +119,7 @@ def mute_toggle() -> Tuple[bool, str]:
         return False, f"Failed to toggle mute: {e}"
 
 
-def set_app_volume(app_name: str, level: Any = 50, **kwargs) -> Tuple[bool, str]:
+def set_app_volume(app_name: str, level: Any = 50, **kwargs) -> tuple[bool, str]:
     """
     Sets the volume of a specific running application (0–100) using pycaw ISimpleAudioVolume.
     Matches the application name against active audio sessions.
@@ -136,8 +139,9 @@ def set_app_volume(app_name: str, level: Any = 50, **kwargs) -> Tuple[bool, str]
         app_query = str(app_name).strip().lower().replace(".exe", "")
 
         if platform.system() == "Windows":
-            from pycaw.pycaw import AudioUtilities
             import ctypes
+
+            from pycaw.pycaw import AudioUtilities
 
             try:
                 ctypes.windll.ole32.CoInitialize(None)
@@ -161,8 +165,13 @@ def set_app_volume(app_name: str, level: Any = 50, **kwargs) -> Tuple[bool, str]
                     continue
 
             if not matched_sessions:
-                apps_list = ", ".join(sorted(list(available_apps))[:6]) if available_apps else "None"
-                return False, f"No active audio session found for '{app_name}'. (Active audio apps: {apps_list})"
+                apps_list = (
+                    ", ".join(sorted(list(available_apps))[:6]) if available_apps else "None"
+                )
+                return (
+                    False,
+                    f"No active audio session found for '{app_name}'. (Active audio apps: {apps_list})",
+                )
 
             for proc_name, simple_volume in matched_sessions:
                 simple_volume.SetMasterVolume(scalar_val, None)
@@ -176,14 +185,15 @@ def set_app_volume(app_name: str, level: Any = 50, **kwargs) -> Tuple[bool, str]
         return False, f"Failed to set app volume for '{app_name}': {e}"
 
 
-def list_app_volumes() -> Tuple[bool, dict[str, Any]]:
+def list_app_volumes() -> tuple[bool, dict[str, Any]]:
     """
     Returns a dictionary of currently active audio applications and their volume levels (0-100).
     """
     try:
         if platform.system() == "Windows":
-            from pycaw.pycaw import AudioUtilities
             import ctypes
+
+            from pycaw.pycaw import AudioUtilities
 
             try:
                 ctypes.windll.ole32.CoInitialize(None)
@@ -200,7 +210,11 @@ def list_app_volumes() -> Tuple[bool, dict[str, Any]]:
                         vol = session.SimpleAudioVolume
                         pct = int(round(vol.GetMasterVolume() * 100))
                         muted = bool(vol.GetMute())
-                        app_data[p_name] = {"volume": pct, "muted": muted, "pid": session.Process.pid}
+                        app_data[p_name] = {
+                            "volume": pct,
+                            "muted": muted,
+                            "pid": session.Process.pid,
+                        }
 
             return True, app_data
         else:
@@ -242,4 +256,3 @@ register_tool(
     description="Lists active audio applications with their current volume levels and mute states.",
     sensitive=False,
 )(list_app_volumes)
-

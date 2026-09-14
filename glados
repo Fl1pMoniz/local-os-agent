@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Aperture Science GLaDOS POSIX Terminal CLI Launcher (Linux & macOS)
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# Launch using uv if available, otherwise activate virtual environment
+if command -v uv >/dev/null 2>&1; then
+    exec uv run python main.py "$@"
+elif [ -f ".venv/bin/activate" ]; then
+    source ".venv/bin/activate"
+    exec python main.py "$@"
+else
+    exec python3 main.py "$@"
+fi
+

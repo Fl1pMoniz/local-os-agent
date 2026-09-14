@@ -8,12 +8,13 @@ import logging
 import os
 import pathlib
 import time
-import requests
 from typing import Any
+
+import requests
 
 from config import config
 from tools import register_tool
-from tools.game_clipper import find_latest_clip, _get_active_window_title
+from tools.game_clipper import _get_active_window_title, find_latest_clip
 
 logger = logging.getLogger("local_os_agent.tools.discord_relay")
 
@@ -28,7 +29,7 @@ def get_discord_webhook() -> str | None:
 
     if DISCORD_CONFIG_FILE.exists():
         try:
-            with open(DISCORD_CONFIG_FILE, "r", encoding="utf-8") as f:
+            with open(DISCORD_CONFIG_FILE, encoding="utf-8") as f:
                 data = json.load(f)
                 return data.get("webhook_url")
         except Exception:
@@ -60,7 +61,7 @@ def set_discord_webhook(webhook_url: str) -> dict[str, Any]:
     if not webhook_url or not webhook_url.startswith("http"):
         return {
             "success": False,
-            "message": "Invalid webhook URL. Please provide a valid Discord webhook URL starting with https://discord.com/api/webhooks/..."
+            "message": "Invalid webhook URL. Please provide a valid Discord webhook URL starting with https://discord.com/api/webhooks/...",
         }
 
     config.captures_dir.mkdir(parents=True, exist_ok=True)
@@ -69,12 +70,14 @@ def set_discord_webhook(webhook_url: str) -> dict[str, Any]:
 
     return {
         "success": True,
-        "message": "Discord Webhook configured successfully. GLaDOS mobile relay online."
+        "message": "Discord Webhook configured successfully. GLaDOS mobile relay online.",
     }
 
 
 @register_tool
-def send_clip_to_discord(clip_path: str | None = None, caption: str | None = None) -> dict[str, Any]:
+def send_clip_to_discord(
+    clip_path: str | None = None, caption: str | None = None
+) -> dict[str, Any]:
     """
     Uploads the latest 30-second gameplay highlight to your Discord channel.
     If no path is specified, automatically locates the newest video highlight.
@@ -86,7 +89,7 @@ def send_clip_to_discord(clip_path: str | None = None, caption: str | None = Non
             "message": (
                 "Discord Webhook not configured. Please use 'set_discord_webhook <url>' "
                 "or set DISCORD_WEBHOOK_URL to enable automated clip sharing."
-            )
+            ),
         }
 
     target_file = pathlib.Path(clip_path) if clip_path else find_latest_clip(max_age_seconds=600)
@@ -97,7 +100,7 @@ def send_clip_to_discord(clip_path: str | None = None, caption: str | None = Non
     if not target_file or not target_file.exists():
         return {
             "success": False,
-            "message": "No recent game highlight found in captures directory to share."
+            "message": "No recent game highlight found in captures directory to share.",
         }
 
     game_name = _get_active_window_title()
@@ -107,10 +110,13 @@ def send_clip_to_discord(clip_path: str | None = None, caption: str | None = Non
     if file_size_mb > 25.0:
         return {
             "success": False,
-            "message": f"Clip file size ({file_size_mb:.1f} MB) exceeds Discord 25MB attachment limit."
+            "message": f"Clip file size ({file_size_mb:.1f} MB) exceeds Discord 25MB attachment limit.",
         }
 
-    message_content = caption or f"**[Aperture Science Replay Archive]** Test highlight captured for `{game_name}`:"
+    message_content = (
+        caption
+        or f"**[Aperture Science Replay Archive]** Test highlight captured for `{game_name}`:"
+    )
 
     try:
         with open(target_file, "rb") as f:
@@ -125,26 +131,23 @@ def send_clip_to_discord(clip_path: str | None = None, caption: str | None = Non
             card = format_discord_card(
                 target="Discord Server",
                 status="Dispatched Successfully",
-                details=f"Shared '{target_file.name}' ({file_size_mb:.1f} MB)"
+                details=f"Shared '{target_file.name}' ({file_size_mb:.1f} MB)",
             )
             return {
                 "success": True,
                 "file": target_file.name,
                 "file_size_mb": round(file_size_mb, 1),
                 "terminal_card": card,
-                "message": f"Successfully uploaded highlight '{target_file.name}' ({file_size_mb:.1f} MB) to Discord."
+                "message": f"Successfully uploaded highlight '{target_file.name}' ({file_size_mb:.1f} MB) to Discord.",
             }
         else:
             return {
                 "success": False,
-                "message": f"Discord returned HTTP {resp.status_code}: {resp.text[:100]}"
+                "message": f"Discord returned HTTP {resp.status_code}: {resp.text[:100]}",
             }
     except Exception as e:
         logger.error(f"Failed to post clip to Discord: {e}")
-        return {
-            "success": False,
-            "message": f"Network exception dispatching clip to Discord: {e}"
-        }
+        return {"success": False, "message": f"Network exception dispatching clip to Discord: {e}"}
 
 
 @register_tool
@@ -154,25 +157,28 @@ def send_discord_alert(title: str, message: str) -> dict[str, Any]:
     if not hook_url:
         return {
             "success": False,
-            "message": "Discord Webhook not configured. Use 'set_discord_webhook <url>' first."
+            "message": "Discord Webhook not configured. Use 'set_discord_webhook <url>' first.",
         }
 
     payload = {
         "username": "GLaDOS Administrator",
-        "embeds": [{
-            "title": title,
-            "description": message,
-            "color": 39372,  # Aperture Blue
-            "footer": {"text": "Aperture Science Enrichment Center"}
-        }]
+        "embeds": [
+            {
+                "title": title,
+                "description": message,
+                "color": 39372,  # Aperture Blue
+                "footer": {"text": "Aperture Science Enrichment Center"},
+            }
+        ],
     }
     try:
         resp = requests.post(hook_url, json=payload, timeout=5)
         success = resp.status_code in (200, 204)
         return {
             "success": success,
-            "message": "Discord notification dispatched." if success else f"HTTP {resp.status_code}"
+            "message": "Discord notification dispatched."
+            if success
+            else f"HTTP {resp.status_code}",
         }
     except Exception as e:
         return {"success": False, "message": str(e)}
-

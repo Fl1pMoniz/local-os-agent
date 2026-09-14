@@ -2,7 +2,7 @@
 
 import logging
 import time
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 import sounddevice as sd
@@ -44,7 +44,7 @@ def extract_wake_word_command(text: str, wake_word: str | None = None) -> tuple[
             # Strip the wake variant while preserving original text casing
             idx = text_clean.find(variant)
             before = text[:idx].strip()
-            after = text[idx + len(variant):].strip()
+            after = text[idx + len(variant) :].strip()
             command = f"{before} {after}".strip().strip(",.?! ")
             return True, command
 
@@ -86,8 +86,8 @@ class VoiceListener:
             return
 
         try:
-            import whisper
             import torch
+            import whisper
 
             target_device = self.whisper_device
             if target_device.startswith("cuda"):
@@ -95,7 +95,9 @@ class VoiceListener:
                     # Strictly limit GPU VRAM usage to <= 1GB (1024 MB)
                     try:
                         total_mem = torch.cuda.get_device_properties(0).total_memory
-                        max_allowed_bytes = min(self.vram_limit_mb * 1024 * 1024, 1024 * 1024 * 1024)
+                        max_allowed_bytes = min(
+                            self.vram_limit_mb * 1024 * 1024, 1024 * 1024 * 1024
+                        )
                         fraction = max_allowed_bytes / total_mem
                         torch.cuda.set_per_process_memory_fraction(fraction, 0)
                         logger.info(
@@ -106,18 +108,24 @@ class VoiceListener:
                         logger.warning(f"Could not set CUDA memory fraction: {mem_err}")
                     self._fp16 = True
                 else:
-                    logger.warning("CUDA requested for Whisper but not available; falling back to CPU.")
+                    logger.warning(
+                        "CUDA requested for Whisper but not available; falling back to CPU."
+                    )
                     target_device = "cpu"
                     self._fp16 = False
             else:
                 self._fp16 = False
 
-            logger.info(f"Loading OpenAI Whisper ('{self.whisper_model_name}') on {target_device} (fp16={self._fp16})...")
+            logger.info(
+                f"Loading OpenAI Whisper ('{self.whisper_model_name}') on {target_device} (fp16={self._fp16})..."
+            )
             self._whisper_model = whisper.load_model(self.whisper_model_name, device=target_device)
             self.whisper_device = target_device
             logger.info("OpenAI Whisper model loaded successfully.")
         except Exception as e:
-            logger.warning(f"Failed to load OpenAI Whisper ({e}); falling back to Google SpeechRecognition.")
+            logger.warning(
+                f"Failed to load OpenAI Whisper ({e}); falling back to Google SpeechRecognition."
+            )
             self._whisper_model = None
 
     def calibrate_ambient_noise(self, duration: float = 1.0) -> int:
@@ -157,6 +165,7 @@ class VoiceListener:
         # Guarantee mutual acoustic exclusion: Never listen while GLaDOS is speaking
         try:
             from voice.tts import tts_engine
+
             if tts_engine.is_speaking:
                 tts_engine.wait_until_idle()
                 time.sleep(0.3)  # Acoustic room decay cooldown
@@ -174,6 +183,7 @@ class VoiceListener:
                     # Flush buffer if GLaDOS starts speaking
                     try:
                         from voice.tts import tts_engine
+
                         if tts_engine.is_speaking:
                             buffer.clear()
                             is_speaking = False
@@ -244,15 +254,20 @@ class VoiceListener:
                 )
                 if self.whisper_device.startswith("cuda"):
                     import torch
+
                     torch.cuda.empty_cache()
 
                 text = (result.get("text") or "").strip().strip("\"'")
                 if text:
-                    logger.info(f"Transcribed voice command (OpenAI Whisper on {self.whisper_device}): '{text}'")
+                    logger.info(
+                        f"Transcribed voice command (OpenAI Whisper on {self.whisper_device}): '{text}'"
+                    )
                     return text
                 return None
             except Exception as e:
-                logger.warning(f"OpenAI Whisper transcription error: {e}; trying SpeechRecognition fallback.")
+                logger.warning(
+                    f"OpenAI Whisper transcription error: {e}; trying SpeechRecognition fallback."
+                )
 
         # 2. Fallback Engine: SpeechRecognition (Google Web Speech API)
         try:
@@ -267,4 +282,3 @@ class VoiceListener:
         except Exception as e:
             logger.error(f"Transcription error: {e}")
             return None
-

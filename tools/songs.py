@@ -2,12 +2,10 @@
 
 import ctypes
 import logging
-import os
 import threading
 import time
 import urllib.request
 from pathlib import Path
-from typing import Tuple
 
 from config import config
 from tools import register_tool
@@ -36,19 +34,25 @@ def _extract_from_steam_vpk() -> bool:
 
     try:
         from tools.steam import _find_steam_root
+
         steam_root = _find_steam_root()
         if not steam_root:
             return False
 
-        candidate_vpk = steam_root / "steamapps" / "common" / "Portal" / "portal" / "portal_pak_dir.vpk"
+        candidate_vpk = (
+            steam_root / "steamapps" / "common" / "Portal" / "portal" / "portal_pak_dir.vpk"
+        )
         if candidate_vpk.exists():
             import vpk
+
             pak = vpk.open(str(candidate_vpk))
             entry = pak.get_file("sound/music/portal_still_alive.mp3")
             if entry:
                 with open(target_path, "wb") as f:
                     f.write(entry.read())
-                logger.info(f"Extracted still_alive.mp3 from Steam Portal VPK ({target_path.stat().st_size} bytes)")
+                logger.info(
+                    f"Extracted still_alive.mp3 from Steam Portal VPK ({target_path.stat().st_size} bytes)"
+                )
                 return True
     except Exception as e:
         logger.debug(f"Steam Portal VPK extraction failed: {e}")
@@ -65,7 +69,9 @@ def get_song_file(song_key: str) -> Path | None:
             if not _extract_from_steam_vpk():
                 try:
                     logger.info("Downloading Still Alive from Portal Wiki...")
-                    req = urllib.request.Request(STILL_ALIVE_URL, headers={"User-Agent": "Mozilla/5.0"})
+                    req = urllib.request.Request(
+                        STILL_ALIVE_URL, headers={"User-Agent": "Mozilla/5.0"}
+                    )
                     with urllib.request.urlopen(req) as resp, open(file_path, "wb") as f:
                         f.write(resp.read())
                     logger.info("Downloaded still_alive.mp3 successfully.")
@@ -79,7 +85,9 @@ def get_song_file(song_key: str) -> Path | None:
         if not file_path.exists() or file_path.stat().st_size < 100000:
             try:
                 logger.info("Downloading Want You Gone from Portal Wiki...")
-                req = urllib.request.Request(WANT_YOU_GONE_URL, headers={"User-Agent": "Mozilla/5.0"})
+                req = urllib.request.Request(
+                    WANT_YOU_GONE_URL, headers={"User-Agent": "Mozilla/5.0"}
+                )
                 with urllib.request.urlopen(req) as resp, open(file_path, "wb") as f:
                     f.write(resp.read())
                 logger.info("Downloaded want_you_gone.mp3 successfully.")
@@ -98,7 +106,7 @@ def is_song_playing() -> bool:
 
 
 @register_tool("stop_song", description="Stops any currently playing GLaDOS song.")
-def stop_song() -> Tuple[bool, str]:
+def stop_song() -> tuple[bool, str]:
     """Stops the currently playing song via Windows MCI."""
     global _current_song, _playback_thread
     with _lock:
@@ -123,12 +131,14 @@ def _play_song_worker(file_path: Path, song_name: str) -> None:
     global _current_song
     try:
         from voice.tts import tts_engine
+
         tts_engine.stop()
     except Exception:
         pass
 
     try:
         from voice.audio_arbiter import GLOBAL_AUDIO_LOCK
+
         with GLOBAL_AUDIO_LOCK:
             winmm = ctypes.windll.winmm
             abs_path = str(file_path.resolve())
@@ -172,6 +182,7 @@ def _play_song_worker(file_path: Path, song_name: str) -> None:
                         _current_song = None
                 try:
                     from ui.state import ui_state
+
                     ui_state.update(state="idle", song="")
                 except Exception:
                     pass
@@ -179,8 +190,11 @@ def _play_song_worker(file_path: Path, song_name: str) -> None:
         logger.debug(f"Error in song worker: {e}")
 
 
-@register_tool("sing_song", description="Plays an authentic Portal song sung by GLaDOS ('still_alive' or 'want_you_gone').")
-def sing_song(song_name: str) -> Tuple[bool, str]:
+@register_tool(
+    "sing_song",
+    description="Plays an authentic Portal song sung by GLaDOS ('still_alive' or 'want_you_gone').",
+)
+def sing_song(song_name: str) -> tuple[bool, str]:
     """
     Plays an authentic Portal song sung by GLaDOS ('still_alive' or 'want_you_gone') in the background.
     """
@@ -188,7 +202,10 @@ def sing_song(song_name: str) -> Tuple[bool, str]:
 
     resolved_path = get_song_file(song_name)
     if not resolved_path or not resolved_path.exists():
-        return False, f"Could not find or retrieve song for query '{song_name}'. Supported songs: 'still_alive', 'want_you_gone'."
+        return (
+            False,
+            f"Could not find or retrieve song for query '{song_name}'. Supported songs: 'still_alive', 'want_you_gone'.",
+        )
 
     display_name = "Still Alive" if "still" in resolved_path.name else "Want You Gone"
 
@@ -207,9 +224,13 @@ def sing_song(song_name: str) -> Tuple[bool, str]:
 
     try:
         from ui.state import ui_state
+
         ui_state.update(state="singing", song=display_name, text=f"Now singing: {display_name}")
     except Exception:
         pass
 
     logger.info(f"Initiated playback of {display_name} ({resolved_path})")
-    return True, f"Now playing '{display_name}' by GLaDOS (Aperture Science Psychoacoustics Laboratory)."
+    return (
+        True,
+        f"Now playing '{display_name}' by GLaDOS (Aperture Science Psychoacoustics Laboratory).",
+    )

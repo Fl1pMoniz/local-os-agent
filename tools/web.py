@@ -11,7 +11,6 @@ import logging
 import urllib.parse
 import urllib.request
 import webbrowser
-from typing import Tuple
 
 from tools import register_tool
 
@@ -37,8 +36,11 @@ KNOWN_URL_ALIASES = {
 }
 
 
-@register_tool("open_website", description="Opens a website by URL or common alias (YouTube, Reddit, GitHub, Portal Wiki, etc.).")
-def open_website(target: str) -> Tuple[bool, str]:
+@register_tool(
+    "open_website",
+    description="Opens a website by URL or common alias (YouTube, Reddit, GitHub, Portal Wiki, etc.).",
+)
+def open_website(target: str) -> tuple[bool, str]:
     """Open a website by URL or common alias."""
     target_clean = target.strip().lower()
 
@@ -60,8 +62,11 @@ def open_website(target: str) -> Tuple[bool, str]:
         return False, f"Failed to open website: {e}"
 
 
-@register_tool("get_weather", description="Retrieves current weather conditions for a specified location or local area.")
-def get_weather(location: str | None = None) -> Tuple[bool, str]:
+@register_tool(
+    "get_weather",
+    description="Retrieves current weather conditions for a specified location or local area.",
+)
+def get_weather(location: str | None = None) -> tuple[bool, str]:
     """Get current weather information using wttr.in JSON API."""
     loc_part = urllib.parse.quote_plus(location.strip()) if location else ""
     url = f"https://wttr.in/{loc_part}?format=j1"
@@ -96,11 +101,14 @@ def get_weather(location: str | None = None) -> Tuple[bool, str]:
         return True, summary
     except Exception as e:
         logger.error("Failed to fetch weather: %s", e)
-        return False, "External environmental sensors are currently unreachable. Assuming hostile atmospheric conditions."
+        return (
+            False,
+            "External environmental sensors are currently unreachable. Assuming hostile atmospheric conditions.",
+        )
 
 
 @register_tool("wikipedia_lookup", description="Looks up a concise factual summary from Wikipedia.")
-def wikipedia_lookup(query: str) -> Tuple[bool, str]:
+def wikipedia_lookup(query: str) -> tuple[bool, str]:
     """Lookup a concise summary from Wikipedia REST API."""
     clean_query = query.strip()
     encoded = urllib.parse.quote(clean_query.replace(" ", "_"))
@@ -132,4 +140,3 @@ def wikipedia_lookup(query: str) -> Tuple[bool, str]:
     except Exception as e:
         logger.error("Wikipedia search failed: %s", e)
         return False, f"Failed to search Wikipedia: {e}"
-

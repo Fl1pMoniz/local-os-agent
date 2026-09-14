@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Aperture Science GLaDOS POSIX Amber CRT Web Console Launcher (Linux & macOS)
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# Launch web server using uv if available, otherwise activate virtual environment
+if command -v uv >/dev/null 2>&1; then
+    exec uv run python -c "from ui.server import start_ui_server; start_ui_server(open_browser=True)" "$@"
+elif [ -f ".venv/bin/activate" ]; then
+    source ".venv/bin/activate"
+    exec python -c "from ui.server import start_ui_server; start_ui_server(open_browser=True)" "$@"
+else
+    exec python3 -c "from ui.server import start_ui_server; start_ui_server(open_browser=True)" "$@"
+fi
+

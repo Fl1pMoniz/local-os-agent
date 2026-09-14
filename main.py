@@ -5,11 +5,10 @@ import ctypes
 import logging
 import sys
 import time
-from typing import Any
 
 from agent import OSAgent
 from config import config
-from schemas import AgentResponse, ToolAction, ToolExecutionResult
+from schemas import ToolAction, ToolExecutionResult
 from tools import execute_tool, list_tools
 from tools.steam import discover_installed_steam_games
 
@@ -34,6 +33,7 @@ def acquire_single_instance_lock() -> bool:
         return True
     except Exception:
         return True
+
 
 # Ensure UTF-8 output on Windows consoles
 if hasattr(sys.stdout, "reconfigure"):
@@ -124,10 +124,13 @@ def run_diagnostic() -> None:
     print("\n--- Diagnostic Finished ---\n")
 
 
-def execute_and_display(agent: OSAgent, prompt: str, interactive: bool = False, source: str = "cli") -> None:
+def execute_and_display(
+    agent: OSAgent, prompt: str, interactive: bool = False, source: str = "cli"
+) -> None:
     """Run a prompt through the agent and format execution results."""
     try:
         from voice.audio_arbiter import stop_all_audio
+
         stop_all_audio()
     except Exception:
         pass
@@ -137,6 +140,7 @@ def execute_and_display(agent: OSAgent, prompt: str, interactive: bool = False, 
 
     try:
         from ui.state import ui_state
+
         ui_state.update(state="thinking", thought="Formulating execution plan...", text="")
     except Exception:
         pass
@@ -145,25 +149,35 @@ def execute_and_display(agent: OSAgent, prompt: str, interactive: bool = False, 
         plan = agent.query_llm(prompt)
         print(f"\n[Agent Thought]: {plan.thought}")
 
-        has_audio_tool = any(a.tool in ("play_soundboard", "sing_song", "play_portal_sfx") for a in plan.actions)
+        has_audio_tool = any(
+            a.tool in ("play_soundboard", "sing_song", "play_portal_sfx") for a in plan.actions
+        )
 
         if plan.response:
-            print(f"\n[GLaDOS]: \"{plan.response}\"")
+            print(f'\n[GLaDOS]: "{plan.response}"')
             try:
                 from ui.state import ui_state
+
                 ui_state.update(state="speaking", text=plan.response)
             except Exception:
                 pass
             if config.voice_enabled and not has_audio_tool:
                 from voice import speak
+
                 speak(plan.response, wait=True)
                 time.sleep(0.35)  # Acoustic room decay cooldown
 
         if not plan.actions:
             try:
                 from ui.state import ui_state
+
                 resp_txt = plan.response or plan.thought or ""
-                ui_state.record_terminal_event(source=source, command=prompt, output=f"[GLaDOS]: \"{resp_txt}\"", response=resp_txt)
+                ui_state.record_terminal_event(
+                    source=source,
+                    command=prompt,
+                    output=f'[GLaDOS]: "{resp_txt}"',
+                    response=resp_txt,
+                )
             except Exception:
                 pass
             return
@@ -183,11 +197,20 @@ def execute_and_display(agent: OSAgent, prompt: str, interactive: bool = False, 
             print(f" [{icon}] Status: {r.status} - {r.message}")
             if isinstance(r.data, dict) and "terminal_card" in r.data:
                 print(f"\n{r.data['terminal_card']}\n")
-            elif r.tool in ("get_system_stats", "monitor_hardware") and isinstance(r.data, dict) and "hud_card" in r.data:
+            elif (
+                r.tool in ("get_system_stats", "monitor_hardware")
+                and isinstance(r.data, dict)
+                and "hud_card" in r.data
+            ):
                 print(f"\n{r.data['hud_card']}\n")
             elif r.tool in ("get_zimaos_status", "monitor_zimaos"):
                 from tools.zimaos import get_zimaos_telemetry
-                t = r.data if isinstance(r.data, dict) and "hud_card" in t else get_zimaos_telemetry()
+
+                t = (
+                    r.data
+                    if isinstance(r.data, dict) and "hud_card" in r.data
+                    else get_zimaos_telemetry()
+                )
                 if isinstance(t, dict) and "hud_card" in t:
                     print(f"\n{t['hud_card']}\n")
 
@@ -196,10 +219,11 @@ def execute_and_display(agent: OSAgent, prompt: str, interactive: bool = False, 
 
         try:
             from ui.state import ui_state
+
             resp_text = plan.response or plan.thought or "Directive executed."
             lines = []
             if resp_text:
-                lines.append(f"[GLaDOS]: \"{resp_text}\"")
+                lines.append(f'[GLaDOS]: "{resp_text}"')
             for r in results:
                 icon = "+" if r.success else "x"
                 lines.append(f"  [{icon}] {r.tool}: {r.message}")
@@ -215,31 +239,42 @@ def execute_and_display(agent: OSAgent, prompt: str, interactive: bool = False, 
                 command=prompt,
                 output=out_str,
                 response=resp_text,
-                tools=[{"tool": r.tool, "success": r.success, "message": r.message} for r in results],
+                tools=[
+                    {"tool": r.tool, "success": r.success, "message": r.message} for r in results
+                ],
             )
         except Exception:
             pass
 
         # If flight tracking tool was executed during interactive mode, transition into dynamic self-updating tracker
-        has_flight_tool = any(a.tool in ("track_flight", "get_tracked_flight_info") for a in plan.actions)
+        has_flight_tool = any(
+            a.tool in ("track_flight", "get_tracked_flight_info") for a in plan.actions
+        )
         if interactive and has_flight_tool:
             from tools.flight import get_tracked_flight, run_dynamic_flight_tracker
+
             tracked = get_tracked_flight()
             if tracked and tracked.get("callsign"):
                 time.sleep(1.2)
                 run_dynamic_flight_tracker(tracked["callsign"])
 
         # If hardware monitor tool was executed with live mode during interactive mode, transition into dynamic live tracker
-        has_live_hw = any(a.tool == "monitor_hardware" and a.args.get("live", False) for a in plan.actions)
+        has_live_hw = any(
+            a.tool == "monitor_hardware" and a.args.get("live", False) for a in plan.actions
+        )
         if interactive and has_live_hw:
             from tools.system import run_live_system_monitor
+
             time.sleep(1.0)
             run_live_system_monitor()
 
         # If ZimaOS monitor tool was executed with live mode during interactive mode, transition into dynamic live tracker
-        has_live_zima = any(a.tool == "monitor_zimaos" and a.args.get("live", False) for a in plan.actions)
+        has_live_zima = any(
+            a.tool == "monitor_zimaos" and a.args.get("live", False) for a in plan.actions
+        )
         if interactive and has_live_zima:
             from tools.zimaos import run_live_zimaos_monitor
+
             time.sleep(1.0)
             run_live_zimaos_monitor()
     except Exception as e:
@@ -254,7 +289,7 @@ def interactive_voice_loop(agent: OSAgent) -> None:
     check_llm_connection(agent)
     print("\n" + "=" * 65)
     print("   [+] APERTURE SCIENCE COMPUTER-AIDED ENRICHMENT CENTER")
-    print(f"       Administrator : GLaDOS (Genetic Lifeform and Disk OS)")
+    print("       Administrator : GLaDOS (Genetic Lifeform and Disk OS)")
     print(f"       Wake Word     : '{config.wake_word.upper()}' (e.g. 'GLaDOS...')")
     print("       Say 'exit', 'quit', or 'stop' to abort the test.")
     print("=" * 65 + "\n")
@@ -269,7 +304,10 @@ def interactive_voice_loop(agent: OSAgent) -> None:
         try:
             try:
                 from ui.state import ui_state
-                ui_state.update(state="listening", text="Awaiting test subject auditory stimulus...")
+
+                ui_state.update(
+                    state="listening", text="Awaiting test subject auditory stimulus..."
+                )
             except Exception:
                 pass
 
@@ -278,12 +316,16 @@ def interactive_voice_loop(agent: OSAgent) -> None:
             def on_speech():
                 try:
                     from voice.audio_arbiter import stop_all_audio
+
                     stop_all_audio()
                 except Exception:
                     pass
                 try:
                     from ui.state import ui_state
-                    ui_state.update(state="thinking", thought="Audio signal detected, processing...")
+
+                    ui_state.update(
+                        state="thinking", thought="Audio signal detected, processing..."
+                    )
                 except Exception:
                     pass
                 print("  -> Audio signal detected, recording...", end="", flush=True)
@@ -306,10 +348,13 @@ def interactive_voice_loop(agent: OSAgent) -> None:
 
             # Use the remaining command or full text if wake word check was passed
             command_to_run = command if is_called else text
-            print(f"\n[GLaDOS Addressed]: \"{text}\"")
+            print(f'\n[GLaDOS Addressed]: "{text}"')
 
             # Check for exit commands
-            if any(w in text.lower() for w in ["exit", "quit", "goodbye", "stop voice", "shut down voice"]):
+            if any(
+                w in text.lower()
+                for w in ["exit", "quit", "goodbye", "stop voice", "shut down voice"]
+            ):
                 print("Exiting GLaDOS voice testing protocol.")
                 speak(get_glados_quote("shutdown"), wait=True)
                 break
@@ -325,10 +370,11 @@ def interactive_voice_loop(agent: OSAgent) -> None:
                 if followup:
                     try:
                         from voice.audio_arbiter import stop_all_audio
+
                         stop_all_audio()
                     except Exception:
                         pass
-                    print(f"\n[Command]: \"{followup}\"")
+                    print(f'\n[Command]: "{followup}"')
                     command_to_run = followup
                 else:
                     timeout_line = get_glados_quote("idle_timeout")
@@ -408,16 +454,21 @@ def interactive_repl(agent: OSAgent) -> None:
                 continue
             if cmd_lower in ("web", "ui", "webpage", "browser", "dashboard", "console"):
                 from ui.server import start_ui_server
+
                 start_ui_server(port=5000, open_browser=True)
-                print("\n[+] Aperture Science GLaDOS Web Console launched at http://127.0.0.1:5000\n")
+                print(
+                    "\n[+] Aperture Science GLaDOS Web Console launched at http://127.0.0.1:5000\n"
+                )
                 continue
             if cmd_lower in ("voice on", "mic on", "listen on", "start listening"):
                 from ui.server import start_voice_listener
+
                 success, msg = start_voice_listener()
                 print(f"\n[+] {msg}\n")
                 continue
             if cmd_lower in ("voice off", "mic off", "listen off", "stop listening"):
                 from ui.server import stop_voice_listener
+
                 success, msg = stop_voice_listener()
                 print(f"\n[+] {msg}\n")
                 continue
@@ -425,6 +476,7 @@ def interactive_repl(agent: OSAgent) -> None:
                 config.enable_tts = True
                 try:
                     from ui.state import ui_state
+
                     ui_state.update(glados_voice=True)
                 except Exception:
                     pass
@@ -434,6 +486,7 @@ def interactive_repl(agent: OSAgent) -> None:
                 config.enable_tts = False
                 try:
                     from ui.state import ui_state
+
                     ui_state.update(glados_voice=False)
                 except Exception:
                     pass
@@ -445,23 +498,61 @@ def interactive_repl(agent: OSAgent) -> None:
                 else:
                     interactive_voice_loop(agent)
                 continue
-            if cmd_lower in ("flight", "tracked", "telemetry", "radar", "flight live", "radar live", "flight watch", "track live", "live flight", "live radar"):
+            if cmd_lower in (
+                "flight",
+                "tracked",
+                "telemetry",
+                "radar",
+                "flight live",
+                "radar live",
+                "flight watch",
+                "track live",
+                "live flight",
+                "live radar",
+            ):
                 from tools.flight import run_dynamic_flight_tracker
+
                 run_dynamic_flight_tracker()
                 continue
-            if cmd_lower.startswith("live track ") or cmd_lower.startswith("track ") or cmd_lower.startswith("flight "):
+            if (
+                cmd_lower.startswith("live track ")
+                or cmd_lower.startswith("track ")
+                or cmd_lower.startswith("flight ")
+            ):
                 parts = user_input.split(maxsplit=2 if cmd_lower.startswith("live track ") else 1)
                 flight_arg = parts[-1].strip()
                 if flight_arg:
                     from tools.flight import run_dynamic_flight_tracker
+
                     run_dynamic_flight_tracker(flight_arg)
                     continue
-            if cmd_lower in ("hw live", "monitor", "monitor live", "stats live", "live monitor", "live hardware", "live hw"):
+            if cmd_lower in (
+                "hw live",
+                "monitor",
+                "monitor live",
+                "stats live",
+                "live monitor",
+                "live hardware",
+                "live hw",
+            ):
                 from tools.system import run_live_system_monitor
+
                 run_live_system_monitor()
                 continue
-            if cmd_lower in ("hw", "stats", "hardware", "components", "hw info", "ai stats", "glados stats", "tokens", "ai", "ai telemetry"):
+            if cmd_lower in (
+                "hw",
+                "stats",
+                "hardware",
+                "components",
+                "hw info",
+                "ai stats",
+                "glados stats",
+                "tokens",
+                "ai",
+                "ai telemetry",
+            ):
                 from tools.system import monitor_hardware
+
                 _, telemetry = monitor_hardware(live=False)
                 if isinstance(telemetry, dict) and "hud_card" in telemetry:
                     print(f"\n{telemetry['hud_card']}\n")
@@ -470,45 +561,93 @@ def interactive_repl(agent: OSAgent) -> None:
                 continue
             if cmd_lower in ("server ssh", "zima ssh", "ssh", "open ssh", "ssh server"):
                 from tools.zimaos import open_zimaos_ssh
+
                 success, msg = open_zimaos_ssh()
                 print(f"\n[+] {msg}\n" if success else f"\n[-] {msg}\n")
                 continue
-            if cmd_lower in ("zima live", "zimaos live", "zima monitor live", "live zima", "server live", "live server"):
+            if cmd_lower in (
+                "zima live",
+                "zimaos live",
+                "zima monitor live",
+                "live zima",
+                "server live",
+                "live server",
+            ):
                 from tools.zimaos import run_live_zimaos_monitor
+
                 run_live_zimaos_monitor()
                 continue
-            if cmd_lower.startswith("zima ip ") or cmd_lower.startswith("zimaos ip ") or cmd_lower.startswith("zima host ") or cmd_lower.startswith("server ip ") or cmd_lower.startswith("server host "):
+            if (
+                cmd_lower.startswith("zima ip ")
+                or cmd_lower.startswith("zimaos ip ")
+                or cmd_lower.startswith("zima host ")
+                or cmd_lower.startswith("server ip ")
+                or cmd_lower.startswith("server host ")
+            ):
                 parts = user_input.split(maxsplit=2)
                 new_ip = parts[-1].strip()
                 from tools.zimaos import set_zimaos_host
+
                 success, msg = set_zimaos_host(new_ip)
                 print(f"\n[+] {msg}\n")
                 continue
-            if cmd_lower.startswith("zima launch ") or cmd_lower.startswith("zima open ") or cmd_lower.startswith("zima app ") or cmd_lower.startswith("server launch ") or cmd_lower.startswith("server open ") or cmd_lower.startswith("server app "):
+            if (
+                cmd_lower.startswith("zima launch ")
+                or cmd_lower.startswith("zima open ")
+                or cmd_lower.startswith("zima app ")
+                or cmd_lower.startswith("server launch ")
+                or cmd_lower.startswith("server open ")
+                or cmd_lower.startswith("server app ")
+            ):
                 parts = user_input.split(maxsplit=2)
                 target_app = parts[-1].strip()
                 from tools.zimaos import launch_zimaos_app
+
                 success, msg = launch_zimaos_app(target_app)
                 print(f"\n[+] {msg}\n" if success else f"\n[-] {msg}\n")
                 continue
-            if cmd_lower in ("zima apps", "zimaos apps", "zima list", "zima containers", "server apps", "server list", "server containers"):
+            if cmd_lower in (
+                "zima apps",
+                "zimaos apps",
+                "zima list",
+                "zima containers",
+                "server apps",
+                "server list",
+                "server containers",
+            ):
                 from tools.zimaos import get_zimaos_apps_detailed
+
                 apps = get_zimaos_apps_detailed()
                 if apps:
-                    print(f"\n+====================================================================+")
-                    print(f"|        APERTURE SCIENCE REMOTE NODE - INSTALLED APPLICATIONS       |")
-                    print(f"+====================================================================+")
+                    print(
+                        "\n+====================================================================+"
+                    )
+                    print("|        APERTURE SCIENCE REMOTE NODE - INSTALLED APPLICATIONS       |")
+                    print("+====================================================================+")
                     for a in apps:
                         name_str = (a.get("name") or "Unknown")[:24]
                         state_str = (a.get("state") or "running")[:8]
                         url_str = a.get("url") or ""
                         print(f"  [{state_str:<7}] {name_str:<24} -> {url_str}")
-                    print(f"+====================================================================+\n")
+                    print(
+                        "+====================================================================+\n"
+                    )
                 else:
                     print("\n[-] No ZimaOS applications discovered.\n")
                 continue
-            if cmd_lower in ("zima", "zimaos", "zima status", "zima info", "zima hud", "server", "server status", "server info", "server hud"):
+            if cmd_lower in (
+                "zima",
+                "zimaos",
+                "zima status",
+                "zima info",
+                "zima hud",
+                "server",
+                "server status",
+                "server info",
+                "server hud",
+            ):
                 from tools.zimaos import monitor_zimaos
+
                 _, telemetry = monitor_zimaos(live=False)
                 if isinstance(telemetry, dict) and "hud_card" in telemetry:
                     print(f"\n{telemetry['hud_card']}\n")
@@ -518,42 +657,47 @@ def interactive_repl(agent: OSAgent) -> None:
 
             if cmd_lower in ("clip", "clip that", "clip 30", "record that"):
                 from tools.game_clipper import capture_game_clip
+
                 res = capture_game_clip(30)
                 if isinstance(res, dict) and "terminal_card" in res:
                     print(f"\n{res['terminal_card']}\n")
                 if isinstance(res, dict) and "quip" in res:
-                    print(f"[GLaDOS]: \"{res['quip']}\"\n")
+                    print(f'[GLaDOS]: "{res["quip"]}"\n')
                 continue
             if cmd_lower in ("clips", "recent clips", "list clips"):
                 from tools.game_clipper import list_recent_clips
+
                 res = list_recent_clips()
                 if isinstance(res, dict) and "terminal_card" in res:
                     print(f"\n{res['terminal_card']}\n")
                 continue
             if cmd_lower in ("wellness", "subject", "subject status", "health", "biometrics"):
                 from tools.subject_wellness import check_subject_status
+
                 res = check_subject_status()
                 if isinstance(res, dict) and "terminal_card" in res:
                     print(f"\n{res['terminal_card']}\n")
                 continue
             if cmd_lower in ("water", "log water", "drink water"):
                 from tools.subject_wellness import log_water_intake
+
                 res = log_water_intake()
-                print(f"\n[GLaDOS]: \"{res.get('message')}\"\n")
+                print(f'\n[GLaDOS]: "{res.get("message")}"\n')
                 continue
             if cmd_lower in ("lemons", "combustible lemons"):
                 from tools.soundboard import play_soundboard
+
                 res = play_soundboard("lemons")
                 if isinstance(res, dict) and "terminal_card" in res:
                     print(f"\n{res['terminal_card']}\n")
                 continue
             if cmd_lower in ("jellyfin", "media status", "now playing"):
                 from tools.jellyfin import get_jellyfin_now_playing
+
                 res = get_jellyfin_now_playing()
                 if isinstance(res, dict) and "terminal_card" in res:
                     print(f"\n{res['terminal_card']}\n")
                 continue
-
 
             execute_and_display(agent, user_input, interactive=True)
             print("-" * 50)
@@ -565,11 +709,12 @@ def interactive_repl(agent: OSAgent) -> None:
 def preview_all_voices() -> None:
     """Plays a preview of all available voices so the user can select their favorite."""
     from voice.tts import VOICE_PRESETS, TextToSpeech
+
     print("\n--- Auditioning Available Cortana Voices ---")
     for key, (voice_id, desc) in VOICE_PRESETS.items():
         print(f"\n[*] Voice Preset: '{key}' ({voice_id})")
         print(f"    Description : {desc}")
-        print(f"    Speaking sample now...")
+        print("    Speaking sample now...")
         engine = TextToSpeech(voice=voice_id)
         phrase = f"Hello. I am Cortana, using the {key} voice profile. How do I sound to you?"
         engine.speak(phrase, wait=True)
@@ -582,11 +727,34 @@ def main() -> None:
     parser.add_argument("--prompt", "-p", type=str, help="Single prompt execution mode")
     parser.add_argument("--base-url", type=str, default=config.llm_base_url, help="LLM base URL")
     parser.add_argument("--model", "-m", type=str, default=config.llm_model, help="LLM model name")
-    parser.add_argument("--cli", "--text-only", action="store_true", dest="cli_mode", help="Launch in pure text-only CLI mode without voice or automated browser popups")
-    parser.add_argument("--voice", "-v", action="store_true", help="Launch directly in voice interaction mode")
-    parser.add_argument("--ui", "--web", action="store_true", dest="ui", help="Launch GLaDOS ASCII console in browser")
-    parser.add_argument("--voice-name", type=str, default=None, help="TTS Voice preset or full name (libby, aria, ava, maisie)")
-    parser.add_argument("--preview-voices", action="store_true", help="Audition all available voice presets out loud")
+    parser.add_argument(
+        "--cli",
+        "--text-only",
+        action="store_true",
+        dest="cli_mode",
+        help="Launch in pure text-only CLI mode without voice or automated browser popups",
+    )
+    parser.add_argument(
+        "--voice", "-v", action="store_true", help="Launch directly in voice interaction mode"
+    )
+    parser.add_argument(
+        "--ui",
+        "--web",
+        action="store_true",
+        dest="ui",
+        help="Launch GLaDOS ASCII console in browser",
+    )
+    parser.add_argument(
+        "--voice-name",
+        type=str,
+        default=None,
+        help="TTS Voice preset or full name (libby, aria, ava, maisie)",
+    )
+    parser.add_argument(
+        "--preview-voices",
+        action="store_true",
+        help="Audition all available voice presets out loud",
+    )
     parser.add_argument("--no-tts", action="store_true", help="Disable voice speech feedback")
     parser.add_argument("--test-tools", action="store_true", help="Run local tool diagnostics")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
@@ -609,6 +777,7 @@ def main() -> None:
 
     if args.voice_name:
         from voice.tts import VOICE_PRESETS, tts_engine
+
         selected = VOICE_PRESETS.get(args.voice_name.lower(), (args.voice_name, ""))[0]
         config.tts_voice = selected
         tts_engine.voice = selected
@@ -618,7 +787,9 @@ def main() -> None:
         return
 
     prompt = args.prompt or (" ".join(args.query).strip() if args.query else None)
-    is_web_mode = (prompt and prompt.lower() in ("web", "ui", "console", "dashboard")) or (args.ui and not prompt)
+    is_web_mode = (prompt and prompt.lower() in ("web", "ui", "console", "dashboard")) or (
+        args.ui and not prompt
+    )
 
     # Enforce single-instance execution for persistent modes (web console, voice listener, or interactive CLI)
     if not args.cli_mode and (is_web_mode or args.voice or not prompt):
@@ -628,7 +799,9 @@ def main() -> None:
     # Ensure OBS Studio Replay Buffer is primed in background for instant clipping across all modes
     try:
         import threading
+
         from tools.game_clipper import ensure_obs_replay_buffer
+
         threading.Thread(target=ensure_obs_replay_buffer, daemon=True).start()
     except Exception:
         pass
@@ -636,6 +809,7 @@ def main() -> None:
     # Launch standalone web console if requested via 'web'/'ui' or --web/--ui flag
     if is_web_mode:
         from ui.server import start_ui_server
+
         print("[*] Starting Aperture Science GLaDOS Web Console at http://127.0.0.1:5000...")
         start_ui_server(port=5000, open_browser=True)
         print("[+] Web console active in browser. Press Ctrl+C to terminate.")
@@ -649,6 +823,7 @@ def main() -> None:
     # If --ui flag with prompt, start UI server in background
     if args.ui:
         from ui.server import start_ui_server
+
         start_ui_server(port=5000, open_browser=True)
 
     enable_voice = not args.no_tts and not args.cli_mode
@@ -656,7 +831,8 @@ def main() -> None:
 
     # Initialize real-time flight auto-updater if a flight is currently tracked
     try:
-        from tools.flight import get_tracked_flight, ensure_flight_auto_updater
+        from tools.flight import ensure_flight_auto_updater, get_tracked_flight
+
         if get_tracked_flight():
             ensure_flight_auto_updater()
     except Exception:
@@ -665,7 +841,21 @@ def main() -> None:
     if args.voice and not args.cli_mode:
         interactive_voice_loop(agent)
     elif prompt:
-        is_live = any(w in prompt.lower() for w in ("live track", "flight live", "radar live", "track live", "live tracker", "monitor live", "hw live", "live hardware", "zima live", "zimaos live"))
+        is_live = any(
+            w in prompt.lower()
+            for w in (
+                "live track",
+                "flight live",
+                "radar live",
+                "track live",
+                "live tracker",
+                "monitor live",
+                "hw live",
+                "live hardware",
+                "zima live",
+                "zimaos live",
+            )
+        )
         execute_and_display(agent, prompt, interactive=is_live)
     else:
         interactive_repl(agent)

@@ -6,15 +6,15 @@ and retro ASCII 'Now Playing' terminal HUD cards for the local Jellyfin server.
 import datetime
 import json
 import logging
-import os
 import urllib.parse
 import webbrowser
-import requests
 from typing import Any
+
+import requests
 
 from config import config
 from tools import register_tool
-from tools.zimaos import load_zimaos_credentials, get_zimaos_host
+from tools.zimaos import get_zimaos_host, load_zimaos_credentials
 
 logger = logging.getLogger("local_os_agent.tools.jellyfin")
 
@@ -35,7 +35,7 @@ def _get_jellyfin_headers(api_key: str | None = None) -> dict[str, str]:
     h = {
         "X-Emby-Authorization": 'MediaBrowser Client="GLaDOS-Agent", Device="Aperture-Workstation", DeviceId="glados-core-01", Version="2.0.0"',
         "Accept": "application/json",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
     }
     if api_key:
         h["X-Emby-Token"] = api_key
@@ -46,7 +46,7 @@ def get_stored_jellyfin_token() -> str | None:
     """Retrieves cached authentication token if available."""
     if JELLYFIN_AUTH_TOKEN_FILE.exists():
         try:
-            with open(JELLYFIN_AUTH_TOKEN_FILE, "r", encoding="utf-8") as f:
+            with open(JELLYFIN_AUTH_TOKEN_FILE, encoding="utf-8") as f:
                 data = json.load(f)
                 return data.get("token")
         except Exception:
@@ -59,7 +59,9 @@ def store_jellyfin_token(token: str):
     try:
         config.captures_dir.mkdir(parents=True, exist_ok=True)
         with open(JELLYFIN_AUTH_TOKEN_FILE, "w", encoding="utf-8") as f:
-            json.dump({"token": token, "updated_at": datetime.datetime.now().isoformat()}, f, indent=2)
+            json.dump(
+                {"token": token, "updated_at": datetime.datetime.now().isoformat()}, f, indent=2
+            )
     except Exception as e:
         logger.debug(f"Failed to cache Jellyfin token: {e}")
 
@@ -97,7 +99,7 @@ def format_now_playing_card(
     play_state: str = "Playing",
     position_str: str = "00:00:00 / 00:00:00",
     transcode_reason: str = "Direct Play (Hardware Accelerated)",
-    bitrate_mbps: float = 12.5
+    bitrate_mbps: float = 12.5,
 ) -> str:
     """Formats an authentic ASCII terminal card for active Jellyfin streaming."""
     card = (
@@ -123,10 +125,7 @@ def search_and_play_jellyfin(query: str, client_type: str = "browser") -> dict[s
     and opens the media player directly in your browser.
     """
     if not query or not query.strip():
-        return {
-            "success": False,
-            "message": "Please specify a media title to search on Jellyfin."
-        }
+        return {"success": False, "message": "Please specify a media title to search on Jellyfin."}
 
     clean_q = query.strip()
     base_url = get_jellyfin_base_url()
@@ -144,9 +143,11 @@ def search_and_play_jellyfin(query: str, client_type: str = "browser") -> dict[s
                 "searchTerm": clean_q,
                 "recursive": "true",
                 "limit": 5,
-                "includeItemTypes": "Movie,Series,Episode,Audio"
+                "includeItemTypes": "Movie,Series,Episode,Audio",
             }
-            resp = requests.get(search_url, params=params, headers=_get_jellyfin_headers(token), timeout=4)
+            resp = requests.get(
+                search_url, params=params, headers=_get_jellyfin_headers(token), timeout=4
+            )
             if resp.status_code == 200:
                 items = resp.json().get("Items", [])
                 if items:
@@ -178,7 +179,7 @@ def search_and_play_jellyfin(query: str, client_type: str = "browser") -> dict[s
         play_state="Dispatched to Browser",
         position_str="Opening Stream...",
         transcode_reason="Intel QuickSync (MonizServer i5-8400)",
-        bitrate_mbps=15.0
+        bitrate_mbps=15.0,
     )
 
     return {
@@ -188,7 +189,7 @@ def search_and_play_jellyfin(query: str, client_type: str = "browser") -> dict[s
         "item_id": matched_id,
         "url": play_url,
         "terminal_card": ascii_card,
-        "message": f"Dispatched '{matched_title}' on Jellyfin ({play_url}). GLaDOS media stream initiated."
+        "message": f"Dispatched '{matched_title}' on Jellyfin ({play_url}). GLaDOS media stream initiated.",
     }
 
 
@@ -204,7 +205,9 @@ def get_jellyfin_now_playing() -> dict[str, Any]:
     sessions = []
     if token:
         try:
-            resp = requests.get(f"{base_url}/Sessions", headers=_get_jellyfin_headers(token), timeout=3)
+            resp = requests.get(
+                f"{base_url}/Sessions", headers=_get_jellyfin_headers(token), timeout=3
+            )
             if resp.status_code == 200:
                 sessions = resp.json()
         except Exception as e:
@@ -221,14 +224,14 @@ def get_jellyfin_now_playing() -> dict[str, Any]:
         play_state_info = s.get("PlayState", {})
         is_paused = play_state_info.get("IsPaused", False)
         state_str = "Paused" if is_paused else "Playing"
-        
+
         card = format_now_playing_card(
             title=title,
             media_type=item.get("Type", "Video"),
             user_name=f"{user_name} ({client})",
             play_state=state_str,
             transcode_reason="Direct Stream (Intel UHD 630 QuickSync)",
-            bitrate_mbps=18.2
+            bitrate_mbps=18.2,
         )
         return {
             "active": True,
@@ -236,7 +239,7 @@ def get_jellyfin_now_playing() -> dict[str, Any]:
             "user": user_name,
             "state": state_str,
             "terminal_card": card,
-            "message": f"Currently streaming '{title}' on Jellyfin ({state_str})."
+            "message": f"Currently streaming '{title}' on Jellyfin ({state_str}).",
         }
     else:
         # Idle status card
@@ -252,7 +255,7 @@ def get_jellyfin_now_playing() -> dict[str, Any]:
         return {
             "active": False,
             "terminal_card": idle_card,
-            "message": "No active media playback on Jellyfin. The media mainframe is on standby."
+            "message": "No active media playback on Jellyfin. The media mainframe is on standby.",
         }
 
 
@@ -262,4 +265,3 @@ def open_jellyfin_dashboard() -> str:
     url = f"{get_jellyfin_base_url()}/web/index.html"
     webbrowser.open(url)
     return f"Opened Jellyfin web console: {url}"
-

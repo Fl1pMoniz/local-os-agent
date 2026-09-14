@@ -19,7 +19,7 @@ import urllib.parse
 import urllib.request
 import uuid
 import webbrowser
-from typing import Any, Tuple
+from typing import Any
 
 from config import config
 from tools import register_tool
@@ -41,7 +41,7 @@ def load_zimaos_credentials() -> tuple[str | None, str | None]:
     for path in CREDENTIALS_FILES:
         if path.exists():
             try:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(path, encoding="utf-8") as f:
                     data = json.load(f)
                     user = data.get("username", "").strip()
                     pwd = data.get("password", "").strip()
@@ -61,7 +61,7 @@ def get_zimaos_host() -> str:
     """Returns the currently configured ZimaOS server host address."""
     if ZIMAOS_CONFIG_FILE.exists():
         try:
-            with open(ZIMAOS_CONFIG_FILE, "r", encoding="utf-8") as f:
+            with open(ZIMAOS_CONFIG_FILE, encoding="utf-8") as f:
                 data = json.load(f)
                 saved_host = data.get("zimaos_host")
                 if saved_host:
@@ -74,11 +74,13 @@ def get_zimaos_host() -> str:
     for path in CREDENTIALS_FILES:
         if path.exists():
             try:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(path, encoding="utf-8") as f:
                     data = json.load(f)
                     saved_host = data.get("zimaos_host", "").strip()
                     if saved_host:
-                        if not saved_host.startswith("http://") and not saved_host.startswith("https://"):
+                        if not saved_host.startswith("http://") and not saved_host.startswith(
+                            "https://"
+                        ):
                             saved_host = f"http://{saved_host}"
                         config.zimaos_host = saved_host.rstrip("/")
                         return config.zimaos_host
@@ -94,7 +96,7 @@ def get_zimaos_token() -> str | None:
 
     if ZIMAOS_CONFIG_FILE.exists():
         try:
-            with open(ZIMAOS_CONFIG_FILE, "r", encoding="utf-8") as f:
+            with open(ZIMAOS_CONFIG_FILE, encoding="utf-8") as f:
                 data = json.load(f)
                 saved_token = data.get("zimaos_token") or data.get("token") or data.get("api_key")
                 if saved_token:
@@ -127,7 +129,7 @@ def get_zimaos_token() -> str | None:
     description="Configures and persists the destination IP or hostname of your ZimaOS server.",
     sensitive=False,
 )
-def set_zimaos_host(new_host: str, **kwargs) -> Tuple[bool, str]:
+def set_zimaos_host(new_host: str, **kwargs) -> tuple[bool, str]:
     """Updates and persists the ZimaOS host address."""
     clean = str(new_host).strip()
     if not clean:
@@ -149,7 +151,7 @@ def set_zimaos_host(new_host: str, **kwargs) -> Tuple[bool, str]:
         existing = {}
         if ZIMAOS_CONFIG_FILE.exists():
             try:
-                with open(ZIMAOS_CONFIG_FILE, "r", encoding="utf-8") as f:
+                with open(ZIMAOS_CONFIG_FILE, encoding="utf-8") as f:
                     existing = json.load(f)
             except Exception:
                 existing = {}
@@ -160,7 +162,7 @@ def set_zimaos_host(new_host: str, **kwargs) -> Tuple[bool, str]:
         for path in CREDENTIALS_FILES:
             if path.exists():
                 try:
-                    with open(path, "r", encoding="utf-8") as f:
+                    with open(path, encoding="utf-8") as f:
                         cdata = json.load(f)
                     cdata["zimaos_host"] = clean
                     with open(path, "w", encoding="utf-8") as f:
@@ -179,7 +181,7 @@ def set_zimaos_host(new_host: str, **kwargs) -> Tuple[bool, str]:
     description="Configures and persists the API authorization Bearer token for your ZimaOS server.",
     sensitive=False,
 )
-def set_zimaos_token(token: str, **kwargs) -> Tuple[bool, str]:
+def set_zimaos_token(token: str, **kwargs) -> tuple[bool, str]:
     """Updates and persists the ZimaOS API token."""
     clean = str(token).strip()
     if not clean:
@@ -191,7 +193,7 @@ def set_zimaos_token(token: str, **kwargs) -> Tuple[bool, str]:
         existing = {}
         if ZIMAOS_CONFIG_FILE.exists():
             try:
-                with open(ZIMAOS_CONFIG_FILE, "r", encoding="utf-8") as f:
+                with open(ZIMAOS_CONFIG_FILE, encoding="utf-8") as f:
                     existing = json.load(f)
             except Exception:
                 existing = {}
@@ -208,7 +210,7 @@ def set_zimaos_token(token: str, **kwargs) -> Tuple[bool, str]:
     description="Authenticates with your ZimaOS server using your account credentials to retrieve and save the API access Bearer token.",
     sensitive=False,
 )
-def login_zimaos(username: str, password: str, **kwargs) -> Tuple[bool, str]:
+def login_zimaos(username: str, password: str, **kwargs) -> tuple[bool, str]:
     """Logs into ZimaOS to retrieve and persist a Bearer API token."""
     clean_user = str(username).strip()
     clean_pwd = str(password).strip()
@@ -243,9 +245,15 @@ def login_zimaos(username: str, password: str, **kwargs) -> Tuple[bool, str]:
 
             if token:
                 set_zimaos_token(str(token))
-                return True, f"Successfully authenticated with ZimaOS as '{clean_user}'. API Bearer token configured and saved."
+                return (
+                    True,
+                    f"Successfully authenticated with ZimaOS as '{clean_user}'. API Bearer token configured and saved.",
+                )
             else:
-                return False, f"ZimaOS responded with HTTP 200 but token was not found in response: {resp_data}"
+                return (
+                    False,
+                    f"ZimaOS responded with HTTP 200 but token was not found in response: {resp_data}",
+                )
     except urllib.error.HTTPError as he:
         err_body = he.read().decode("utf-8", errors="replace")
         try:
@@ -278,7 +286,9 @@ def _get_zimaos_headers() -> dict[str, str]:
     return headers
 
 
-def _query_zimaos_endpoint(path: str, timeout: float = 2.5, retry_on_auth: bool = True) -> dict[str, Any] | None:
+def _query_zimaos_endpoint(
+    path: str, timeout: float = 2.5, retry_on_auth: bool = True
+) -> dict[str, Any] | None:
     """Queries an endpoint on the configured ZimaOS server, auto-refreshing token on 401/403."""
     base = get_zimaos_host().rstrip("/")
     if not base.startswith("http://") and not base.startswith("https://"):
@@ -330,7 +340,9 @@ def probe_zimaos_services(host_url: str) -> list[dict[str, Any]]:
                 port_part = url.split(":")[-1].split("/")[0]
                 if port_part.isdigit():
                     p_num = int(port_part)
-                    custom_ports.add((p_num, ca.get("name", f"Port {p_num}"), ca.get("category", "Custom")))
+                    custom_ports.add(
+                        (p_num, ca.get("name", f"Port {p_num}"), ca.get("category", "Custom"))
+                    )
     except Exception:
         pass
 
@@ -348,13 +360,15 @@ def probe_zimaos_services(host_url: str) -> list[dict[str, Any]]:
             lat = round((time.time() - t0) * 1000, 1)
             s.close()
             if res == 0:
-                discovered.append({
-                    "port": port,
-                    "name": name,
-                    "category": cat,
-                    "latency_ms": lat,
-                    "status": "online",
-                })
+                discovered.append(
+                    {
+                        "port": port,
+                        "name": name,
+                        "category": cat,
+                        "latency_ms": lat,
+                        "status": "online",
+                    }
+                )
         except Exception:
             pass
 
@@ -402,11 +416,16 @@ def format_zimaos_hud(telemetry: dict[str, Any]) -> str:
         return (
             border + "\n"
             "|           APERTURE SCIENCE HARDWARE TELEMETRY & THERMAL HUD        |\n"
-            + border + "\n"
-            + make_row("Node Host Address", host) + "\n"
-            + make_row("Server Gateway", "[! OFFLINE / UNREACHABLE]") + "\n"
-            + make_row("Diagnostic Status", err_msg) + "\n"
-            + make_row("Reconfiguration", "Type 'zima ip <new_ip>' to adjust server address") + "\n"
+            + border
+            + "\n"
+            + make_row("Node Host Address", host)
+            + "\n"
+            + make_row("Server Gateway", "[! OFFLINE / UNREACHABLE]")
+            + "\n"
+            + make_row("Diagnostic Status", err_msg)
+            + "\n"
+            + make_row("Reconfiguration", "Type 'zima ip <new_ip>' to adjust server address")
+            + "\n"
             + border
         )
 
@@ -414,13 +433,20 @@ def format_zimaos_hud(telemetry: dict[str, Any]) -> str:
         return (
             border + "\n"
             "|           APERTURE SCIENCE HARDWARE TELEMETRY & THERMAL HUD        |\n"
-            + border + "\n"
-            + make_row("Node Host Address", host) + "\n"
-            + make_row("Server Gateway", f"[* ONLINE] {gateway}") + "\n"
-            + make_row("Node Architecture", "Linux x86_64 Aperture Remote Mainframe") + "\n"
-            + make_row("Active Containers", f"{len(services)} Microservices Responding on Network") + "\n"
-            + make_row("Sensor Status", "Enter login in 'zimaos_credentials.json'") + "\n"
-            + make_row("Auth Diagnostics", auth_status) + "\n"
+            + border
+            + "\n"
+            + make_row("Node Host Address", host)
+            + "\n"
+            + make_row("Server Gateway", f"[* ONLINE] {gateway}")
+            + "\n"
+            + make_row("Node Architecture", "Linux x86_64 Aperture Remote Mainframe")
+            + "\n"
+            + make_row("Active Containers", f"{len(services)} Microservices Responding on Network")
+            + "\n"
+            + make_row("Sensor Status", "Enter login in 'zimaos_credentials.json'")
+            + "\n"
+            + make_row("Auth Diagnostics", auth_status)
+            + "\n"
             + border
         )
 
@@ -429,7 +455,9 @@ def format_zimaos_hud(telemetry: dict[str, Any]) -> str:
     cpu_bar = make_hud_bar(cpu_pct)
     cpu_freq = cpu.get("freq_ghz", "2.8")
     cpu_temp = cpu.get("temp_c")
-    temp_str = f"{cpu_temp:>5.1f}°C (Operational Thermal Range)" if cpu_temp is not None else "Sensors N/A"
+    temp_str = (
+        f"{cpu_temp:>5.1f}°C (Operational Thermal Range)" if cpu_temp is not None else "Sensors N/A"
+    )
 
     ram_used = ram.get("used_gb", 0.0)
     ram_total = ram.get("total_gb", 0.0)
@@ -437,9 +465,11 @@ def format_zimaos_hud(telemetry: dict[str, Any]) -> str:
     ram_bar = make_hud_bar(ram_pct)
 
     gpu_name = (gpu.get("name") if gpu else None) or "Intel UHD Graphics 630 (Integrated GPU)"
-    gpu_util = (gpu.get("utilization_gpu", 0.0) if gpu else 0.0)
+    gpu_util = gpu.get("utilization_gpu", 0.0) if gpu else 0.0
     gpu_bar = make_hud_bar(gpu_util)
-    gpu_temp_str = f"{cpu_temp:>5.1f}°C (Thermal Headroom: Optimal)" if cpu_temp is not None else "Sensors N/A"
+    gpu_temp_str = (
+        f"{cpu_temp:>5.1f}°C (Thermal Headroom: Optimal)" if cpu_temp is not None else "Sensors N/A"
+    )
 
     pwr = telemetry.get("power_watts", 3.0)
     pwr_str = f"{pwr:>5.1f} W (Intel RAPL Package Power Sensor)"
@@ -452,10 +482,14 @@ def format_zimaos_hud(telemetry: dict[str, Any]) -> str:
 
     containers = telemetry.get("containers", [])
     apps_cnt = telemetry.get("apps_count") or len(containers) or len(services)
-    clean_apps = [c.replace("compose-", "").replace("big-bear-", "") for c in containers if isinstance(c, str)]
+    clean_apps = [
+        c.replace("compose-", "").replace("big-bear-", "") for c in containers if isinstance(c, str)
+    ]
     if not clean_apps and services:
         clean_apps = [s.get("name", "") for s in services if isinstance(s, dict)]
-    sample_names = ", ".join([a.title() for a in clean_apps[:3]]) if clean_apps else "Active Microservices"
+    sample_names = (
+        ", ".join([a.title() for a in clean_apps[:3]]) if clean_apps else "Active Microservices"
+    )
 
     dev_name = telemetry.get("device_name", "MonizServer")
     dev_model = telemetry.get("device_model", "83EE")
@@ -474,7 +508,10 @@ def format_zimaos_hud(telemetry: dict[str, Any]) -> str:
         make_row("GPU Temperature", gpu_temp_str),
         make_row("VRAM Usage", "Dynamic UMA (Shared System Host Memory)"),
         make_row("Active Power Draw", pwr_str),
-        make_row(f"System Disk ({drive_tag})", f"{disk_used:>5.1f} / {disk_total} GB ({disk_pct}%) [{disk_bar}]"),
+        make_row(
+            f"System Disk ({drive_tag})",
+            f"{disk_used:>5.1f} / {disk_total} GB ({disk_pct}%) [{disk_bar}]",
+        ),
         make_row("Active Containers", f"{apps_cnt} Microservices ({sample_names})"),
         make_row("Host OS & Server", f"ZimaOS Linux {arch} ({dev_name} {dev_model})"),
         border,
@@ -565,12 +602,19 @@ def get_zimaos_telemetry() -> dict[str, Any]:
     dev_data = _query_zimaos_endpoint("/v2/zimaos/device/info", timeout=2.0)
     storages_data = _query_zimaos_endpoint("/v2/local_storage/storages", timeout=2.0)
     disk_info_data = _query_zimaos_endpoint("/v2/local_storage/disk/info", timeout=2.0)
-    apps_data = _query_zimaos_endpoint("/v2/app_management/apps", timeout=2.5) or _query_zimaos_endpoint("/v1/container", timeout=2.0)
+    apps_data = _query_zimaos_endpoint(
+        "/v2/app_management/apps", timeout=2.5
+    ) or _query_zimaos_endpoint("/v1/container", timeout=2.0)
 
     # Fallback to legacy endpoints if running older CasaOS
     hw_data = None
     if not util_data:
-        hw_data = _query_zimaos_endpoint("/v1/sys/hardware/info") or _query_zimaos_endpoint("/v2/sys/hardware/info") or _query_zimaos_endpoint("/v1/sys/overview") or _query_zimaos_endpoint("/v1/sys/status")
+        hw_data = (
+            _query_zimaos_endpoint("/v1/sys/hardware/info")
+            or _query_zimaos_endpoint("/v2/sys/hardware/info")
+            or _query_zimaos_endpoint("/v1/sys/overview")
+            or _query_zimaos_endpoint("/v1/sys/status")
+        )
 
     if util_data or dev_data or storages_data or hw_data:
         telemetry["auth_status"] = "[* AUTH: ACTIVE / SENSORS ONLINE]"
@@ -578,12 +622,16 @@ def get_zimaos_telemetry() -> dict[str, Any]:
         # A. CPU Parsing
         cpu_block = util_data.get("data", {}).get("cpu", {}) if isinstance(util_data, dict) else {}
         dev_cpu = dev_data.get("cpu", {}) if isinstance(dev_data, dict) else {}
-        
+
         cpu_model = dev_cpu.get("model") or cpu_block.get("model") or "Intel Core Processor"
         cpu_freq = dev_cpu.get("frequency") or "2.80"
         cpu_cores = dev_cpu.get("cores") or cpu_block.get("num") or 6
         cpu_pct = float(cpu_block.get("percent", 0.0))
-        cpu_temp = float(cpu_block.get("temperature", 0.0)) if cpu_block.get("temperature") is not None else None
+        cpu_temp = (
+            float(cpu_block.get("temperature", 0.0))
+            if cpu_block.get("temperature") is not None
+            else None
+        )
 
         if not cpu_pct and hw_data:
             d_block = hw_data.get("data", {}) if isinstance(hw_data, dict) else {}
@@ -606,7 +654,11 @@ def get_zimaos_telemetry() -> dict[str, Any]:
         ram_used = mem_block.get("used", 0)
         ram_used_gb = round(ram_used / (1024**3), 2)
         ram_total_gb = round(ram_total / (1024**3), 2)
-        ram_pct = float(mem_block.get("usedPercent", round((ram_used_gb / ram_total_gb * 100) if ram_total_gb else 0.0, 1)))
+        ram_pct = float(
+            mem_block.get(
+                "usedPercent", round((ram_used_gb / ram_total_gb * 100) if ram_total_gb else 0.0, 1)
+            )
+        )
 
         if not ram_total and hw_data:
             d_block = hw_data.get("data", {}) if isinstance(hw_data, dict) else {}
@@ -615,7 +667,10 @@ def get_zimaos_telemetry() -> dict[str, Any]:
             r_usd = r_b.get("used", 0)
             ram_total_gb = round(r_tot / (1024**3), 2) if r_tot > 1024**2 else round(r_tot, 2)
             ram_used_gb = round(r_usd / (1024**3), 2) if r_usd > 1024**2 else round(r_usd, 2)
-            ram_pct = float(r_b.get("percent") or (round((ram_used_gb / ram_total_gb) * 100.0, 1) if ram_total_gb else 0.0))
+            ram_pct = float(
+                r_b.get("percent")
+                or (round((ram_used_gb / ram_total_gb) * 100.0, 1) if ram_total_gb else 0.0)
+            )
 
         telemetry["ram"] = {
             "total_gb": ram_total_gb,
@@ -627,7 +682,11 @@ def get_zimaos_telemetry() -> dict[str, Any]:
         gpu_list = dev_data.get("gpu", []) if isinstance(dev_data, dict) else []
         raw_gpu = gpu_list[0] if gpu_list else "Integrated UHD Graphics"
         clean_gpu = raw_gpu.replace("Intel CoffeeLake-S GT2 [", "").replace("]", "").strip()
-        gpu_full_name = f"Intel {clean_gpu} (Integrated GPU)" if not clean_gpu.startswith("Intel") else f"{clean_gpu} (Integrated GPU)"
+        gpu_full_name = (
+            f"Intel {clean_gpu} (Integrated GPU)"
+            if not clean_gpu.startswith("Intel")
+            else f"{clean_gpu} (Integrated GPU)"
+        )
         telemetry["gpu"] = {
             "name": gpu_full_name,
             "utilization_gpu": 0.0,
@@ -644,7 +703,11 @@ def get_zimaos_telemetry() -> dict[str, Any]:
         disk_used_gb = round(p_used / (1024**3), 1)
         disk_pct = round((disk_used_gb / disk_total_gb * 100), 1) if disk_total_gb else 0.0
 
-        hdd = disk_info_data.get("data", {}).get("disk", {}) if isinstance(disk_info_data, dict) else {}
+        hdd = (
+            disk_info_data.get("data", {}).get("disk", {})
+            if isinstance(disk_info_data, dict)
+            else {}
+        )
         hdd_name = hdd.get("name", "sda")
         hdd_temp = hdd.get("temperature")
         hdd_vendor = hdd.get("vendor", "WD")
@@ -657,7 +720,10 @@ def get_zimaos_telemetry() -> dict[str, Any]:
             d_usd = d_b.get("used", 0)
             disk_total_gb = round(d_tot / (1024**3), 1) if d_tot > 1024**2 else round(d_tot, 1)
             disk_used_gb = round(d_usd / (1024**3), 1) if d_usd > 1024**2 else round(d_usd, 1)
-            disk_pct = float(d_b.get("percent") or (round((disk_used_gb / disk_total_gb) * 100.0, 1) if disk_total_gb else 0.0))
+            disk_pct = float(
+                d_b.get("percent")
+                or (round((disk_used_gb / disk_total_gb) * 100.0, 1) if disk_total_gb else 0.0)
+            )
 
         telemetry["disk"] = {
             "total_gb": disk_total_gb,
@@ -700,7 +766,11 @@ def get_zimaos_telemetry() -> dict[str, Any]:
         telemetry["apps_count"] = max(len(installed_apps), len(services))
 
         # G. Device Info
-        dev_name = dev_data.get("device_name", "MonizServer") if isinstance(dev_data, dict) else "MonizServer"
+        dev_name = (
+            dev_data.get("device_name", "MonizServer")
+            if isinstance(dev_data, dict)
+            else "MonizServer"
+        )
         dev_model = dev_data.get("device_model", "83EE") if isinstance(dev_data, dict) else "83EE"
         arch = dev_data.get("arch", "amd64") if isinstance(dev_data, dict) else "amd64"
         telemetry["device_name"] = dev_name
@@ -720,7 +790,7 @@ def get_zimaos_telemetry() -> dict[str, Any]:
     description="Real-time telemetry and component tracker for your ZimaOS home server.",
     sensitive=False,
 )
-def monitor_zimaos(live: bool = False, **kwargs) -> Tuple[bool, dict[str, Any]]:
+def monitor_zimaos(live: bool = False, **kwargs) -> tuple[bool, dict[str, Any]]:
     """
     Collects real-time ZimaOS server metrics (gateway status, CPU, RAM, storage, online services).
     If live=True, runs continuous in-terminal monitoring loop.
@@ -729,7 +799,7 @@ def monitor_zimaos(live: bool = False, **kwargs) -> Tuple[bool, dict[str, Any]]:
     if live:
         try:
             run_live_zimaos_monitor()
-        except Exception as e:
+        except Exception:
             logger.exception("Error running live ZimaOS monitor")
     return True, telemetry
 
@@ -782,7 +852,9 @@ def run_live_zimaos_monitor(interval: float = 1.5, max_ticks: int | None = None)
             except UnicodeEncodeError:
                 encoding = getattr(sys.stdout, "encoding", "utf-8") or "utf-8"
                 out_block = header + "\n" + hud + "\n" + footer + "\n"
-                sys.stdout.write(out_block.encode(encoding, errors="replace").decode(encoding, errors="replace"))
+                sys.stdout.write(
+                    out_block.encode(encoding, errors="replace").decode(encoding, errors="replace")
+                )
                 sys.stdout.flush()
 
             if max_ticks and tick >= max_ticks:
@@ -794,7 +866,9 @@ def run_live_zimaos_monitor(interval: float = 1.5, max_ticks: int | None = None)
 
     except KeyboardInterrupt:
         try:
-            sys.stdout.write("\n\n[*] Exited ZimaOS telemetry monitor. Returning to GLaDOS-CLI console.\n\n")
+            sys.stdout.write(
+                "\n\n[*] Exited ZimaOS telemetry monitor. Returning to GLaDOS-CLI console.\n\n"
+            )
             sys.stdout.flush()
         except Exception:
             pass
@@ -805,7 +879,7 @@ def run_live_zimaos_monitor(interval: float = 1.5, max_ticks: int | None = None)
     description="Queries and returns the operational status, CPU, RAM, and disk utilization of your ZimaOS server.",
     sensitive=False,
 )
-def get_zimaos_status(**kwargs) -> Tuple[bool, str]:
+def get_zimaos_status(**kwargs) -> tuple[bool, str]:
     """Retrieves live server telemetry from ZimaOS."""
     telemetry = get_zimaos_telemetry()
     host = telemetry.get("host", config.zimaos_host)
@@ -836,7 +910,7 @@ def get_zimaos_status(**kwargs) -> Tuple[bool, str]:
     description="Lists installed and running Docker applications on the ZimaOS server.",
     sensitive=False,
 )
-def list_zimaos_apps(**kwargs) -> Tuple[bool, str]:
+def list_zimaos_apps(**kwargs) -> tuple[bool, str]:
     """Lists installed applications and web links on the ZimaOS server."""
     apps = get_zimaos_apps_detailed()
     if not apps:
@@ -844,7 +918,10 @@ def list_zimaos_apps(**kwargs) -> Tuple[bool, str]:
         services = probe_zimaos_services(get_zimaos_host())
         if services:
             names = [s["name"] for s in services]
-            return True, f"ZimaOS server responded with {len(services)} active service(s): {', '.join(names)}."
+            return (
+                True,
+                f"ZimaOS server responded with {len(services)} active service(s): {', '.join(names)}.",
+            )
         return (
             False,
             f"Could not retrieve container manifest from ZimaOS ({config.zimaos_host}). Ensure Docker daemon is accessible.",
@@ -862,10 +939,38 @@ def get_custom_zima_apps() -> list[dict[str, Any]]:
         if not host.startswith("http://") and not host.startswith("https://"):
             host = f"http://{host}"
         defaults = [
-            {"id": "custom-plex", "name": "Plex", "url": f"{host}:32400", "state": "active", "category": "Media", "custom": True},
-            {"id": "custom-jellyfin", "name": "Jellyfin", "url": f"{host}:8096", "state": "active", "category": "Media", "custom": True},
-            {"id": "custom-nextcloud", "name": "Nextcloud", "url": f"{host}:8080", "state": "active", "category": "Cloud", "custom": True},
-            {"id": "custom-homeassistant", "name": "Home Assistant", "url": f"{host}:8123", "state": "active", "category": "Smart Home", "custom": True},
+            {
+                "id": "custom-plex",
+                "name": "Plex",
+                "url": f"{host}:32400",
+                "state": "active",
+                "category": "Media",
+                "custom": True,
+            },
+            {
+                "id": "custom-jellyfin",
+                "name": "Jellyfin",
+                "url": f"{host}:8096",
+                "state": "active",
+                "category": "Media",
+                "custom": True,
+            },
+            {
+                "id": "custom-nextcloud",
+                "name": "Nextcloud",
+                "url": f"{host}:8080",
+                "state": "active",
+                "category": "Cloud",
+                "custom": True,
+            },
+            {
+                "id": "custom-homeassistant",
+                "name": "Home Assistant",
+                "url": f"{host}:8123",
+                "state": "active",
+                "category": "Smart Home",
+                "custom": True,
+            },
         ]
         try:
             CUSTOM_APPS_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -876,14 +981,14 @@ def get_custom_zima_apps() -> list[dict[str, Any]]:
             return defaults
 
     try:
-        with open(CUSTOM_APPS_FILE, "r", encoding="utf-8") as f:
+        with open(CUSTOM_APPS_FILE, encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         logger.warning(f"Error reading custom ZimaOS apps: {e}")
         return []
 
 
-def add_custom_zima_app(name: str, url: str, category: str = "General") -> Tuple[bool, str]:
+def add_custom_zima_app(name: str, url: str, category: str = "General") -> tuple[bool, str]:
     """Adds or updates a custom ZimaOS application with its destination URL."""
     clean_name = str(name).strip()
     clean_url = str(url).strip()
@@ -914,14 +1019,16 @@ def add_custom_zima_app(name: str, url: str, category: str = "General") -> Tuple
             break
 
     if not updated:
-        apps.append({
-            "id": f"custom-{uuid.uuid4().hex[:6]}",
-            "name": clean_name,
-            "url": clean_url,
-            "category": clean_cat,
-            "state": "active",
-            "custom": True,
-        })
+        apps.append(
+            {
+                "id": f"custom-{uuid.uuid4().hex[:6]}",
+                "name": clean_name,
+                "url": clean_url,
+                "category": clean_cat,
+                "state": "active",
+                "custom": True,
+            }
+        )
 
     try:
         CUSTOM_APPS_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -933,11 +1040,13 @@ def add_custom_zima_app(name: str, url: str, category: str = "General") -> Tuple
         return False, f"Failed to save application: {e}"
 
 
-def delete_custom_zima_app(name: str) -> Tuple[bool, str]:
+def delete_custom_zima_app(name: str) -> tuple[bool, str]:
     """Removes a custom application from the local registry."""
     clean_name = str(name).strip().lower()
     apps = get_custom_zima_apps()
-    filtered = [a for a in apps if a.get("name", "").lower() != clean_name and a.get("id", "") != clean_name]
+    filtered = [
+        a for a in apps if a.get("name", "").lower() != clean_name and a.get("id", "") != clean_name
+    ]
     if len(filtered) == len(apps):
         return False, f"Application '{name}' not found."
 
@@ -968,7 +1077,12 @@ def get_zimaos_apps_detailed() -> list[dict[str, Any]]:
             raw_name = item.get("name") or ""
             title = item.get("title")
             if isinstance(title, dict):
-                disp_name = title.get("custom") or title.get("en_US") or title.get("en_GB") or next(iter(title.values()), raw_name)
+                disp_name = (
+                    title.get("custom")
+                    or title.get("en_US")
+                    or title.get("en_GB")
+                    or next(iter(title.values()), raw_name)
+                )
             else:
                 disp_name = str(title).strip() if title else raw_name
 
@@ -997,27 +1111,33 @@ def get_zimaos_apps_detailed() -> list[dict[str, Any]]:
             else:
                 app_url = f"{scheme}://{clean_ip}{idx}" if clean_ip else raw_host
 
-            result.append({
-                "id": item.get("id") or item.get("store_app_id") or raw_name,
-                "name": disp_name or raw_name,
-                "raw_name": raw_name,
-                "title": title,
-                "state": (item.get("status") or item.get("state") or "running").lower(),
-                "port": port,
-                "url": app_url,
-                "category": item.get("app_type") or "App",
-                "custom": False,
-                "image": item.get("image") or item.get("Image", "")
-            })
+            result.append(
+                {
+                    "id": item.get("id") or item.get("store_app_id") or raw_name,
+                    "name": disp_name or raw_name,
+                    "raw_name": raw_name,
+                    "title": title,
+                    "state": (item.get("status") or item.get("state") or "running").lower(),
+                    "port": port,
+                    "url": app_url,
+                    "category": item.get("app_type") or "App",
+                    "custom": False,
+                    "image": item.get("image") or item.get("Image", ""),
+                }
+            )
 
     # 2. Query Docker daemon on ZimaOS if reachable
-    containers_data = _query_zimaos_endpoint("/v2/docker/container/list") or _query_zimaos_endpoint("/v1/docker/container")
+    containers_data = _query_zimaos_endpoint("/v2/docker/container/list") or _query_zimaos_endpoint(
+        "/v1/docker/container"
+    )
     c_items = (containers_data and containers_data.get("data")) or []
     if isinstance(c_items, list):
         for c in c_items:
             if not isinstance(c, dict):
                 continue
-            name = c.get("name") or (c.get("Names", [""])[0].lstrip("/") if c.get("Names") else "Unknown")
+            name = c.get("name") or (
+                c.get("Names", [""])[0].lstrip("/") if c.get("Names") else "Unknown"
+            )
             norm_key = re.sub(r"[^a-z0-9]", "", name.lower())
             if norm_key in seen_keys:
                 continue
@@ -1042,17 +1162,19 @@ def get_zimaos_apps_detailed() -> list[dict[str, Any]]:
 
             app_url = f"http://{clean_ip}:{port}" if port else f"http://{clean_ip}"
 
-            result.append({
-                "id": cid,
-                "name": name,
-                "raw_name": name,
-                "state": state,
-                "port": port,
-                "url": app_url,
-                "category": "Docker",
-                "custom": False,
-                "image": c.get("image") or c.get("Image", "")
-            })
+            result.append(
+                {
+                    "id": cid,
+                    "name": name,
+                    "raw_name": name,
+                    "state": state,
+                    "port": port,
+                    "url": app_url,
+                    "category": "Docker",
+                    "custom": False,
+                    "image": c.get("image") or c.get("Image", ""),
+                }
+            )
 
     # 3. Custom user-defined applications
     custom_apps = get_custom_zima_apps()
@@ -1074,7 +1196,7 @@ def get_zimaos_apps_detailed() -> list[dict[str, Any]]:
     description="Launches or opens a Docker application (Plex, Jellyfin, Nextcloud, Home Assistant, etc.) on your ZimaOS server.",
     sensitive=False,
 )
-def launch_zimaos_app(app_name: str, **kwargs) -> Tuple[bool, str]:
+def launch_zimaos_app(app_name: str, **kwargs) -> tuple[bool, str]:
     """Finds, wakes, and opens a ZimaOS Docker application in the default browser."""
     if not app_name or not str(app_name).strip():
         return False, "Please specify an application name to launch on ZimaOS."
@@ -1086,7 +1208,10 @@ def launch_zimaos_app(app_name: str, **kwargs) -> Tuple[bool, str]:
     if not apps:
         # Fallback: if server cannot list containers, offer to open dashboard
         open_zimaos_dashboard()
-        return True, f"Could not query containers directly. Opened ZimaOS dashboard to locate '{app_name}'."
+        return (
+            True,
+            f"Could not query containers directly. Opened ZimaOS dashboard to locate '{app_name}'.",
+        )
 
     # Matching: Exact -> Substring/Containment
     matched_app = None
@@ -1111,7 +1236,10 @@ def launch_zimaos_app(app_name: str, **kwargs) -> Tuple[bool, str]:
 
     if not matched_app:
         available = ", ".join([a.get("name", "Unknown") for a in apps[:6]])
-        return False, f"Could not find application matching '{app_name}' on ZimaOS. Available apps: {available}."
+        return (
+            False,
+            f"Could not find application matching '{app_name}' on ZimaOS. Available apps: {available}.",
+        )
 
     # If stopped and not a custom app, wake container via API
     if matched_app.get("state") not in ("running", "active") and not matched_app.get("custom"):
@@ -1125,7 +1253,7 @@ def launch_zimaos_app(app_name: str, **kwargs) -> Tuple[bool, str]:
                 start_url,
                 data=json.dumps({"state": "start"}).encode("utf-8"),
                 headers=_get_zimaos_headers() | {"Content-Type": "application/json"},
-                method="PUT"
+                method="PUT",
             )
             try:
                 urllib.request.urlopen(req, timeout=3.0)
@@ -1147,7 +1275,7 @@ def launch_zimaos_app(app_name: str, **kwargs) -> Tuple[bool, str]:
     description="Opens the ZimaOS web administration dashboard in your default browser.",
     sensitive=False,
 )
-def open_zimaos_dashboard(**kwargs) -> Tuple[bool, str]:
+def open_zimaos_dashboard(**kwargs) -> tuple[bool, str]:
     """Opens ZimaOS dashboard in browser."""
     host = config.zimaos_host
     if not host.startswith("http://") and not host.startswith("https://"):
@@ -1164,7 +1292,9 @@ def open_zimaos_dashboard(**kwargs) -> Tuple[bool, str]:
     description="Launches an interactive SSH terminal connection to your ZimaOS server in a dedicated window.",
     sensitive=False,
 )
-def open_zimaos_ssh(ssh_user: str | None = None, port: int | str | None = None, **kwargs) -> Tuple[bool, str]:
+def open_zimaos_ssh(
+    ssh_user: str | None = None, port: int | str | None = None, **kwargs
+) -> tuple[bool, str]:
     """Opens a dedicated terminal window running an SSH session to the ZimaOS home server."""
     import shutil
     import subprocess
@@ -1188,17 +1318,21 @@ def open_zimaos_ssh(ssh_user: str | None = None, port: int | str | None = None, 
     try:
         wt_path = shutil.which("wt") or shutil.which("wt.exe")
         if wt_path:
-            cmd = [wt_path, "-w", "0", "nt", "--title", title, "ssh"] + port_arg + [f"{user}@{clean_ip}"]
+            cmd = (
+                [wt_path, "-w", "0", "nt", "--title", title, "ssh"]
+                + port_arg
+                + [f"{user}@{clean_ip}"]
+            )
             subprocess.Popen(cmd)
             return True, f"Launched Windows Terminal SSH session to {user}@{clean_ip}."
 
         # Fallback to Command Prompt
-        target_str = f"{user}@{clean_ip}" if port_str == "22" else f"-p {port_str} {user}@{clean_ip}"
+        target_str = (
+            f"{user}@{clean_ip}" if port_str == "22" else f"-p {port_str} {user}@{clean_ip}"
+        )
         cmd_str = f'start "{title}" cmd.exe /k "ssh {target_str}"'
         subprocess.Popen(cmd_str, shell=True)
         return True, f"Launched Command Prompt SSH session to {user}@{clean_ip}."
     except Exception as e:
         logger.error(f"Failed to launch SSH terminal: {e}")
         return False, f"Failed to launch SSH terminal for {user}@{clean_ip}: {e}"
-
-

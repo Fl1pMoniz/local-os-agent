@@ -8,18 +8,16 @@ Covers:
   5. Fallback mechanisms when LLM is unavailable or offline.
 """
 
-import ast
-import json
 import unittest
 from unittest.mock import MagicMock, patch
 
 from agent import OSAgent, extract_json_payload
-from schemas import AgentResponse, ToolAction, ToolExecutionResult
-from tools import execute_tool, get_tool, list_tools
-from tools.audio import change_volume_relative, set_volume
+from schemas import AgentResponse, ToolAction
+from tools import execute_tool
+from tools.audio import set_volume
 from tools.flight import clean_flight_query
 from tools.steam import find_best_game_match, launch_steam_game
-from tools.system import kill_process, PROTECTED_PROCESSES
+from tools.system import kill_process
 from tools.zimaos import launch_zimaos_app
 
 
@@ -110,7 +108,9 @@ class TestDeterministicIntentEngineStress(unittest.TestCase):
         # Create an agent where LLM client is simulated to fail/offline
         self.agent = OSAgent(enable_voice=False)
         self.agent.client = MagicMock()
-        self.agent.client.chat.completions.create.side_effect = ConnectionError("Simulated LLM offline")
+        self.agent.client.chat.completions.create.side_effect = ConnectionError(
+            "Simulated LLM offline"
+        )
 
     def test_volume_intents_english_and_portuguese(self):
         prompts_and_tools = [
@@ -138,7 +138,9 @@ class TestDeterministicIntentEngineStress(unittest.TestCase):
     def test_mute_toggle_intents(self):
         for p in ["mute", "unmute audio", "silenciar", "colocar no mudo"]:
             plan = self.agent.query_llm(p)
-            self.assertTrue(any(a.tool == "mute_toggle" for a in plan.actions), f"Failed mute on: {p}")
+            self.assertTrue(
+                any(a.tool == "mute_toggle" for a in plan.actions), f"Failed mute on: {p}"
+            )
 
     def test_youtube_and_music_intents(self):
         # YouTube Music
@@ -301,6 +303,7 @@ class TestSystemToolsAndServerIntegration(unittest.TestCase):
 
     def test_set_timer_validation(self):
         from tools.system import set_timer
+
         # Negative or 0 should fail cleanly
         s1, m1 = set_timer(0)
         self.assertFalse(s1)
@@ -318,6 +321,7 @@ class TestSystemToolsAndServerIntegration(unittest.TestCase):
     @patch("voice.speak")
     def test_read_clipboard_aloud(self, mock_speak, mock_paste):
         from tools.system import read_clipboard_aloud
+
         # Empty clipboard
         mock_paste.return_value = ""
         s1, m1 = read_clipboard_aloud()
@@ -332,6 +336,7 @@ class TestSystemToolsAndServerIntegration(unittest.TestCase):
 
     def test_companion_roast_and_window(self):
         from tools.companion import get_active_window, roast_user
+
         s1, m1 = get_active_window()
         self.assertTrue(s1)
         self.assertIn("Active Window", m1)
@@ -343,6 +348,7 @@ class TestSystemToolsAndServerIntegration(unittest.TestCase):
     @patch("webbrowser.open")
     def test_web_aliases(self, mock_open):
         from tools.web import open_website
+
         s1, m1 = open_website("youtube")
         self.assertTrue(s1)
         mock_open.assert_called_with("https://www.youtube.com")
@@ -357,6 +363,7 @@ class TestSystemToolsAndServerIntegration(unittest.TestCase):
 
     def test_ui_state_threading_and_broadcasting(self):
         from ui.state import ui_state
+
         sub = ui_state.subscribe()
         ui_state.update(state="speaking", text="Testing state pipeline.")
         event = sub.get(timeout=2.0)

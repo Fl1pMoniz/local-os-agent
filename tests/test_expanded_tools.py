@@ -1,25 +1,25 @@
 """Unit tests for GLaDOS expanded toolset and intent routing."""
 
+import time
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from tools.companion import get_active_window, roast_user, get_active_window_info
-from tools.sfx import get_sfx_path, play_portal_sfx, stop_sfx, VPK_SFX_MAP
-from tools.web import open_website, get_weather, wikipedia_lookup, KNOWN_URL_ALIASES
+from agent import OSAgent
+from tools.companion import get_active_window, roast_user
+from tools.sfx import VPK_SFX_MAP, get_sfx_path, stop_sfx
 from tools.system import (
-    get_system_stats,
-    set_timer,
     get_clipboard,
-    set_clipboard,
-    monitor_hardware,
     get_hardware_telemetry,
+    get_system_stats,
+    monitor_hardware,
     run_live_system_monitor,
+    set_clipboard,
+    set_timer,
 )
-from agent import OSAgent, extract_json_payload
+from tools.web import KNOWN_URL_ALIASES, open_website
 
 
 class TestExpandedTools(unittest.TestCase):
-
     def test_known_website_aliases(self):
         self.assertIn("youtube", KNOWN_URL_ALIASES)
         self.assertIn("github", KNOWN_URL_ALIASES)
@@ -50,7 +50,7 @@ class TestExpandedTools(unittest.TestCase):
         self.assertIn("radio", VPK_SFX_MAP)
         self.assertIn("turret_hello", VPK_SFX_MAP)
         # Verify get_sfx_path returns a Path or None without crashing
-        path = get_sfx_path("radio")
+        _path = get_sfx_path("radio")
         # stop_sfx should succeed safely
         stop_success, stop_msg = stop_sfx()
         self.assertTrue(stop_success)
@@ -125,13 +125,16 @@ class TestExpandedTools(unittest.TestCase):
 
 
 class TestAgentDeterministicIntents(unittest.TestCase):
-
     @patch("openai.resources.chat.completions.Completions.create")
     def test_intent_intercepts(self, mock_create):
         # Configure mock LLM response with default conversational reply
         mock_response = MagicMock()
         mock_response.choices = [
-            MagicMock(message=MagicMock(content='{"thought": "Processing", "response": "Yes, test subject?", "actions": []}'))
+            MagicMock(
+                message=MagicMock(
+                    content='{"thought": "Processing", "response": "Yes, test subject?", "actions": []}'
+                )
+            )
         ]
         mock_create.return_value = mock_response
 
@@ -143,7 +146,12 @@ class TestAgentDeterministicIntents(unittest.TestCase):
 
         # Test portal radio intent
         plan = agent.query_llm("GLaDOS play the portal radio")
-        self.assertTrue(any(a.tool == "play_portal_sfx" and a.args.get("effect_name") == "radio" for a in plan.actions))
+        self.assertTrue(
+            any(
+                a.tool == "play_portal_sfx" and a.args.get("effect_name") == "radio"
+                for a in plan.actions
+            )
+        )
 
         # Test stop radio
         plan = agent.query_llm("GLaDOS stop radio now")
@@ -159,24 +167,45 @@ class TestAgentDeterministicIntents(unittest.TestCase):
 
         # Test volume relative up & down
         plan_up = agent.query_llm("GLaDOS volume up please")
-        self.assertTrue(any(a.tool == "change_volume_relative" and a.args.get("delta") == 15 for a in plan_up.actions))
+        self.assertTrue(
+            any(
+                a.tool == "change_volume_relative" and a.args.get("delta") == 15
+                for a in plan_up.actions
+            )
+        )
 
         plan_down = agent.query_llm("GLaDOS turn it down")
-        self.assertTrue(any(a.tool == "change_volume_relative" and a.args.get("delta") == -15 for a in plan_down.actions))
+        self.assertTrue(
+            any(
+                a.tool == "change_volume_relative" and a.args.get("delta") == -15
+                for a in plan_down.actions
+            )
+        )
 
         plan_exact = agent.query_llm("GLaDOS set volume to 40%")
-        self.assertTrue(any(a.tool == "set_volume" and a.args.get("level") == 40 for a in plan_exact.actions))
+        self.assertTrue(
+            any(a.tool == "set_volume" and a.args.get("level") == 40 for a in plan_exact.actions)
+        )
 
         # Test YouTube Music vs regular YouTube
         plan_ytm = agent.query_llm("GLaDOS play Radiohead on youtube music")
-        self.assertTrue(any(a.tool == "play_youtube" and a.args.get("music") is True for a in plan_ytm.actions))
+        self.assertTrue(
+            any(a.tool == "play_youtube" and a.args.get("music") is True for a in plan_ytm.actions)
+        )
 
         plan_yt = agent.query_llm("GLaDOS search portal trailer on youtube")
-        self.assertTrue(any(a.tool == "play_youtube" and a.args.get("music") is False for a in plan_yt.actions))
+        self.assertTrue(
+            any(a.tool == "play_youtube" and a.args.get("music") is False for a in plan_yt.actions)
+        )
 
         # Test Flightradar24 tracking intent
         plan_flight = agent.query_llm("GLaDOS track flight AA100")
-        self.assertTrue(any(a.tool == "track_flight" and "AA100" in a.args.get("flight_query", "") for a in plan_flight.actions))
+        self.assertTrue(
+            any(
+                a.tool == "track_flight" and "AA100" in a.args.get("flight_query", "")
+                for a in plan_flight.actions
+            )
+        )
 
         # Test Flight telemetry vs tracking queries
         plan_tracked = agent.query_llm("GLaDOS info on tracked flight")
@@ -199,18 +228,29 @@ class TestAgentDeterministicIntents(unittest.TestCase):
         self.assertTrue(any(a.tool == "open_zimaos_dashboard" for a in plan_zima_dash.actions))
 
         plan_zima_launch = agent.query_llm("GLaDOS launch Plex on ZimaOS")
-        self.assertTrue(any(a.tool == "launch_zimaos_app" and "plex" in a.args.get("app_name", "").lower() for a in plan_zima_launch.actions))
+        self.assertTrue(
+            any(
+                a.tool == "launch_zimaos_app" and "plex" in a.args.get("app_name", "").lower()
+                for a in plan_zima_launch.actions
+            )
+        )
 
         # Test hardware monitor intent
-        plan_hw_live = agent.query_llm("I want a tool for a live tracker of my pc component usage and temps")
-        self.assertTrue(any(a.tool == "monitor_hardware" and a.args.get("live") is True for a in plan_hw_live.actions))
+        plan_hw_live = agent.query_llm(
+            "I want a tool for a live tracker of my pc component usage and temps"
+        )
+        self.assertTrue(
+            any(
+                a.tool == "monitor_hardware" and a.args.get("live") is True
+                for a in plan_hw_live.actions
+            )
+        )
 
         plan_hw = agent.query_llm("GLaDOS show pc component usage and temps")
         self.assertTrue(any(a.tool == "monitor_hardware" for a in plan_hw.actions))
 
 
 class TestNewTools(unittest.TestCase):
-
     @patch("urllib.request.urlopen")
     def test_track_flight_mock(self, mock_urlopen):
         from tools.flight import track_flight
@@ -227,6 +267,7 @@ class TestNewTools(unittest.TestCase):
 
         # Check that ui_state has tracked_flight set
         from ui.state import ui_state
+
         state = ui_state.get_state()
         self.assertIsNotNone(state.get("tracked_flight"))
         self.assertEqual(state["tracked_flight"]["callsign"], "AA100")
@@ -249,11 +290,12 @@ class TestNewTools(unittest.TestCase):
             "status": "Cruising",
             "lat": -12.3456,
             "lon": -45.6789,
-            "fr24_url": "https://www.flightradar24.com/DL450"
+            "fr24_url": "https://www.flightradar24.com/DL450",
+            "updated_at": time.time(),
         }
         ui_state.update(tracked_flight=test_flight)
 
-        success, hud_output = get_tracked_flight_info()
+        success, hud_output = get_tracked_flight_info(auto_refresh=False)
         self.assertTrue(success)
         self.assertIn("DL450", hud_output)
         self.assertIn("ATL -> GRU", hud_output)
@@ -268,15 +310,23 @@ class TestNewTools(unittest.TestCase):
 
         # Verify all 11 HUD fields are present and match website interface
         required_fields = [
-            "Callsign / Flight", "Airspace Route", "Radar Status", "Predicted Landing",
-            "Aircraft Model", "Registration", "Live Altitude",
-            "Ground Speed", "Flight Heading", "Coordinates", "Live Radar URL"
+            "Callsign / Flight",
+            "Airspace Route",
+            "Radar Status",
+            "Predicted Landing",
+            "Aircraft Model",
+            "Registration",
+            "Live Altitude",
+            "Ground Speed",
+            "Flight Heading",
+            "Coordinates",
+            "Live Radar URL",
         ]
         for field in required_fields:
             self.assertIn(field, hud_output)
 
     def test_haversine_and_eta_calculation(self):
-        from tools.flight import haversine_distance_nm, calculate_predicted_landing
+        from tools.flight import calculate_predicted_landing, haversine_distance_nm
 
         # Distance between JFK (40.6413, -73.7781) and LHR (51.4700, -0.4543) ~ 3000 NM
         dist = haversine_distance_nm(40.6413, -73.7781, 51.4700, -0.4543)
@@ -285,7 +335,7 @@ class TestNewTools(unittest.TestCase):
 
         # Cruising at 500 knots, 1000 NM away should predict approx 120-130 minutes
         # Lat 40, Lon -50 to Lat 40, Lon -30
-        dist_1000 = haversine_distance_nm(40.0, -50.0, 40.0, -30.0)
+        _dist_1000 = haversine_distance_nm(40.0, -50.0, 40.0, -30.0)
         minutes, eta_str = calculate_predicted_landing(40.0, -50.0, 500, "LHR", 35000)
         self.assertIsNotNone(minutes)
         self.assertGreater(minutes, 60)
@@ -310,7 +360,7 @@ class TestNewTools(unittest.TestCase):
             "status": "Cruising",
             "lat": 14.8123,
             "lon": -24.5432,
-            "fr24_url": "https://www.flightradar24.com/AEA185"
+            "fr24_url": "https://www.flightradar24.com/AEA185",
         }
         hud = format_flight_telemetry(float_telemetry)
         self.assertIn("AEA185", hud)
@@ -340,7 +390,7 @@ class TestNewTools(unittest.TestCase):
             "predicted_minutes": 34,
             "eta_str": "34 min (ETA ~13:04 UTC)",
             "updated_at": 1789302644.0,
-            "fr24_url": "https://www.flightradar24.com/SAT442"
+            "fr24_url": "https://www.flightradar24.com/SAT442",
         }
         ui_state.update(tracked_flight=test_flight)
         # Should execute exactly 1 tick and return cleanly without error
@@ -362,6 +412,7 @@ class TestNewTools(unittest.TestCase):
     @patch("webbrowser.open")
     def test_open_zimaos_dashboard(self, mock_open):
         from tools.zimaos import open_zimaos_dashboard
+
         mock_open.return_value = True
         success, msg = open_zimaos_dashboard()
         self.assertTrue(success)
@@ -371,6 +422,7 @@ class TestNewTools(unittest.TestCase):
     @patch("urllib.request.urlopen")
     def test_launch_zimaos_app_mock(self, mock_urlopen, mock_browser):
         from tools.zimaos import launch_zimaos_app
+
         mock_browser.return_value = True
 
         mock_resp = MagicMock()
@@ -386,10 +438,11 @@ class TestNewTools(unittest.TestCase):
     def test_custom_zima_apps_crud_and_launch(self, mock_browser):
         from tools.zimaos import (
             add_custom_zima_app,
-            get_custom_zima_apps,
             delete_custom_zima_app,
-            launch_zimaos_app
+            get_custom_zima_apps,
+            launch_zimaos_app,
         )
+
         mock_browser.return_value = True
 
         # 1. Add custom app
@@ -424,9 +477,19 @@ class TestNewTools(unittest.TestCase):
         from tools.media import clean_youtube_query, play_youtube
 
         # Verify query cleaning
-        self.assertEqual(clean_youtube_query("open the song Bohemian Rhapsody and start playing it on youtube music"), "Bohemian Rhapsody")
-        self.assertEqual(clean_youtube_query("start playing Still Alive on youtube music"), "Still Alive")
-        self.assertEqual(clean_youtube_query("open the song and start playing it on youtube music"), "Still Alive Portal")
+        self.assertEqual(
+            clean_youtube_query(
+                "open the song Bohemian Rhapsody and start playing it on youtube music"
+            ),
+            "Bohemian Rhapsody",
+        )
+        self.assertEqual(
+            clean_youtube_query("start playing Still Alive on youtube music"), "Still Alive"
+        )
+        self.assertEqual(
+            clean_youtube_query("open the song and start playing it on youtube music"),
+            "Still Alive Portal",
+        )
 
         # Verify direct playback URL construction
         success, msg = play_youtube("Bohemian Rhapsody Queen", music=True, open_browser=True)
@@ -437,7 +500,7 @@ class TestNewTools(unittest.TestCase):
         self.assertTrue(opened_url.startswith("https://music.youtube.com/"))
 
     def test_zimaos_telemetry_hud(self):
-        from tools.zimaos import get_zimaos_telemetry, format_zimaos_hud, monitor_zimaos
+        from tools.zimaos import format_zimaos_hud, get_zimaos_telemetry, monitor_zimaos
 
         # 1. Test telemetry structure
         telemetry = get_zimaos_telemetry()
@@ -454,7 +517,10 @@ class TestNewTools(unittest.TestCase):
             "cpu": {"percent": 15.2, "temp_c": 42.0, "model": "Intel N100"},
             "ram": {"total_gb": 16.0, "used_gb": 4.5, "percent": 28.1},
             "disk": {"total_gb": 512.0, "used_gb": 120.0, "percent": 23.4},
-            "services": [{"port": 80, "name": "ZimaOS Web GUI"}, {"port": 8123, "name": "Home Assistant"}],
+            "services": [
+                {"port": 80, "name": "ZimaOS Web GUI"},
+                {"port": 8123, "name": "Home Assistant"},
+            ],
             "auth_status": "[* ACTIVE]",
         }
         hud = format_zimaos_hud(synth_data)
@@ -469,8 +535,8 @@ class TestNewTools(unittest.TestCase):
         self.assertIn("hud_card", res)
 
     def test_set_zimaos_host_tool(self):
-        from tools.zimaos import set_zimaos_host, get_zimaos_host
         from config import config
+        from tools.zimaos import get_zimaos_host, set_zimaos_host
 
         # Test changing to custom IP
         success, msg = set_zimaos_host("192.168.1.200")
@@ -486,6 +552,7 @@ class TestNewTools(unittest.TestCase):
 
     def test_zimaos_live_runner(self):
         from tools.zimaos import run_live_zimaos_monitor
+
         # Bounded run of 1 tick should complete without exceptions
         try:
             run_live_zimaos_monitor(interval=0.01, max_ticks=1)
@@ -496,17 +563,30 @@ class TestNewTools(unittest.TestCase):
         agent = OSAgent(enable_voice=False)
 
         # 1. Test live monitoring intent
-        with patch.object(agent.client.chat.completions, "create", side_effect=Exception("LLM simulated offline")):
+        with patch.object(
+            agent.client.chat.completions, "create", side_effect=Exception("LLM simulated offline")
+        ):
             plan = agent.query_llm("monitor my zimaos server live")
-            self.assertTrue(any(a.tool == "monitor_zimaos" and a.args.get("live") is True for a in plan.actions))
+            self.assertTrue(
+                any(a.tool == "monitor_zimaos" and a.args.get("live") is True for a in plan.actions)
+            )
 
         # 2. Test IP reconfiguration intent
-        with patch.object(agent.client.chat.completions, "create", side_effect=Exception("LLM simulated offline")):
+        with patch.object(
+            agent.client.chat.completions, "create", side_effect=Exception("LLM simulated offline")
+        ):
             plan = agent.query_llm("change my zimaos ip to 192.168.1.123")
-            self.assertTrue(any(a.tool == "set_zimaos_host" and "192.168.1.123" in a.args.get("new_host", "") for a in plan.actions))
+            self.assertTrue(
+                any(
+                    a.tool == "set_zimaos_host" and "192.168.1.123" in a.args.get("new_host", "")
+                    for a in plan.actions
+                )
+            )
 
         # 3. Test generic zimaos check & monitor zimaos
-        with patch.object(agent.client.chat.completions, "create", side_effect=Exception("LLM simulated offline")):
+        with patch.object(
+            agent.client.chat.completions, "create", side_effect=Exception("LLM simulated offline")
+        ):
             plan_mon = agent.query_llm("monitor zimaos")
             self.assertTrue(any(a.tool == "monitor_zimaos" for a in plan_mon.actions))
 
@@ -516,5 +596,3 @@ class TestNewTools(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-

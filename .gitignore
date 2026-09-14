@@ -55,6 +55,10 @@ captures/zimaos_credentials.json
 captures/zimaos_config.json
 discord_config.json
 captures/discord_config.json
-*discord*.json
+# Test and lint caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
 

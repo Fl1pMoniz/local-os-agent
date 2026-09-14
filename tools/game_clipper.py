@@ -4,14 +4,12 @@ to reliably capture and archive high-frame-rate highlights with active game meta
 """
 
 import ctypes
-from ctypes import wintypes
 import json
 import logging
 import os
 import pathlib
 import random
 import re
-import shutil
 import subprocess
 import time
 from typing import Any
@@ -37,7 +35,7 @@ GLADOS_CLIP_QUIPS = [
     "Your tactical maneuvers have been archived for future grief counseling.",
     "Test replay saved. I am certain the enrichment center inspectors will be amused.",
     "Clip recorded. In layman's terms: speedy thing goes in, questionable decision comes out.",
-    "The replay buffer has been saved. Please note that any appearance of skill was merely an illusion."
+    "The replay buffer has been saved. Please note that any appearance of skill was merely an illusion.",
 ]
 
 
@@ -62,9 +60,16 @@ def _get_active_window_title() -> str:
 def _find_obs_executable() -> pathlib.Path | None:
     """Discovers the OBS Studio binary on the system (Steam or standalone)."""
     candidates = [
-        pathlib.Path(r"C:\Program Files (x86)\Steam\steamapps\common\OBS Studio\bin\64bit\obs64.exe"),
+        pathlib.Path(
+            r"C:\Program Files (x86)\Steam\steamapps\common\OBS Studio\bin\64bit\obs64.exe"
+        ),
         pathlib.Path(r"C:\Program Files\obs-studio\bin\64bit\obs64.exe"),
-        pathlib.Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "obs-studio" / "bin" / "64bit" / "obs64.exe",
+        pathlib.Path(os.environ.get("LOCALAPPDATA", ""))
+        / "Programs"
+        / "obs-studio"
+        / "bin"
+        / "64bit"
+        / "obs64.exe",
     ]
     for p in candidates:
         if p.exists():
@@ -79,7 +84,7 @@ def _is_obs_running() -> bool:
             ["tasklist", "/fi", "imagename eq obs64.exe", "/fo", "csv", "/nh"],
             capture_output=True,
             text=True,
-            timeout=2
+            timeout=2,
         )
         if "obs64.exe" in res.stdout.lower():
             return True
@@ -87,7 +92,7 @@ def _is_obs_running() -> bool:
             ["tasklist", "/fi", "imagename eq obs.exe", "/fo", "csv", "/nh"],
             capture_output=True,
             text=True,
-            timeout=2
+            timeout=2,
         )
         return "obs.exe" in res_32.stdout.lower()
     except Exception:
@@ -96,13 +101,19 @@ def _is_obs_running() -> bool:
 
 def _load_obs_websocket_config() -> tuple[int, str, bool]:
     """Loads OBS WebSocket port, password, and auth requirements from plugin config."""
-    config_path = pathlib.Path(os.environ.get("APPDATA", "")) / "obs-studio" / "plugin_config" / "obs-websocket" / "config.json"
+    config_path = (
+        pathlib.Path(os.environ.get("APPDATA", ""))
+        / "obs-studio"
+        / "plugin_config"
+        / "obs-websocket"
+        / "config.json"
+    )
     port = 4455
     password = ""
     auth_required = False
     if config_path.exists():
         try:
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(config_path, encoding="utf-8") as f:
                 data = json.load(f)
                 port = data.get("server_port", 4455)
                 password = data.get("server_password", "")
@@ -119,7 +130,7 @@ def _launch_obs_process() -> bool:
         try:
             subprocess.Popen(
                 [str(exe_path), "--startreplaybuffer", "--minimize-to-tray"],
-                cwd=str(exe_path.parent)
+                cwd=str(exe_path.parent),
             )
             logger.info("Launched OBS Studio binary with --startreplaybuffer --minimize-to-tray.")
             return True
@@ -157,15 +168,13 @@ def ensure_obs_replay_buffer(timeout_sec: float = 12.0) -> bool:
     # Connect to WebSocket and ensure Replay Buffer is active
     try:
         import obsws_python as obs
+
         port, pwd, auth = _load_obs_websocket_config()
         deadline = time.time() + timeout_sec
         while time.time() < deadline:
             try:
                 c = obs.ReqClient(
-                    host="localhost",
-                    port=port,
-                    password=pwd if auth and pwd else None,
-                    timeout=1.0
+                    host="localhost", port=port, password=pwd if auth and pwd else None, timeout=1.0
                 )
                 st = c.get_replay_buffer_status()
                 if not getattr(st, "output_active", False):
@@ -188,12 +197,13 @@ def _trigger_obs_websocket(seconds: int = 30) -> tuple[bool, str | None, str]:
     """
     try:
         import obsws_python as obs
+
         port, password, auth_required = _load_obs_websocket_config()
         client = obs.ReqClient(
             host="localhost",
             port=port,
             password=password if auth_required and password else None,
-            timeout=1.5
+            timeout=1.5,
         )
 
         status = client.get_replay_buffer_status()
@@ -201,7 +211,11 @@ def _trigger_obs_websocket(seconds: int = 30) -> tuple[bool, str | None, str]:
         if not is_active:
             client.start_replay_buffer()
             logger.info("OBS Replay Buffer was stopped; started Replay Buffer now.")
-            return False, None, "Replay Buffer was not running. I have started it now; please wait a few seconds before clipping."
+            return (
+                False,
+                None,
+                "Replay Buffer was not running. I have started it now; please wait a few seconds before clipping.",
+            )
 
         client.save_replay_buffer()
         logger.info("Dispatched SaveReplayBuffer to OBS Studio via WebSocket.")
@@ -216,7 +230,11 @@ def _trigger_obs_websocket(seconds: int = 30) -> tuple[bool, str | None, str]:
                     initial_size = os.path.getsize(saved_path)
                     time.sleep(0.3)
                     if os.path.getsize(saved_path) == initial_size and initial_size > 0:
-                        return True, saved_path, "OBS Studio Replay Buffer saved successfully via WebSocket."
+                        return (
+                            True,
+                            saved_path,
+                            "OBS Studio Replay Buffer saved successfully via WebSocket.",
+                        )
             except Exception:
                 pass
             time.sleep(0.3)
@@ -226,7 +244,11 @@ def _trigger_obs_websocket(seconds: int = 30) -> tuple[bool, str | None, str]:
         if latest and latest.exists() and latest.stat().st_size > 0:
             return True, str(latest), "OBS Studio Replay Buffer clip written to disk."
 
-        return False, None, "OBS Studio SaveReplayBuffer was signaled, but no finalized file was written to disk."
+        return (
+            False,
+            None,
+            "OBS Studio SaveReplayBuffer was signaled, but no finalized file was written to disk.",
+        )
     except Exception as e:
         logger.warning(f"OBS WebSocket command failed: {e}")
         return False, None, f"OBS WebSocket connection error: {e}"
@@ -271,7 +293,9 @@ def find_latest_clip(max_age_seconds: int = 45) -> pathlib.Path | None:
     return newest_file
 
 
-def organize_and_label_clip(source_path: str | pathlib.Path, active_game: str = "Active Game") -> pathlib.Path:
+def organize_and_label_clip(
+    source_path: str | pathlib.Path, active_game: str = "Active Game"
+) -> pathlib.Path:
     """
     Organizes and renames raw replay clips into a unified, clean directory:
     e.g. C:\\Users\\<user>\\Videos\\Captures\\[Clean Game Name] - Highlight YYYY_MM_DD_HH_MM_SS.mp4
@@ -284,13 +308,18 @@ def organize_and_label_clip(source_path: str | pathlib.Path, active_game: str = 
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     # Sanitize game title for Windows filename
-    clean_title = re.sub(r'[\/:*?"<>|]', '', active_game)
-    clean_title = re.sub(r'\s*(?:v\d[\d\.]*|\(.*?\)|\[.*?\])', '', clean_title).strip()
-    if not clean_title or clean_title.lower() in ("desktop", "active game", "unknown application", "active application"):
+    clean_title = re.sub(r'[\/:*?"<>|]', "", active_game)
+    clean_title = re.sub(r"\s*(?:v\d[\d\.]*|\(.*?\)|\[.*?\])", "", clean_title).strip()
+    if not clean_title or clean_title.lower() in (
+        "desktop",
+        "active game",
+        "unknown application",
+        "active application",
+    ):
         clean_title = "PC Highlight"
 
     # Extract or generate timestamp
-    match = re.search(r'(\d{4}[-_]\d{2}[-_]\d{2}[-_ ]\d{2}[-_]\d{2}[-_]\d{2})', src.name)
+    match = re.search(r"(\d{4}[-_]\d{2}[-_]\d{2}[-_ ]\d{2}[-_]\d{2}[-_]\d{2})", src.name)
     if match:
         ts_str = match.group(1).replace("-", "_").replace(" ", "_")
     else:
@@ -304,6 +333,7 @@ def organize_and_label_clip(source_path: str | pathlib.Path, active_game: str = 
 
     try:
         import shutil
+
         shutil.move(str(src), str(dest_file))
         logger.info(f"Organized clip '{src.name}' -> '{dest_file.name}' in {dest_dir}")
         return dest_file
@@ -317,7 +347,7 @@ def format_clip_card(
     file_path: str,
     file_size_mb: float,
     duration_str: str = "30s",
-    engine: str = "OBS Studio Replay Buffer (WebSocket)"
+    engine: str = "OBS Studio Replay Buffer (WebSocket)",
 ) -> str:
     """Generates retro ASCII Aperture Science highlight terminal card."""
     filename = os.path.basename(file_path) if file_path else "Pending Video Buffer Flush"
@@ -370,7 +400,7 @@ def capture_game_clip(seconds: int = 30) -> dict[str, Any]:
                 "Capture failed: OBS Studio was not running, so no past gameplay was buffered in memory. "
                 "I have launched OBS Studio and primed the Replay Buffer now. "
                 "Please wait a few seconds for gameplay to buffer, then retry."
-            )
+            ),
         }
 
     # OBS is running: trigger replay buffer via WebSocket
@@ -395,7 +425,7 @@ def capture_game_clip(seconds: int = 30) -> dict[str, Any]:
             "file_size_mb": 0.0,
             "terminal_card": card,
             "quip": "Highlight capture failed. No video was saved to disk.",
-            "message": f"Highlight capture failed: {ws_msg}"
+            "message": f"Highlight capture failed: {ws_msg}",
         }
 
     # Automatically organize and label clip into Videos/Captures
@@ -416,11 +446,13 @@ def capture_game_clip(seconds: int = 30) -> dict[str, Any]:
         file_path=saved_path_str,
         file_size_mb=file_size,
         duration_str=f"{seconds}s",
-        engine=engine_name
+        engine=engine_name,
     )
 
     quip = random.choice(GLADOS_CLIP_QUIPS)
-    msg = f"Successfully captured {seconds}s highlight for '{active_game}' via {engine_name}. {quip}"
+    msg = (
+        f"Successfully captured {seconds}s highlight for '{active_game}' via {engine_name}. {quip}"
+    )
 
     return {
         "success": True,
@@ -432,7 +464,7 @@ def capture_game_clip(seconds: int = 30) -> dict[str, Any]:
         "file_size_mb": round(file_size, 1),
         "terminal_card": ascii_card,
         "quip": quip,
-        "message": msg
+        "message": msg,
     }
 
 
@@ -446,31 +478,34 @@ def launch_obs(start_buffer: bool = True) -> dict[str, Any]:
         # Ensure replay buffer is active
         try:
             import obsws_python as obs
+
             port, pwd, auth = _load_obs_websocket_config()
-            c = obs.ReqClient(host="localhost", port=port, password=pwd if auth and pwd else None, timeout=1.0)
+            c = obs.ReqClient(
+                host="localhost", port=port, password=pwd if auth and pwd else None, timeout=1.0
+            )
             st = c.get_replay_buffer_status()
             if not getattr(st, "output_active", False):
                 c.start_replay_buffer()
                 return {
                     "success": True,
-                    "message": "OBS Studio was already running. Started Replay Buffer via WebSocket."
+                    "message": "OBS Studio was already running. Started Replay Buffer via WebSocket.",
                 }
         except Exception:
             pass
         return {
             "success": True,
-            "message": "OBS Studio is already running and Replay Buffer is active."
+            "message": "OBS Studio is already running and Replay Buffer is active.",
         }
 
     ok = ensure_obs_replay_buffer(timeout_sec=10.0)
     if ok:
         return {
             "success": True,
-            "message": "OBS Studio launched successfully with Replay Buffer primed and active."
+            "message": "OBS Studio launched successfully with Replay Buffer primed and active.",
         }
     return {
         "success": False,
-        "message": "Failed to launch OBS Studio or connect to WebSocket server."
+        "message": "Failed to launch OBS Studio or connect to WebSocket server.",
     }
 
 
@@ -483,12 +518,14 @@ def list_recent_clips(limit: int = 5) -> dict[str, Any]:
             for p in d.glob(ext):
                 try:
                     stat = p.stat()
-                    clips.append({
-                        "name": p.name,
-                        "path": str(p),
-                        "size_mb": round(stat.st_size / (1024 * 1024), 1),
-                        "mtime": stat.st_mtime
-                    })
+                    clips.append(
+                        {
+                            "name": p.name,
+                            "path": str(p),
+                            "size_mb": round(stat.st_size / (1024 * 1024), 1),
+                            "mtime": stat.st_mtime,
+                        }
+                    )
                 except Exception:
                     continue
 
@@ -499,7 +536,7 @@ def list_recent_clips(limit: int = 5) -> dict[str, Any]:
     lines = [
         "+====================================================================+",
         "|         APERTURE SCIENCE RECORDED HIGHLIGHT ARCHIVES               |",
-        "+====================================================================+"
+        "+====================================================================+",
     ]
     if not recent:
         lines.append("| No recent test subject highlights discovered in capture paths.     |")
@@ -509,11 +546,7 @@ def list_recent_clips(limit: int = 5) -> dict[str, Any]:
             lines.append(f"| {idx}. {c['name'][:34]:<34} | {c['size_mb']:>5.1f} MB | {date_str} |")
     lines.append("+--------------------------------------------------------------------+")
 
-    return {
-        "count": len(recent),
-        "clips": recent,
-        "terminal_card": "\n".join(lines)
-    }
+    return {"count": len(recent), "clips": recent, "terminal_card": "\n".join(lines)}
 
 
 @register_tool

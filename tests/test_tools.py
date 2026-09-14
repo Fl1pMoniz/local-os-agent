@@ -1,7 +1,7 @@
 """Tests for core tools: system stats, screenshots, audio, and tool registry."""
 
 import unittest
-from pathlib import Path
+
 from tools import execute_tool, get_tool, list_tools
 
 
@@ -57,4 +57,3 @@ class TestTools(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

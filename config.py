@@ -13,7 +13,9 @@ class AgentConfig:
     llm_model: str = os.getenv("LLM_MODEL", "glados:3b")
     llm_temperature: float = float(os.getenv("LLM_TEMPERATURE", "0.2"))
     llm_timeout: float = float(os.getenv("LLM_TIMEOUT", "45.0"))
-    llm_num_ctx: int = int(os.getenv("LLM_NUM_CTX", "2048"))  # Limit KV cache to 2k tokens (< 200MB VRAM)
+    llm_num_ctx: int = int(
+        os.getenv("LLM_NUM_CTX", "2048")
+    )  # Limit KV cache to 2k tokens (< 200MB VRAM)
     llm_max_tokens: int = int(os.getenv("LLM_MAX_TOKENS", "120"))  # Enforce concise responses
 
     # Project Directories
@@ -29,14 +31,22 @@ class AgentConfig:
 
     # Voice & Wake Word Settings
     enable_tts: bool = os.getenv("ENABLE_TTS", "true").lower() in ("true", "1", "yes")
-    voice_recognition_enabled: bool = os.getenv("VOICE_RECOGNITION", "false").lower() in ("true", "1", "yes")
+    voice_recognition_enabled: bool = os.getenv("VOICE_RECOGNITION", "false").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
     tts_voice: str = os.getenv("TTS_VOICE", "glados")
     tts_rate: str = os.getenv("TTS_RATE", "-4%")  # Deliberate, unhurried Portal 2 delivery
     tts_pitch: str = os.getenv("TTS_PITCH", "+4Hz")  # Ellen McLain GLaDOS tonal lift
     stt_engine: str = os.getenv("STT_ENGINE", "whisper")  # "whisper" (OpenAI Whisper) or "google"
-    whisper_model: str = os.getenv("WHISPER_MODEL", "base.en")  # "base.en" for accurate, fast GPU inference
+    whisper_model: str = os.getenv(
+        "WHISPER_MODEL", "base.en"
+    )  # "base.en" for accurate, fast GPU inference
     whisper_device: str = os.getenv("WHISPER_DEVICE", "cuda")  # "cuda" (GPU) or "cpu"
-    whisper_vram_limit_mb: int = int(os.getenv("WHISPER_VRAM_LIMIT_MB", "1024"))  # Hard limit GPU VRAM to <= 1GB
+    whisper_vram_limit_mb: int = int(
+        os.getenv("WHISPER_VRAM_LIMIT_MB", "1024")
+    )  # Hard limit GPU VRAM to <= 1GB
     stt_language: str = os.getenv("STT_LANGUAGE", "en")
     wake_word: str = os.getenv("WAKE_WORD", "glados").lower()
     require_wake_word: bool = os.getenv("REQUIRE_WAKE_WORD", "true").lower() in ("true", "1", "yes")
@@ -62,4 +72,3 @@ class AgentConfig:
 
 
 config = AgentConfig()
-

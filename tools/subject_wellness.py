@@ -3,7 +3,6 @@ Ergonomics, hydration, eye strain intervals, and session monitoring
 delivered with authentic GLaDOS testing axioms and dark humor.
 """
 
-import datetime
 import logging
 import random
 import time
@@ -23,16 +22,12 @@ GLADOS_WELLNESS_QUIPS = [
     "Attention test subject: Hydration is mandatory. Unconscious test subjects produce statistically invalid research data.",
     "Your continuous sedentary state has been noted. Please blink twenty times and look at a distant wall before resuming.",
     "Ingesting dihydrogen monoxide is recommended to prevent premature biological expiration.",
-    "Congratulations. You have remained stationary for an extended period. A triumph of human resilience. Or lethargy."
+    "Congratulations. You have remained stationary for an extended period. A triumph of human resilience. Or lethargy.",
 ]
 
 
 def format_wellness_card(
-    session_str: str,
-    hydration_str: str,
-    breaks_count: int,
-    assessment: str,
-    axiom: str
+    session_str: str, hydration_str: str, breaks_count: int, assessment: str, axiom: str
 ) -> str:
     """Generates ASCII Subject Biometric & Compliance HUD."""
     card = (
@@ -77,7 +72,7 @@ def check_subject_status() -> dict[str, Any]:
         hydration_str=hydration_str,
         breaks_count=_breaks_completed,
         assessment=assessment,
-        axiom=axiom
+        axiom=axiom,
     )
 
     return {
@@ -86,7 +81,7 @@ def check_subject_status() -> dict[str, Any]:
         "session_minutes": mins,
         "water_logged_ml": _water_logged_ml,
         "terminal_card": card,
-        "message": f"Session duration: {session_str}. {axiom}"
+        "message": f"Session duration: {session_str}. {axiom}",
     }
 
 
@@ -102,15 +97,11 @@ def log_water_intake(milliliters: int = 250) -> dict[str, Any]:
     quips = [
         f"Hydration of {milliliters} mL recorded. Your biological degradation has been delayed by another cycle.",
         f"{milliliters} mL logged. The Enrichment Center appreciates your compliance with basic survival requirements.",
-        f"Water intake noted ({_water_logged_ml} mL total). You are now minimally capable of enduring further testing."
+        f"Water intake noted ({_water_logged_ml} mL total). You are now minimally capable of enduring further testing.",
     ]
     quip = random.choice(quips)
 
-    return {
-        "success": True,
-        "total_water_ml": _water_logged_ml,
-        "message": quip
-    }
+    return {"success": True, "total_water_ml": _water_logged_ml, "message": quip}
 
 
 @register_tool
@@ -123,6 +114,5 @@ def log_eye_break() -> dict[str, Any]:
     return {
         "success": True,
         "breaks_completed": _breaks_completed,
-        "message": "Ergonomic interval archived. Retinal fatigue sensors recalibrated. Please resume testing."
+        "message": "Ergonomic interval archived. Retinal fatigue sensors recalibrated. Please resume testing.",
     }
-

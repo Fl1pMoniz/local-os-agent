@@ -5,7 +5,6 @@ Voice actress: Ellen McLain
 """
 
 import random
-from typing import Optional
 
 # Authentic transcripts from Portal & Portal 2
 GLADOS_VOICELINES: dict[str, list[str]] = {
@@ -133,7 +132,7 @@ GLADOS_VOICELINES: dict[str, list[str]] = {
 }
 
 
-def get_glados_quote(category: str, default: Optional[str] = None) -> str:
+def get_glados_quote(category: str, default: str | None = None) -> str:
     """Returns a random authentic GLaDOS voice line from the given category."""
     lines = GLADOS_VOICELINES.get(category.lower())
     if lines:
@@ -177,4 +176,3 @@ def get_contextual_quip(tool_name: str, success: bool = True) -> str:
         return get_glados_quote("screenshot")
     else:
         return get_glados_quote("success")
-

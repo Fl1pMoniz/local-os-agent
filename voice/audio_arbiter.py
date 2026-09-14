@@ -19,25 +19,28 @@ def stop_all_audio() -> None:
     """
     try:
         from voice.tts import tts_engine
+
         tts_engine.stop()
     except Exception as e:
         logger.debug("Error stopping TTS: %s", e)
 
     try:
         from tools.soundboard import _stop_mci_soundboard
+
         _stop_mci_soundboard()
     except Exception as e:
         logger.debug("Error stopping soundboard: %s", e)
 
     try:
         from tools.songs import stop_song
+
         stop_song()
     except Exception as e:
         logger.debug("Error stopping songs: %s", e)
 
     try:
         from tools.sfx import stop_sfx
+
         stop_sfx()
     except Exception as e:
         logger.debug("Error stopping sfx: %s", e)
-

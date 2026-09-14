@@ -5,7 +5,6 @@ import logging
 import threading
 import time
 from pathlib import Path
-from typing import Tuple
 
 from config import config
 from tools import register_tool
@@ -37,6 +36,7 @@ def _extract_sfx_from_vpk(vpk_entry: str, dest_file: Path) -> bool:
     """Extracts a specific audio entry from Portal VPK."""
     try:
         from tools.steam import _find_steam_root
+
         steam_root = _find_steam_root()
         if not steam_root:
             return False
@@ -46,6 +46,7 @@ def _extract_sfx_from_vpk(vpk_entry: str, dest_file: Path) -> bool:
             return False
 
         import vpk
+
         pak = vpk.open(str(vpk_p))
         entry = pak.get_file(vpk_entry)
         if entry:
@@ -95,7 +96,7 @@ def get_sfx_path(effect_name: str) -> Path | None:
 
 
 @register_tool("stop_sfx", description="Stops any currently playing sound effect or radio loop.")
-def stop_sfx() -> Tuple[bool, str]:
+def stop_sfx() -> tuple[bool, str]:
     """Stops the currently playing SFX."""
     global _current_sfx, _stop_event
     with _lock:
@@ -114,6 +115,7 @@ def stop_sfx() -> Tuple[bool, str]:
         _current_sfx = None
         try:
             from ui.state import ui_state
+
             ui_state.update(state="idle")
         except Exception:
             pass
@@ -124,12 +126,14 @@ def _play_sfx_worker(file_path: Path, name: str) -> None:
     global _current_sfx
     try:
         from voice.tts import tts_engine
+
         tts_engine.stop()
     except Exception:
         pass
 
     try:
         from voice.audio_arbiter import GLOBAL_AUDIO_LOCK
+
         with GLOBAL_AUDIO_LOCK:
             winmm = ctypes.windll.winmm
             abs_path = str(file_path.resolve())
@@ -165,6 +169,7 @@ def _play_sfx_worker(file_path: Path, name: str) -> None:
                         _current_sfx = None
                 try:
                     from ui.state import ui_state
+
                     ui_state.update(state="idle")
                 except Exception:
                     pass
@@ -172,8 +177,11 @@ def _play_sfx_worker(file_path: Path, name: str) -> None:
         logger.debug(f"Error in sfx worker: {e}")
 
 
-@register_tool("play_portal_sfx", description="Plays authentic Portal sound effects: 'radio' (Brazilian samba loop), 'turret_hello', 'turret_target', 'turret_lost', or 'turret_goodnight'.")
-def play_portal_sfx(effect_name: str = "radio") -> Tuple[bool, str]:
+@register_tool(
+    "play_portal_sfx",
+    description="Plays authentic Portal sound effects: 'radio' (Brazilian samba loop), 'turret_hello', 'turret_target', 'turret_lost', or 'turret_goodnight'.",
+)
+def play_portal_sfx(effect_name: str = "radio") -> tuple[bool, str]:
     """Plays an authentic Portal sound effect in the background."""
     global _current_sfx, _sfx_thread, _stop_event
 
@@ -197,9 +205,12 @@ def play_portal_sfx(effect_name: str = "radio") -> Tuple[bool, str]:
 
     try:
         from ui.state import ui_state
-        ui_state.update(state="singing" if "radio" in effect_name.lower() else "speaking", text=f"Portal SFX: {display_name}")
+
+        ui_state.update(
+            state="singing" if "radio" in effect_name.lower() else "speaking",
+            text=f"Portal SFX: {display_name}",
+        )
     except Exception:
         pass
 
     return True, f"Playing Portal sound effect: '{display_name}'."
-

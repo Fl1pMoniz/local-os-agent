@@ -1,6 +1,7 @@
 """Data schemas and type definitions for the Local OS Agent."""
 
 from typing import Any, Literal
+
 from pydantic import BaseModel, Field
 
 # The exact SYSTEM_PROMPT configured with authentic GLaDOS persona from Portal & Portal 2
@@ -145,23 +146,27 @@ You must strictly adhere to this JSON format:
 
 class ToolAction(BaseModel):
     """Represents an individual tool action to be executed."""
+
     tool: str = Field(..., description="The name of the tool to execute.")
     args: dict[str, Any] = Field(default_factory=dict, description="Arguments to pass to the tool.")
 
 
 class AgentResponse(BaseModel):
     """Structured response from the LLM with conversational dialogue."""
+
     thought: str = Field(..., description="Explanation of what the agent is about to do.")
     response: str = Field(default="", description="Eloquent spoken response returned to the user.")
-    actions: list[ToolAction] = Field(default_factory=list, description="List of sequential tool actions.")
+    actions: list[ToolAction] = Field(
+        default_factory=list, description="List of sequential tool actions."
+    )
 
 
 class ToolExecutionResult(BaseModel):
     """Result of executing a tool action."""
+
     tool: str
     args: dict[str, Any] = Field(default_factory=dict)
     success: bool
     status: Literal["success", "error", "awaiting_confirmation", "cancelled"]
     message: str
     data: Any = None
-

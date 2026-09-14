@@ -6,15 +6,14 @@ UI layouts, gameplay states, or code bugs with Gemini Vision / Ollama multimodal
 import base64
 import datetime
 import io
-import json
 import logging
 import os
 import pathlib
-import re
-import requests
 from typing import Any
 
+import requests
 from PIL import Image, ImageDraw, ImageGrab
+
 from config import config
 from tools import register_tool
 from tools.game_clipper import _get_active_window_title
@@ -36,7 +35,11 @@ def capture_screen_image() -> tuple[pathlib.Path | None, str]:
         # Fallback when run in non-interactive environment
         im = Image.new("RGB", (1920, 1080), color=(20, 24, 32))
         draw = ImageDraw.Draw(im)
-        draw.text((60, 60), f"Aperture Optical Sensor Active\nTimestamp: {datetime.datetime.now()}", fill=(147, 197, 253))
+        draw.text(
+            (60, 60),
+            f"Aperture Optical Sensor Active\nTimestamp: {datetime.datetime.now()}",
+            fill=(147, 197, 253),
+        )
 
     # Resize to max 1280px width for fast transmission
     if im.width > 1280:
@@ -58,10 +61,12 @@ def format_vision_card(
     analysis_type: str,
     diagnostic_summary: str,
     confidence: str = "98.4%",
-    remediation_hint: str = "Recommended: Deploy corrective code patch."
+    remediation_hint: str = "Recommended: Deploy corrective code patch.",
 ) -> str:
     """Generates ASCII Optical Sensor diagnostic HUD."""
-    summary_lines = [diagnostic_summary[i:i+46] for i in range(0, min(len(diagnostic_summary), 138), 46)]
+    summary_lines = [
+        diagnostic_summary[i : i + 46] for i in range(0, min(len(diagnostic_summary), 138), 46)
+    ]
     while len(summary_lines) < 3:
         summary_lines.append("")
 
@@ -82,7 +87,9 @@ def format_vision_card(
 
 
 @register_tool
-def analyze_screen(prompt: str = "Inspect the screen and diagnose any compiler errors or bugs") -> dict[str, Any]:
+def analyze_screen(
+    prompt: str = "Inspect the screen and diagnose any compiler errors or bugs",
+) -> dict[str, Any]:
     """
     Captures the computer screen and uses visual AI to inspect code, compiler
     errors, terminal outputs, or deliver a witty Aperture Science assessment.
@@ -103,13 +110,17 @@ def analyze_screen(prompt: str = "Inspect the screen and diagnose any compiler e
                 "If the user asks for a roast, deliver a darkly sarcastic Portal commentary. Keep answer under 35 words."
             )
             payload = {
-                "contents": [{
-                    "parts": [
-                        {"text": f"{sys_inst}\nUser request: {prompt}\nForeground app: {active_win}"},
-                        {"inline_data": {"mime_type": "image/jpeg", "data": b64_img}}
-                    ]
-                }],
-                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 100}
+                "contents": [
+                    {
+                        "parts": [
+                            {
+                                "text": f"{sys_inst}\nUser request: {prompt}\nForeground app: {active_win}"
+                            },
+                            {"inline_data": {"mime_type": "image/jpeg", "data": b64_img}},
+                        ]
+                    }
+                ],
+                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 100},
             }
             res = requests.post(url, json=payload, timeout=10)
             if res.status_code == 200:
@@ -130,7 +141,7 @@ def analyze_screen(prompt: str = "Inspect the screen and diagnose any compiler e
                 "model": "llava",
                 "prompt": f"You are GLaDOS. Quickly diagnose this screen for: {prompt}",
                 "images": [b64_img],
-                "stream": False
+                "stream": False,
             }
             res = requests.post(ollama_url, json=payload, timeout=4)
             if res.status_code == 200:
@@ -166,7 +177,7 @@ def analyze_screen(prompt: str = "Inspect the screen and diagnose any compiler e
         analysis_type="Optical Visual Inspection",
         diagnostic_summary=diagnostic_result,
         confidence="99.2%",
-        remediation_hint=remedy
+        remediation_hint=remedy,
     )
 
     return {
@@ -175,6 +186,5 @@ def analyze_screen(prompt: str = "Inspect the screen and diagnose any compiler e
         "screenshot_path": str(filepath) if filepath else "",
         "diagnosis": diagnostic_result,
         "terminal_card": card,
-        "message": diagnostic_result
+        "message": diagnostic_result,
     }
-

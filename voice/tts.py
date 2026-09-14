@@ -3,7 +3,6 @@
 import asyncio
 import ctypes
 import logging
-import os
 import queue
 import re
 import threading
@@ -190,6 +189,7 @@ class TextToSpeech:
                 # Play file synchronously in the background thread with smart audio ducking
                 try:
                     from tools.audio_ducking import audio_ducked
+
                     with audio_ducked(target_fraction=0.20):
                         play_cmd = f"play {alias} wait"
                         winmm.mciSendStringW(play_cmd, None, 0, 0)
@@ -242,7 +242,9 @@ class TextToSpeech:
             await communicate.save(str(output_path))
         except Exception as e:
             logger.debug(f"SSML synthesis failed, falling back to standard synthesis: {e}")
-            communicate = edge_tts.Communicate(text, voice=edge_voice, rate=self.rate, pitch=self.pitch)
+            communicate = edge_tts.Communicate(
+                text, voice=edge_voice, rate=self.rate, pitch=self.pitch
+            )
             await communicate.save(str(output_path))
 
     def _speak_offline_sapi(self, text: str) -> None:
@@ -292,6 +294,7 @@ class TextToSpeech:
 
             try:
                 from ui.state import ui_state
+
                 ui_state.update(state="speaking", text=cleaned)
             except Exception:
                 pass
@@ -333,6 +336,7 @@ class TextToSpeech:
                 self._speech_queue.task_done()
                 try:
                     from ui.state import ui_state
+
                     ui_state.update(state="idle")
                 except Exception:
                     pass
@@ -378,6 +382,7 @@ class TextToSpeech:
         # Purge any pending SAPI speech immediately
         try:
             import comtypes.client
+
             speaker = comtypes.client.CreateObject("SAPI.SpVoice")
             speaker.Speak("", 2)
         except Exception:
@@ -385,6 +390,7 @@ class TextToSpeech:
 
         try:
             from ui.state import ui_state
+
             ui_state.update(state="idle")
         except Exception:
             pass

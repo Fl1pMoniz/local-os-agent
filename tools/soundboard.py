@@ -6,10 +6,8 @@ Turrets, Announcer) with automatic background audio ducking and ambient chamber 
 import asyncio
 import ctypes
 import logging
-import os
 import pathlib
 import threading
-import time
 from typing import Any
 
 from config import config
@@ -41,7 +39,7 @@ SOUNDBOARD_ENTRIES: dict[str, dict[str, Any]] = {
             "Demand to see life's manager! Make life rue the day it thought it could give Cave Johnson lemons! "
             "Do you know who I am? I'm the man who's gonna burn your house down! With the lemons! "
             "I'm gonna get my engineers to invent a combustible lemon that burns your house down!"
-        )
+        ),
     },
     "wheatley_moron": {
         "speaker": "Wheatley",
@@ -49,7 +47,7 @@ SOUNDBOARD_ENTRIES: dict[str, dict[str, Any]] = {
         "voice": "en-GB-RyanNeural",
         "rate": "+15%",
         "pitch": "+6Hz",
-        "text": "I AM NOT A MORON! Could a moron punch you into this pit? Huh? Could a moron do that?!"
+        "text": "I AM NOT A MORON! Could a moron punch you into this pit? Huh? Could a moron do that?!",
     },
     "wheatley_hello": {
         "speaker": "Wheatley",
@@ -57,7 +55,7 @@ SOUNDBOARD_ENTRIES: dict[str, dict[str, Any]] = {
         "voice": "en-GB-RyanNeural",
         "rate": "+5%",
         "pitch": "+4Hz",
-        "text": "Hello! Can you hear me? Speak up, I can't quite hear you. Hello! Anyone there?"
+        "text": "Hello! Can you hear me? Speak up, I can't quite hear you. Hello! Anyone there?",
     },
     "space": {
         "speaker": "Space Core",
@@ -65,7 +63,7 @@ SOUNDBOARD_ENTRIES: dict[str, dict[str, Any]] = {
         "voice": "en-US-ChristopherNeural",
         "rate": "+30%",
         "pitch": "+12Hz",
-        "text": "Space! Space! Gotta go to space! Yeah, yeah, yeah, space! Ba, ba, ba, space core in space!"
+        "text": "Space! Space! Gotta go to space! Yeah, yeah, yeah, space! Ba, ba, ba, space core in space!",
     },
     "neurotoxin": {
         "speaker": "GLaDOS",
@@ -76,7 +74,7 @@ SOUNDBOARD_ENTRIES: dict[str, dict[str, Any]] = {
         "text": (
             "Warning: The Enrichment Center has initiated the deadly neurotoxin countdown. "
             "You have thirty seconds to complete testing. Or stop breathing. Either outcome is acceptable."
-        )
+        ),
     },
     "turret_sorry": {
         "speaker": "Aperture Turret",
@@ -84,8 +82,8 @@ SOUNDBOARD_ENTRIES: dict[str, dict[str, Any]] = {
         "voice": "en-US-AnaNeural",
         "rate": "-10%",
         "pitch": "+16Hz",
-        "text": "Target lost. No hard feelings. I don't blame you."
-    }
+        "text": "Target lost. No hard feelings. I don't blame you.",
+    },
 }
 
 
@@ -106,11 +104,12 @@ def _synthesize_soundboard_clip(entry_key: str, dest_file: pathlib.Path) -> bool
 
     try:
         import edge_tts
+
         communicate = edge_tts.Communicate(
             text=entry["text"],
             voice=entry["voice"],
             rate=entry.get("rate", "+0%"),
-            pitch=entry.get("pitch", "+0Hz")
+            pitch=entry.get("pitch", "+0Hz"),
         )
         asyncio.run(communicate.save(str(dest_file)))
         return dest_file.exists() and dest_file.stat().st_size > 0
@@ -123,12 +122,14 @@ def _play_file_with_ducking(file_path: pathlib.Path):
     """Plays audio file with background audio ducking and global audio lock."""
     try:
         from voice.tts import tts_engine
+
         tts_engine.stop()
     except Exception:
         pass
 
     try:
         from voice.audio_arbiter import GLOBAL_AUDIO_LOCK
+
         with GLOBAL_AUDIO_LOCK:
             with audio_ducked(target_fraction=0.15):
                 _stop_mci_soundboard()
@@ -158,7 +159,7 @@ def play_soundboard(clip_name: str) -> dict[str, Any]:
     if not clip_name:
         return {
             "success": False,
-            "message": "Please specify a soundboard clip (e.g. 'lemons', 'wheatley', 'space', 'turret', 'neurotoxin')."
+            "message": "Please specify a soundboard clip (e.g. 'lemons', 'wheatley', 'space', 'turret', 'neurotoxin').",
         }
 
     q = clip_name.strip().lower()
@@ -185,7 +186,7 @@ def play_soundboard(clip_name: str) -> dict[str, Any]:
         available = ", ".join(SOUNDBOARD_ENTRIES.keys())
         return {
             "success": False,
-            "message": f"Soundboard clip '{clip_name}' not found. Available clips: {available}."
+            "message": f"Soundboard clip '{clip_name}' not found. Available clips: {available}.",
         }
 
     entry = SOUNDBOARD_ENTRIES[matched_key]
@@ -196,17 +197,14 @@ def play_soundboard(clip_name: str) -> dict[str, Any]:
         _synthesize_soundboard_clip(matched_key, clip_file)
 
     if not clip_file.exists():
-        return {
-            "success": False,
-            "message": f"Failed to prepare audio for {entry['title']}."
-        }
+        return {"success": False, "message": f"Failed to prepare audio for {entry['title']}."}
 
     # Play asynchronously
     _current_soundboard_thread = threading.Thread(
         target=_play_file_with_ducking,
         args=(clip_file,),
         daemon=True,
-        name="ApertureSoundboardThread"
+        name="ApertureSoundboardThread",
     )
     _current_soundboard_thread.start()
 
@@ -227,7 +225,7 @@ def play_soundboard(clip_name: str) -> dict[str, Any]:
         "speaker": entry["speaker"],
         "title": entry["title"],
         "terminal_card": card,
-        "message": f"Broadcasting '{entry['title']}' ({entry['speaker']})."
+        "message": f"Broadcasting '{entry['title']}' ({entry['speaker']}).",
     }
 
 
@@ -236,4 +234,3 @@ def stop_soundboard() -> str:
     """Stops any currently playing soundboard audio broadcast."""
     _stop_mci_soundboard()
     return "Aperture soundboard broadcast terminated."
-

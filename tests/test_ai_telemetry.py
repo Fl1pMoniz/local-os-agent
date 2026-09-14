@@ -1,15 +1,13 @@
 """Unit tests for GLaDOS AI Core Telemetry & Neural Inference Performance Tracker."""
 
 import unittest
-from unittest.mock import patch, MagicMock
 
+from agent import OSAgent
+from tools import execute_tool, get_tool
 from tools.ai_telemetry import (
     AITelemetryTracker,
     format_glados_ai_hud,
-    get_glados_ai_stats,
 )
-from tools import get_tool, execute_tool
-from agent import OSAgent
 
 
 class TestAITelemetry(unittest.TestCase):
@@ -124,9 +122,7 @@ class TestAITelemetry(unittest.TestCase):
         self.assertGreater(len(lines), 5)
         for idx, line in enumerate(lines):
             self.assertEqual(
-                len(line),
-                70,
-                f"Line {idx} width mismatch ({len(line)} != 70): {line}"
+                len(line), 70, f"Line {idx} width mismatch ({len(line)} != 70): {line}"
             )
             self.assertTrue(line.startswith("|") or line.startswith("+"))
             self.assertTrue(line.endswith("|") or line.endswith("+"))
@@ -157,11 +153,13 @@ class TestAITelemetry(unittest.TestCase):
         for query in ("ai stats", "glados stats", "show ai telemetry", "ai ram", "tokens per sec"):
             plan = agent.query_llm(query)
             self.assertTrue(
-                any(a.tool in ("monitor_hardware", "get_system_stats", "get_glados_ai_stats") for a in plan.actions),
-                f"Query '{query}' did not dispatch hardware/ai telemetry tool."
+                any(
+                    a.tool in ("monitor_hardware", "get_system_stats", "get_glados_ai_stats")
+                    for a in plan.actions
+                ),
+                f"Query '{query}' did not dispatch hardware/ai telemetry tool.",
             )
 
 
 if __name__ == "__main__":
     unittest.main()
-

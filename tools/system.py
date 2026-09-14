@@ -9,7 +9,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, Tuple
+from typing import Any
 
 import psutil
 from PIL import ImageGrab
@@ -19,7 +19,7 @@ from config import config
 logger = logging.getLogger("local_os_agent.tools.system")
 
 
-def launch_app(app_name: str) -> Tuple[bool, str]:
+def launch_app(app_name: str) -> tuple[bool, str]:
     """
     Opens a standard native application or user-specified program via subprocess.
     """
@@ -79,7 +79,10 @@ def get_cpu_telemetry() -> dict[str, Any]:
     if platform.system() == "Windows":
         try:
             import winreg
-            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DESCRIPTION\System\CentralProcessor\0")
+
+            key = winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DESCRIPTION\System\CentralProcessor\0"
+            )
             name = winreg.QueryValueEx(key, "ProcessorNameString")[0].strip()
             winreg.CloseKey(key)
         except Exception:
@@ -120,9 +123,13 @@ def get_gpu_telemetry() -> dict[str, Any] | None:
             cmd = [
                 nvsmi,
                 "--query-gpu=name,temperature.gpu,utilization.gpu,utilization.memory,memory.total,memory.used,memory.free,power.draw",
-                "--format=csv,noheader,nounits"
+                "--format=csv,noheader,nounits",
             ]
-            out = subprocess.check_output(cmd, stderr=subprocess.DEVNULL, timeout=2).decode("utf-8").strip()
+            out = (
+                subprocess.check_output(cmd, stderr=subprocess.DEVNULL, timeout=2)
+                .decode("utf-8")
+                .strip()
+            )
             parts = [p.strip() for p in out.split(",")]
             if len(parts) >= 8:
                 v_total = float(parts[4])
@@ -150,6 +157,7 @@ def get_gpu_telemetry() -> dict[str, Any] | None:
     # 2. Fallback to torch.cuda if available
     try:
         import torch
+
         if torch.cuda.is_available():
             device_name = torch.cuda.get_device_name(0)
             alloc_mb = round(torch.cuda.memory_allocated(0) / (1024**2), 1)
@@ -258,21 +266,31 @@ def format_hardware_hud(telemetry: dict[str, Any]) -> str:
         gpu_util_val = gpu_util if gpu_util is not None else 0.0
         gpu_bar = make_hud_bar(gpu_util_val)
         gpu_temp = gpu.get("temp_c")
-        temp_str = f"{gpu_temp:>5.1f}°C (Thermal Headroom: Optimal)" if gpu_temp is not None else "Sensors N/A"
+        temp_str = (
+            f"{gpu_temp:>5.1f}°C (Thermal Headroom: Optimal)"
+            if gpu_temp is not None
+            else "Sensors N/A"
+        )
         v_used = int(gpu.get("vram_used_mb", 0))
         v_total = int(gpu.get("vram_total_mb", 0))
         v_pct = gpu.get("vram_percent", 0.0)
         vram_bar = make_hud_bar(v_pct)
         power_w = gpu.get("power_draw_w")
-        pwr_str = f"{power_w:>5.1f} W (NVIDIA Board Power Sensor)" if power_w is not None else "Power Sensor N/A"
+        pwr_str = (
+            f"{power_w:>5.1f} W (NVIDIA Board Power Sensor)"
+            if power_w is not None
+            else "Power Sensor N/A"
+        )
 
-        card.extend([
-            f"| GPU Model         : {gpu_name[:46]:<46} |",
-            f"| GPU Utilization   : {gpu_util_val:>5.1f}% [{gpu_bar}]                        |",
-            f"| GPU Temperature   : {temp_str:<46} |",
-            f"| VRAM Usage        : {v_used:,} / {v_total:,} MB ({v_pct}%) [{vram_bar}]     |",
-            f"| Active Power Draw : {pwr_str:<46} |",
-        ])
+        card.extend(
+            [
+                f"| GPU Model         : {gpu_name[:46]:<46} |",
+                f"| GPU Utilization   : {gpu_util_val:>5.1f}% [{gpu_bar}]                        |",
+                f"| GPU Temperature   : {temp_str:<46} |",
+                f"| VRAM Usage        : {v_used:,} / {v_total:,} MB ({v_pct}%) [{vram_bar}]     |",
+                f"| Active Power Draw : {pwr_str:<46} |",
+            ]
+        )
 
     if disk:
         disk_bar = make_hud_bar(disk.get("percent", 0.0))
@@ -280,17 +298,22 @@ def format_hardware_hud(telemetry: dict[str, Any]) -> str:
         d_used = disk.get("used_gb", 0.0)
         d_total = disk.get("total_gb", 0.0)
         d_pct = disk.get("percent", 0.0)
-        card.append(f"| System Disk ({disk_drive}): {d_used:>5.1f} / {d_total} GB ({d_pct}%) [{disk_bar}]     |")
+        card.append(
+            f"| System Disk ({disk_drive}): {d_used:>5.1f} / {d_total} GB ({d_pct}%) [{disk_bar}]     |"
+        )
 
     host_os = f"{platform.system()} {platform.release()}"
-    card.extend([
-        f"| Host OS & Uptime  : {host_os} (Uptime: {uptime} | {pids} Proc)        |",
-        "+--------------------------------------------------------------------+",
-    ])
+    card.extend(
+        [
+            f"| Host OS & Uptime  : {host_os} (Uptime: {uptime} | {pids} Proc)        |",
+            "+--------------------------------------------------------------------+",
+        ]
+    )
 
     # GLaDOS AI Core & Neural Inference Telemetry Section
     try:
-        from tools.ai_telemetry import format_glados_ai_hud, ai_tracker
+        from tools.ai_telemetry import ai_tracker, format_glados_ai_hud
+
         glados_ai = telemetry.get("glados_ai") or ai_tracker.get_telemetry()
         card.extend(format_glados_ai_hud(glados_ai))
     except Exception as e:
@@ -324,6 +347,7 @@ def get_hardware_telemetry() -> dict[str, Any]:
     ai_telemetry = None
     try:
         from tools.ai_telemetry import ai_tracker
+
         ai_telemetry = ai_tracker.get_telemetry()
     except Exception as e:
         logger.debug(f"Could not retrieve AI telemetry: {e}")
@@ -344,7 +368,7 @@ def get_hardware_telemetry() -> dict[str, Any]:
     return data
 
 
-def monitor_hardware(live: bool = False) -> Tuple[bool, dict[str, Any]]:
+def monitor_hardware(live: bool = False) -> tuple[bool, dict[str, Any]]:
     """
     Collects real-time hardware telemetry (CPU, GPU, VRAM, RAM, temperatures, power draw).
     If live=True, launches interactive in-terminal live monitor.
@@ -353,7 +377,7 @@ def monitor_hardware(live: bool = False) -> Tuple[bool, dict[str, Any]]:
     if live:
         try:
             run_live_system_monitor()
-        except Exception as e:
+        except Exception:
             logger.exception("Error running live monitor")
     return True, telemetry
 
@@ -402,7 +426,9 @@ def run_live_system_monitor(interval: float = 1.5, max_ticks: int | None = None)
             except UnicodeEncodeError:
                 encoding = getattr(sys.stdout, "encoding", "utf-8") or "utf-8"
                 out_block = header + "\n" + hud + "\n" + footer + "\n"
-                sys.stdout.write(out_block.encode(encoding, errors="replace").decode(encoding, errors="replace"))
+                sys.stdout.write(
+                    out_block.encode(encoding, errors="replace").decode(encoding, errors="replace")
+                )
                 sys.stdout.flush()
 
             if max_ticks and tick >= max_ticks:
@@ -414,13 +440,15 @@ def run_live_system_monitor(interval: float = 1.5, max_ticks: int | None = None)
 
     except KeyboardInterrupt:
         try:
-            sys.stdout.write("\n\n[*] Exited hardware telemetry monitor. Returning to GLaDOS-CLI console.\n\n")
+            sys.stdout.write(
+                "\n\n[*] Exited hardware telemetry monitor. Returning to GLaDOS-CLI console.\n\n"
+            )
             sys.stdout.flush()
         except Exception:
             pass
 
 
-def get_system_stats() -> Tuple[bool, dict[str, Any]]:
+def get_system_stats() -> tuple[bool, dict[str, Any]]:
     """
     Returns CPU usage percentage, RAM stats (total, used, free, percent),
     GPU telemetry (VRAM, temperature, power draw), and battery status.
@@ -437,10 +465,16 @@ def get_system_stats() -> Tuple[bool, dict[str, Any]]:
             battery_stats = {
                 "percent": battery.percent,
                 "power_plugged": battery.power_plugged,
-                "secs_left": battery.secsleft if battery.secsleft != psutil.POWER_TIME_UNLIMITED else "Unlimited",
+                "secs_left": battery.secsleft
+                if battery.secsleft != psutil.POWER_TIME_UNLIMITED
+                else "Unlimited",
             }
         else:
-            battery_stats = {"percent": None, "power_plugged": True, "info": "Desktop / No battery detected"}
+            battery_stats = {
+                "percent": None,
+                "power_plugged": True,
+                "info": "Desktop / No battery detected",
+            }
 
         stats = {
             "cpu": {
@@ -471,7 +505,7 @@ def get_system_stats() -> Tuple[bool, dict[str, Any]]:
         return False, {"error": str(e)}
 
 
-def take_screenshot(filename: str | None = None) -> Tuple[bool, str]:
+def take_screenshot(filename: str | None = None) -> tuple[bool, str]:
     """
     Captures the screen and saves it locally to the dedicated captures folder.
     Handles locked or background session gracefully.
@@ -491,6 +525,7 @@ def take_screenshot(filename: str | None = None) -> Tuple[bool, str]:
         except OSError:
             # When Windows is locked or display DC is inaccessible in non-interactive session
             from PIL import Image, ImageDraw
+
             image = Image.new("RGB", (1920, 1080), color=(30, 30, 30))
             draw = ImageDraw.Draw(image)
             msg = f"Screen Capture Placeholder\nSession display locked or headless at {datetime.datetime.now()}"
@@ -503,7 +538,7 @@ def take_screenshot(filename: str | None = None) -> Tuple[bool, str]:
         return False, f"Screenshot error: {e}"
 
 
-def minimize_all_windows() -> Tuple[bool, str]:
+def minimize_all_windows() -> tuple[bool, str]:
     """
     Minimizes active windows to show the desktop.
     """
@@ -511,11 +546,13 @@ def minimize_all_windows() -> Tuple[bool, str]:
         if platform.system() == "Windows":
             # Using Shell.Application COM interface for clean MinimizeAll
             import comtypes.client
+
             shell = comtypes.client.CreateObject("Shell.Application")
             shell.MinimizeAll()
             return True, "All windows minimized."
         else:
             import pyautogui
+
             pyautogui.hotkey("super", "d")
             return True, "Triggered show desktop."
     except Exception as e:
@@ -538,7 +575,7 @@ PROTECTED_PROCESSES = {
 }
 
 
-def kill_process(name_or_pid: str | int) -> Tuple[bool, str]:
+def kill_process(name_or_pid: str | int) -> tuple[bool, str]:
     """
     Terminates a process by name or PID. SENSITIVE: requires confirmation.
     """
@@ -549,11 +586,17 @@ def kill_process(name_or_pid: str | int) -> Tuple[bool, str]:
         if isinstance(name_or_pid, int) or (isinstance(name_or_pid, str) and name_or_pid.isdigit()):
             target_pid = int(name_or_pid)
             if target_pid in (0, 4):
-                return False, "Aperture Science safety override: System kernel process (PID 0/4) cannot be terminated."
+                return (
+                    False,
+                    "Aperture Science safety override: System kernel process (PID 0/4) cannot be terminated.",
+                )
         else:
             target_name = str(name_or_pid).lower().strip()
             if target_name in PROTECTED_PROCESSES or f"{target_name}.exe" in PROTECTED_PROCESSES:
-                return False, f"Aperture Science safety override: '{target_name}' is a critical system process and cannot be terminated."
+                return (
+                    False,
+                    f"Aperture Science safety override: '{target_name}' is a critical system process and cannot be terminated.",
+                )
 
         killed = []
         for proc in psutil.process_iter(["pid", "name"]):
@@ -579,7 +622,7 @@ def kill_process(name_or_pid: str | int) -> Tuple[bool, str]:
         return False, f"Failed to terminate process: {e}"
 
 
-def shutdown(delay_seconds: int = 60) -> Tuple[bool, str]:
+def shutdown(delay_seconds: int = 60) -> tuple[bool, str]:
     """
     Initiates system shutdown after specified delay. SENSITIVE: requires confirmation.
     """
@@ -587,14 +630,17 @@ def shutdown(delay_seconds: int = 60) -> Tuple[bool, str]:
         delay = max(0, int(delay_seconds))
         if platform.system() == "Windows":
             subprocess.run(["shutdown", "/s", "/t", str(delay)], check=True)
-            return True, f"System shutdown scheduled in {delay} seconds. Run 'shutdown /a' to abort."
+            return (
+                True,
+                f"System shutdown scheduled in {delay} seconds. Run 'shutdown /a' to abort.",
+            )
         else:
             return False, f"Shutdown not implemented for {platform.system()}."
     except Exception as e:
         return False, f"Failed to initiate shutdown: {e}"
 
 
-def sleep_pc() -> Tuple[bool, str]:
+def sleep_pc() -> tuple[bool, str]:
     """
     Puts the computer into sleep mode. SENSITIVE: requires confirmation.
     """
@@ -608,13 +654,14 @@ def sleep_pc() -> Tuple[bool, str]:
         return False, f"Failed to sleep computer: {e}"
 
 
-def lock_workstation() -> Tuple[bool, str]:
+def lock_workstation() -> tuple[bool, str]:
     """
     Locks the Windows workstation immediately.
     """
     try:
         if platform.system() == "Windows":
             import ctypes
+
             ctypes.windll.user32.LockWorkStation()
             return True, "Workstation locked successfully."
         return False, f"Lock workstation not implemented for {platform.system()}."
@@ -622,22 +669,23 @@ def lock_workstation() -> Tuple[bool, str]:
         return False, f"Failed to lock workstation: {e}"
 
 
-def empty_recycle_bin() -> Tuple[bool, str]:
+def empty_recycle_bin() -> tuple[bool, str]:
     """
     Empties the Windows Recycle Bin without prompt. SENSITIVE: requires confirmation.
     """
     try:
         if platform.system() == "Windows":
             import ctypes
+
             # SHERB_NOCONFIRMATION (0x1) | SHERB_NOPROGRESSUI (0x2) | SHERB_NOSOUND (0x4) = 7
-            res = ctypes.windll.shell32.SHEmptyRecycleBinW(None, None, 7)
+            _res = ctypes.windll.shell32.SHEmptyRecycleBinW(None, None, 7)
             return True, "Recycle Bin emptied successfully."
         return False, f"Empty recycle bin not implemented for {platform.system()}."
     except Exception as e:
         return False, f"Failed to empty Recycle Bin: {e}"
 
 
-def set_timer(seconds: int, label: str = "Test") -> Tuple[bool, str]:
+def set_timer(seconds: int, label: str = "Test") -> tuple[bool, str]:
     """
     Sets an asynchronous countdown timer that announces completion via GLaDOS voice.
     """
@@ -653,7 +701,10 @@ def set_timer(seconds: int, label: str = "Test") -> Tuple[bool, str]:
             time.sleep(sec)
             try:
                 from voice import speak
-                speak(f"Attention test subject: Your timer for {label} has expired. Resume testing immediately.")
+
+                speak(
+                    f"Attention test subject: Your timer for {label} has expired. Resume testing immediately."
+                )
             except Exception as e:
                 logger.error("Timer alarm failed: %s", e)
 
@@ -664,12 +715,13 @@ def set_timer(seconds: int, label: str = "Test") -> Tuple[bool, str]:
         return False, f"Failed to set timer: {e}"
 
 
-def get_clipboard() -> Tuple[bool, str]:
+def get_clipboard() -> tuple[bool, str]:
     """
     Retrieves the current text content from the system clipboard.
     """
     try:
         import pyperclip
+
         content = pyperclip.paste()
         if not content:
             return True, "Clipboard is currently empty."
@@ -678,29 +730,32 @@ def get_clipboard() -> Tuple[bool, str]:
         return False, f"Failed to read clipboard: {e}"
 
 
-def set_clipboard(text: str) -> Tuple[bool, str]:
+def set_clipboard(text: str) -> tuple[bool, str]:
     """
     Copies text to the system clipboard.
     """
     try:
         import pyperclip
+
         pyperclip.copy(text)
         return True, f"Copied {len(text)} characters to clipboard."
     except Exception as e:
         return False, f"Failed to write clipboard: {e}"
 
 
-def read_clipboard_aloud() -> Tuple[bool, str]:
+def read_clipboard_aloud() -> tuple[bool, str]:
     """
     Reads the system clipboard text aloud using GLaDOS voice.
     """
     try:
         import pyperclip
+
         from voice import speak
+
         content = pyperclip.paste()
         if not content or not content.strip():
             return False, "Clipboard is empty. Nothing to read."
-        
+
         # Announce snippet or full text
         trimmed = content.strip()
         if len(trimmed) > 300:
@@ -800,4 +855,3 @@ register_tool(
     description="Empties the Windows Recycle Bin permanently.",
     sensitive=True,
 )(empty_recycle_bin)
-

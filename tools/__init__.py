@@ -2,8 +2,9 @@
 
 import inspect
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from schemas import ToolExecutionResult
 
@@ -50,6 +51,7 @@ def register_tool(name: Any = None, description: str = "", sensitive: bool = Fal
             signature=sig,
         )
         return func
+
     return decorator
 
 
@@ -157,22 +159,23 @@ def execute_tool(
 
 
 # Import modules so their @register_tool decorators run
-from tools import audio  # noqa: F401, E402
-from tools import companion  # noqa: F401, E402
-from tools import flight  # noqa: F401, E402
-from tools import media  # noqa: F401, E402
-from tools import sfx  # noqa: F401, E402
-from tools import songs  # noqa: F401, E402
-from tools import steam  # noqa: F401, E402
-from tools import system  # noqa: F401, E402
-from tools import web  # noqa: F401, E402
-from tools import zimaos  # noqa: F401, E402
-from tools import game_clipper  # noqa: F401, E402
-from tools import jellyfin  # noqa: F401, E402
-from tools import audio_ducking  # noqa: F401, E402
-from tools import soundboard  # noqa: F401, E402
-from tools import vision  # noqa: F401, E402
-from tools import discord_relay  # noqa: F401, E402
-from tools import subject_wellness  # noqa: F401, E402
-from tools import ai_telemetry  # noqa: F401, E402
-
+from tools import (
+    ai_telemetry,  # noqa: F401, E402
+    audio,  # noqa: F401, E402
+    audio_ducking,  # noqa: F401, E402
+    companion,  # noqa: F401, E402
+    discord_relay,  # noqa: F401, E402
+    flight,  # noqa: F401, E402
+    game_clipper,  # noqa: F401, E402
+    jellyfin,  # noqa: F401, E402
+    media,  # noqa: F401, E402
+    sfx,  # noqa: F401, E402
+    songs,  # noqa: F401, E402
+    soundboard,  # noqa: F401, E402
+    steam,  # noqa: F401, E402
+    subject_wellness,  # noqa: F401, E402
+    system,  # noqa: F401, E402
+    vision,  # noqa: F401, E402
+    web,  # noqa: F401, E402
+    zimaos,  # noqa: F401, E402
+)

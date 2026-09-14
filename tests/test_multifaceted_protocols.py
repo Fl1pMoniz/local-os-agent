@@ -1,33 +1,43 @@
 """Unit tests for the 6 multifaceted GLaDOS protocols."""
 
-import unittest
-from unittest.mock import MagicMock, patch
 import os
 import pathlib
+import unittest
+from unittest.mock import MagicMock, patch
 
 from agent import OSAgent
-from schemas import AgentResponse, ToolAction
-from tools.game_clipper import capture_game_clip, list_recent_clips, format_clip_card, launch_obs
-from tools.jellyfin import search_and_play_jellyfin, get_jellyfin_now_playing, format_now_playing_card
-from tools.vision import analyze_screen, format_vision_card
+from tools.audio_ducking import is_ducking_enabled, toggle_audio_ducking
+from tools.game_clipper import capture_game_clip, format_clip_card, launch_obs, list_recent_clips
+from tools.jellyfin import (
+    format_now_playing_card,
+    get_jellyfin_now_playing,
+    search_and_play_jellyfin,
+)
 from tools.soundboard import play_soundboard, stop_soundboard
-from tools.audio_ducking import toggle_audio_ducking, is_ducking_enabled
-from tools.subject_wellness import check_subject_status, log_water_intake, format_wellness_card
+from tools.subject_wellness import check_subject_status, log_water_intake
+from tools.vision import analyze_screen, format_vision_card
 
 
 class TestMultifacetedProtocols(unittest.TestCase):
-
     def setUp(self):
         self.agent = OSAgent(base_url="http://mock-llm:11434/v1", model="mock-glados")
 
     # 1. Protocol 2: Replay Capture / 30-Second Clipper
-    @patch("tools.game_clipper.organize_and_label_clip", side_effect=lambda path, active_game: pathlib.Path(path))
+    @patch(
+        "tools.game_clipper.organize_and_label_clip",
+        side_effect=lambda path, active_game: pathlib.Path(path),
+    )
     @patch("tools.game_clipper.os.path.getsize", return_value=15500000)
     @patch("tools.game_clipper.os.path.exists", return_value=True)
-    @patch("tools.game_clipper._trigger_obs_websocket", return_value=(True, "C:\\Videos\\Portal2.mp4", "Saved"))
+    @patch(
+        "tools.game_clipper._trigger_obs_websocket",
+        return_value=(True, "C:\\Videos\\Portal2.mp4", "Saved"),
+    )
     @patch("tools.game_clipper._is_obs_running", return_value=True)
     @patch("tools.game_clipper._get_active_window_title", return_value="Portal 2")
-    def test_capture_game_clip(self, mock_title, mock_obs, mock_ws, mock_exists, mock_size, mock_org):
+    def test_capture_game_clip(
+        self, mock_title, mock_obs, mock_ws, mock_exists, mock_size, mock_org
+    ):
         res = capture_game_clip(seconds=30)
         self.assertTrue(res["success"])
         self.assertEqual(res["seconds"], 30)
@@ -59,7 +69,9 @@ class TestMultifacetedProtocols(unittest.TestCase):
     @patch("webbrowser.open")
     def test_search_and_play_jellyfin(self, mock_browser, mock_get, mock_auth):
         mock_get.return_value.status_code = 200
-        mock_get.return_value.json.return_value = {"Items": [{"Id": "item-123", "Name": "Inception", "Type": "Movie"}]}
+        mock_get.return_value.json.return_value = {
+            "Items": [{"Id": "item-123", "Name": "Inception", "Type": "Movie"}]
+        }
         res = search_and_play_jellyfin("Inception")
         self.assertTrue(res["success"])
         self.assertEqual(res["query"], "Inception")
@@ -78,7 +90,9 @@ class TestMultifacetedProtocols(unittest.TestCase):
         self.assertIn("APERTURE SCIENCE MEDIA DISPATCHER", res["terminal_card"])
 
     def test_format_now_playing_card(self):
-        card = format_now_playing_card("Dune Part Two", "Movie", "fl1pmoniz", "Playing", "01:12:00 / 02:46:00")
+        card = format_now_playing_card(
+            "Dune Part Two", "Movie", "fl1pmoniz", "Playing", "01:12:00 / 02:46:00"
+        )
         self.assertIn("Dune Part Two", card)
         self.assertIn("fl1pmoniz", card)
 
@@ -205,8 +219,10 @@ class TestMultifacetedProtocols(unittest.TestCase):
         self.assertTrue(any(a.tool == "log_water_intake" for a in plan_water.actions))
 
     def test_organize_and_label_clip(self):
-        from tools.game_clipper import organize_and_label_clip
         import tempfile
+
+        from tools.game_clipper import organize_and_label_clip
+
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tf:
             tf.write(b"video data")
             temp_path = tf.name
@@ -223,14 +239,17 @@ class TestMultifacetedProtocols(unittest.TestCase):
                     os.unlink(temp_path)
                 except OSError:
                     pass
-            if 'organized' in locals() and organized.exists():
+            if "organized" in locals() and organized.exists():
                 try:
                     os.unlink(str(organized))
                 except OSError:
                     pass
 
     @patch("tools.discord_relay.requests.post")
-    @patch("tools.discord_relay.get_discord_webhook", return_value="https://discord.com/api/webhooks/mock/test")
+    @patch(
+        "tools.discord_relay.get_discord_webhook",
+        return_value="https://discord.com/api/webhooks/mock/test",
+    )
     @patch("tools.discord_relay.find_latest_clip")
     def test_send_clip_to_discord(self, mock_find, mock_hook, mock_post):
         mock_file = MagicMock()
@@ -244,8 +263,10 @@ class TestMultifacetedProtocols(unittest.TestCase):
         mock_post.return_value = mock_resp
 
         from unittest.mock import mock_open
+
         with patch("builtins.open", mock_open(read_data=b"video_bytes")):
             from tools.discord_relay import send_clip_to_discord
+
             res = send_clip_to_discord()
             self.assertTrue(res["success"])
             self.assertIn("Successfully uploaded", res["message"])
@@ -253,4 +274,3 @@ class TestMultifacetedProtocols(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

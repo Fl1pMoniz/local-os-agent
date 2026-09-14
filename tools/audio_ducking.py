@@ -6,10 +6,10 @@ whenever GLaDOS is speaking or listening, and smoothly restores volume afterward
 import contextlib
 import logging
 import threading
-import time
 from typing import Any
 
 from pycaw.pycaw import AudioUtilities, ISimpleAudioVolume
+
 from tools import register_tool
 
 logger = logging.getLogger("local_os_agent.tools.audio_ducking")
@@ -24,7 +24,9 @@ def is_ducking_enabled() -> bool:
     return _ducking_enabled
 
 
-def duck_background_audio(target_fraction: float = 0.20, exclude_names: tuple[str, ...] = ("python.exe", "pythonw.exe")):
+def duck_background_audio(
+    target_fraction: float = 0.20, exclude_names: tuple[str, ...] = ("python.exe", "pythonw.exe")
+):
     """
     Temporarily attenuates background audio sessions to `target_fraction` (e.g. 20% of current),
     saving previous levels for restoration.
@@ -105,6 +107,5 @@ def toggle_audio_ducking(enabled: bool | None = None) -> dict[str, Any]:
     return {
         "success": True,
         "enabled": _ducking_enabled,
-        "message": f"Aperture Smart Audio Ducking is now {state_str}."
+        "message": f"Aperture Smart Audio Ducking is now {state_str}.",
     }
-

@@ -6,9 +6,63 @@ Designed to run locally on consumer GPUs (e.g., RTX 4070 12GB) alongside resourc
 
 ---
 
+## Setup & Installation
+
+GLaDOS Local OS Agent uses modern Python packaging via `pyproject.toml` and is managed with `uv` for lightning-fast, reproducible dependency synchronization across Windows, Linux, and macOS.
+
+### 1. Prerequisites
+- **Python**: Version 3.10 or higher.
+- **uv** (Recommended package manager): Install via `pip install uv` or official standalone installer:
+  - Windows: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+  - Linux/macOS: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- **Local LLM Engine**: [Ollama](https://ollama.com/) running locally (`ollama run glados:3b` or any OpenAI-compatible server at `http://localhost:11434`).
+
+### 2. Windows Installation
+```powershell
+# Clone the repository
+git clone https://github.com/Fl1pMoniz/local-os-agent.git
+cd local-os-agent
+
+# Create virtual environment and synchronize dependencies
+uv venv
+.\.venv\Scripts\activate
+uv sync --all-extras
+```
+
+### 3. Linux & macOS Installation
+```bash
+# Clone the repository
+git clone https://github.com/Fl1pMoniz/local-os-agent.git
+cd local-os-agent
+
+# Create virtual environment and synchronize dependencies
+uv venv
+source .venv/bin/activate
+uv sync --all-extras
+
+# Optional Linux system packages for native media keys and audio control:
+# Debian/Ubuntu: sudo apt install pipewire-pulse playerctl
+# Arch Linux:    sudo pacman -S pipewire-pulse playerctl
+```
+
+### 4. Development & Quality Assurance
+```bash
+# Execute the full pytest test suite
+uv run pytest
+
+# Fast unit tests only (< 2 seconds)
+uv run pytest -m "unit"
+
+# Lint and format code with Ruff
+uv run ruff check .
+uv run ruff format .
+```
+
+---
+
 ## Quickstart Launchers: `glados` & `glados-web`
 
-For seamless daily operation on Windows, two launcher scripts are provided in the repository root:
+For seamless daily operation on both Windows and Linux/macOS:
 
 ### 1. `glados` (Clinical CLI Terminal)
 Runs the terminal console in pure text mode:

@@ -10,10 +10,8 @@ Tracks live metrics for the local language model and neural subsystems:
 - Subsystem health (Voice synthesis, Optical Vision, Aperture Core)
 """
 
-import datetime
 import logging
 import os
-import platform
 import threading
 import time
 from typing import Any
@@ -84,7 +82,9 @@ class AITelemetryTracker:
             self.peak_tokens_per_sec = max(self.peak_tokens_per_sec, tps)
 
             if self.total_latency_s > 0 and self.total_completion_tokens > 0:
-                self.avg_tokens_per_sec = round(self.total_completion_tokens / self.total_latency_s, 1)
+                self.avg_tokens_per_sec = round(
+                    self.total_completion_tokens / self.total_latency_s, 1
+                )
 
             if context_tokens is not None:
                 self.last_context_tokens = max(0, int(context_tokens))
@@ -107,7 +107,14 @@ class AITelemetryTracker:
         llm_pids: list[int] = []
         runner_names: set[str] = set()
 
-        target_keywords = ("ollama", "llama-server", "ollama_llama_server", "lmstudio", "lms", "vllm")
+        target_keywords = (
+            "ollama",
+            "llama-server",
+            "ollama_llama_server",
+            "lmstudio",
+            "lms",
+            "vllm",
+        )
 
         try:
             for p in psutil.process_iter(["name", "pid"]):
@@ -135,7 +142,11 @@ class AITelemetryTracker:
         host_mb = round(host_rss / (1024 * 1024), 1)
         total_mb = round(total_ai_rss / (1024 * 1024), 1)
 
-        primary_runner = "Ollama" if any("ollama" in n.lower() or "llama" in n.lower() for n in runner_names) else ("LM Studio" if any("lms" in n.lower() for n in runner_names) else "LLM Runtime")
+        primary_runner = (
+            "Ollama"
+            if any("ollama" in n.lower() or "llama" in n.lower() for n in runner_names)
+            else ("LM Studio" if any("lms" in n.lower() for n in runner_names) else "LLM Runtime")
+        )
 
         res = {
             "total_ai_ram_mb": total_mb,
@@ -278,7 +289,9 @@ def format_glados_ai_hud(ai_data: dict[str, Any] | None = None) -> list[str]:
     host_mb = data.get("ai_ram_host_mb", 0.0)
     runner_name = data.get("ai_runner_name", "Ollama")
     if runner_mb > 0:
-        ai_ram_str = f"{ai_ram_mb:,.1f} MB ({runner_name}: {runner_mb:,.1f}M | Host: {host_mb:,.1f}M)"
+        ai_ram_str = (
+            f"{ai_ram_mb:,.1f} MB ({runner_name}: {runner_mb:,.1f}M | Host: {host_mb:,.1f}M)"
+        )
     else:
         ai_ram_str = f"{ai_ram_mb:,.1f} MB (Host: {host_mb:,.1f}M)"
 
@@ -357,6 +370,5 @@ def get_glados_ai_stats() -> dict[str, Any]:
         "success": True,
         "metrics": data,
         "terminal_card": card_str,
-        "message": f"GLaDOS AI Engine {data['model_name']} ({data['parameter_size']}) nominal. Generation rate: {data['tokens_per_sec']} tok/s."
+        "message": f"GLaDOS AI Engine {data['model_name']} ({data['parameter_size']}) nominal. Generation rate: {data['tokens_per_sec']} tok/s.",
     }
-
