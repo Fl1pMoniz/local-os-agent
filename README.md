@@ -168,9 +168,10 @@ Launches the full 3-column browser console at `http://127.0.0.1:5000`:
 .\glados-web
 ```
 * Automatically verifies the Ollama server, starts the local HTTP/SSE backend on port 5000, and opens your default browser.
+* Styled with authentic Oldschool PC IBM BIOS typography (`int10h.org`), phosphor scanline simulation, and authentic Portal Still Alive ASCII art.
 * Features a 3-column layout:
   * **Left Column**: Live command terminal with real-time streaming output and prompt input.
-  * **Middle Column**: Aperture Directive Matrix in pure ASCII with interactive, clickable shortcuts.
+  * **Middle Column**: Aperture Directive Matrix in pure ASCII, proportionally scaled with interactive, clickable shortcuts.
   * **Right Column**: Live component telemetry cards (`[PC STATS & HARDWARE]` with the GLaDOS AI Neural Core HUD, `[ZIMAOS REMOTE SERVER]`, and the ADS-B Airspace Radar).
 
 ---

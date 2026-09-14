@@ -172,6 +172,10 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                     ".wasm": "application/wasm",
                     ".js": "application/javascript",
                     ".css": "text/css",
+                    ".woff": "font/woff",
+                    ".woff2": "font/woff2",
+                    ".ttf": "font/ttf",
+                    ".otf": "font/otf",
                 }
                 c_type = content_types.get(ext, "application/octet-stream")
                 self.send_response(HTTPStatus.OK)
@@ -179,6 +183,29 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                 self.send_header("Cache-Control", "public, max-age=86400")
                 self.end_headers()
                 with open(asset_file, "rb") as f:
+                    self.wfile.write(f.read())
+            else:
+                self.send_error(HTTPStatus.NOT_FOUND)
+            return
+
+        elif parsed.path.startswith("/fonts/"):
+            font_name = parsed.path[len("/fonts/") :]
+            font_file = UI_DIR / "fonts" / font_name
+            if font_file.exists() and font_file.is_file():
+                ext = font_file.suffix.lower()
+                font_content_types = {
+                    ".woff": "font/woff",
+                    ".woff2": "font/woff2",
+                    ".ttf": "font/ttf",
+                    ".otf": "font/otf",
+                    ".eot": "application/vnd.ms-fontobject",
+                }
+                c_type = font_content_types.get(ext, "application/octet-stream")
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", c_type)
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.end_headers()
+                with open(font_file, "rb") as f:
                     self.wfile.write(f.read())
             else:
                 self.send_error(HTTPStatus.NOT_FOUND)

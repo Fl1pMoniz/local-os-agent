@@ -75,6 +75,7 @@ In beginner projects, code is often tightly coupled:
 # Tightly coupled (anti-pattern):
 import ctypes  # Crashes instantly if imported on Linux!
 
+
 def lock_screen():
     ctypes.windll.user32.LockWorkStation()
 ```
@@ -172,6 +173,7 @@ Look at [`app/ports/audio.py`](file:///c:/Users/fiui2/OneDrive/Documentos/PROJET
 
 ```python
 from typing import Protocol, runtime_checkable
+
 
 @runtime_checkable
 class AudioPort(Protocol):
@@ -285,6 +287,7 @@ For complex natural language, we register tools with LangChain using `@tool` and
 ```python
 class VolumeInput(BaseModel):
     level: int = Field(..., ge=0, le=100, description="Master audio volume (0 to 100).")
+
 
 @tool(args_schema=VolumeInput)
 def set_volume_tool(level: int) -> str:
@@ -405,3 +408,4 @@ What happens when you say: *"GLaDOS, track flight DL450"*?
 ---
 
 *Enjoy exploring and learning from the codebase! If you have any questions, inspect the corresponding tests in the `tests/` directory to see each module verified in isolation.*
+
