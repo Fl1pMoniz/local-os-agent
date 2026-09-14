@@ -59,7 +59,91 @@ Invoke-RestMethod -Method Post -Uri "http://192.168.1.123:11434/api/pull" -Conte
 2. Click the **App Store** icon on your home dashboard.
 3. In the top right corner of the App Store window, click **Install a customized app**.
 4. In the customized app setup window, click the **Import** button in the top right corner.
-5. Copy and paste the complete contents of `docker-compose.yml` (from the root of the `feat/docker-zimaos` branch in this repository) into the import text area.
+5. Paste the following clean Compose configuration into the import text area:
+
+```yaml
+name: glados-agent
+
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+  main: glados
+  author: "Fl1pMoniz"
+  category: "Utilities"
+  developer: "Aperture Laboratories"
+  icon: "https://raw.githubusercontent.com/Fl1pMoniz/local-os-agent/main/ui/assets/glados.png"
+  thumbnail: "https://raw.githubusercontent.com/Fl1pMoniz/local-os-agent/main/ui/assets/glados.png"
+  title:
+    en_us: "Aperture GLaDOS"
+  tagline:
+    en_us: "Aperture Science AI Terminal & Homelab Controller"
+  description:
+    en_us: |
+      Aperture Science GLaDOS Autonomous Agent & CRT Management Console.
+      Tuned for Intel Core i5-8400 and ZimaOS homelabs.
+      Controls hardware sensors, ADS-B radar aircraft tracking, Jellyfin media playback,
+      soundboard acoustics, and provides an authentic Old School Amber CRT Terminal.
+      Runs zero-VRAM CPU models (Qwen 2.5 3B / 1.5B) directly against your Ollama container.
+  port_map: "5000"
+  scheme: "http"
+  index: "/"
+
+services:
+  glados:
+    image: glados-agent:latest
+    build:
+      context: https://github.com/Fl1pMoniz/local-os-agent.git#feat/docker-zimaos
+      dockerfile: Dockerfile
+    container_name: glados-agent
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - CONTAINER_MODE=true
+      - UI_HOST=0.0.0.0
+      - UI_PORT=5000
+      - HEADLESS=true
+      - LLM_BASE_URL=http://host.docker.internal:11434/v1
+      - LLM_MODEL=qwen2.5:3b
+      - LLM_API_KEY=ollama
+      - ZIMAOS_HOST=http://host.docker.internal
+      - LOG_LEVEL=INFO
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - /DATA/AppData/glados/captures:/app/captures
+      - /DATA/AppData/glados/logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:5000/api/state"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    x-casaos:
+      ports:
+        - container: "5000"
+          description:
+            en_us: "Aperture CRT Web Console"
+      volumes:
+        - container: /app/captures
+          description:
+            en_us: "Video highlights & captures directory"
+        - container: /app/logs
+          description:
+            en_us: "System execution and telemetry logs"
+      envs:
+        - container: LLM_BASE_URL
+          description:
+            en_us: "Ollama container API endpoint (default: http://host.docker.internal:11434/v1)"
+        - container: LLM_MODEL
+          description:
+            en_us: "Cherry-picked CPU model tag for Intel i5-8400 (recommended: qwen2.5:3b or qwen2.5:1.5b)"
+        - container: ZIMAOS_HOST
+          description:
+            en_us: "ZimaOS dashboard host URL"
+```
+
 6. Click **Submit**.
 7. ZimaOS will automatically detect the `x-casaos` metadata and populate the interface:
    - **App Name**: Aperture GLaDOS

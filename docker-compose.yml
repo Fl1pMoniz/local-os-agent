@@ -5,15 +5,15 @@ x-casaos:
     - amd64
     - arm64
   main: glados
-  author: Fl1pMoniz
-  category: Utilities
-  developer: Aperture Laboratories
-  icon: https://raw.githubusercontent.com/Fl1pMoniz/local-os-agent/main/ui/assets/glados.png
-  thumbnail: https://raw.githubusercontent.com/Fl1pMoniz/local-os-agent/main/ui/assets/glados.png
+  author: "Fl1pMoniz"
+  category: "Utilities"
+  developer: "Aperture Laboratories"
+  icon: "https://raw.githubusercontent.com/Fl1pMoniz/local-os-agent/main/ui/assets/glados.png"
+  thumbnail: "https://raw.githubusercontent.com/Fl1pMoniz/local-os-agent/main/ui/assets/glados.png"
   title:
-    en_us: Aperture GLaDOS
+    en_us: "Aperture GLaDOS"
   tagline:
-    en_us: Aperture Science AI Terminal & Homelab Controller
+    en_us: "Aperture Science AI Terminal & Homelab Controller"
   description:
     en_us: |
       Aperture Science GLaDOS Autonomous Agent & CRT Management Console.
@@ -22,8 +22,8 @@ x-casaos:
       soundboard acoustics, and provides an authentic Old School Amber CRT Terminal.
       Runs zero-VRAM CPU models (Qwen 2.5 3B / 1.5B) directly against your Ollama container.
   port_map: "5000"
-  scheme: http
-  index: /
+  scheme: "http"
+  index: "/"
 
 services:
   glados:
@@ -60,21 +60,21 @@ services:
       ports:
         - container: "5000"
           description:
-            en_us: Aperture CRT Web Console
+            en_us: "Aperture CRT Web Console"
       volumes:
         - container: /app/captures
           description:
-            en_us: Video highlights & captures directory
+            en_us: "Video highlights & captures directory"
         - container: /app/logs
           description:
-            en_us: System execution and telemetry logs
+            en_us: "System execution and telemetry logs"
       envs:
         - container: LLM_BASE_URL
           description:
-            en_us: Ollama container API endpoint (default: http://host.docker.internal:11434/v1)
+            en_us: "Ollama container API endpoint (default: http://host.docker.internal:11434/v1)"
         - container: LLM_MODEL
           description:
-            en_us: Cherry-picked CPU model tag for Intel i5-8400 (recommended: qwen2.5:3b or qwen2.5:1.5b)
+            en_us: "Cherry-picked CPU model tag for Intel i5-8400 (recommended: qwen2.5:3b or qwen2.5:1.5b)"
         - container: ZIMAOS_HOST
           description:
-            en_us: ZimaOS dashboard host URL
+            en_us: "ZimaOS dashboard host URL"
