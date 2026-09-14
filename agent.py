@@ -278,17 +278,67 @@ class OSAgent:
             }
         }
 
+        # Resolve native Ollama endpoint to strictly enforce options.num_thread in llama.cpp
+        base_endpoint = (self.base_url or "").rstrip("/")
+        if base_endpoint.endswith("/v1"):
+            ollama_base = base_endpoint[:-3]
+        else:
+            ollama_base = base_endpoint
+        native_chat_url = f"{ollama_base}/api/chat"
+
+        content = ""
+        elapsed_s = 0.0
+        p_tok = 0
+        c_tok = 0
+        used_native = False
+
         t_start = time.time()
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=0.2,  # Slight temperature for natural eloquent phrasing
-                timeout=config.llm_timeout,
-                extra_body=extra_options,
+            import requests
+
+            native_payload = {
+                "model": self.model,
+                "messages": messages,
+                "stream": False,
+                "options": {
+                    "num_thread": num_threads,
+                    "num_ctx": config.llm_num_ctx,
+                    "num_predict": config.llm_max_tokens,
+                    "temperature": 0.2,
+                },
+            }
+            resp = requests.post(native_chat_url, json=native_payload, timeout=config.llm_timeout)
+            if resp.status_code == 200:
+                data = resp.json()
+                msg = data.get("message", {})
+                raw_c = msg.get("content", "")
+                if raw_c:
+                    content = raw_c
+                    p_tok = data.get("prompt_eval_count", 0)
+                    c_tok = data.get("eval_count", 0)
+                    elapsed_s = time.time() - t_start
+                    used_native = True
+        except Exception as e:
+            logger.debug(
+                f"Native Ollama endpoint query bypassed ({e}); falling back to OpenAI compatibility."
             )
-            elapsed_s = time.time() - t_start
-            content = response.choices[0].message.content or ""
+
+        try:
+            if not used_native:
+                t_start = time.time()
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=0.2,  # Slight temperature for natural eloquent phrasing
+                    timeout=config.llm_timeout,
+                    extra_body=extra_options,
+                )
+                elapsed_s = time.time() - t_start
+                content = response.choices[0].message.content or ""
+                usage = getattr(response, "usage", None)
+                p_tok = getattr(usage, "prompt_tokens", 0) if usage else len(str(messages).split())
+                c_tok = getattr(usage, "completion_tokens", 0) if usage else len(content.split())
+
             logger.debug(f"Raw LLM output:\n{content}")
             parsed_json = extract_json_payload(content)
             plan = AgentResponse.model_validate(parsed_json)
@@ -297,9 +347,6 @@ class OSAgent:
             try:
                 from tools.ai_telemetry import ai_tracker
 
-                usage = getattr(response, "usage", None)
-                p_tok = getattr(usage, "prompt_tokens", 0) if usage else len(str(messages).split())
-                c_tok = getattr(usage, "completion_tokens", 0) if usage else len(content.split())
                 ai_tracker.record_inference(
                     prompt_tokens=p_tok or 0,
                     completion_tokens=c_tok or 0,

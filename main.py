@@ -597,14 +597,29 @@ def interactive_repl(agent: OSAgent) -> None:
                 print(f"\n{card}\n")
                 continue
             if cmd_lower in ("containers", "docker", "docker ps", "list containers"):
-                from tools.container_sentinel import manage_containers
+                from tools.zimaos import manage_containers
 
                 ok, res = manage_containers("list")
                 card = res.get("full_terminal_card") if isinstance(res, dict) else str(res)
                 print(f"\n{card}\n")
                 continue
+            if (
+                cmd_lower.startswith("limit ")
+                or cmd_lower.startswith("cap ")
+                or cmd_lower.startswith("containers limit ")
+            ):
+                parts = user_input.split()
+                idx = 2 if cmd_lower.startswith("containers limit ") else 1
+                c_target = parts[idx] if len(parts) > idx else "ollama"
+                cpu_val = float(parts[idx + 1]) if len(parts) > (idx + 1) else 4.0
+                from tools.zimaos import manage_containers
+
+                ok, res = manage_containers("limit", c_target, cpus=cpu_val)
+                card = res.get("full_terminal_card") if isinstance(res, dict) else str(res)
+                print(f"\n{card}\n")
+                continue
             if cmd_lower in ("briefing", "morning briefing", "homelab briefing"):
-                from tools.homelab_briefing import get_homelab_briefing
+                from tools.zimaos import get_homelab_briefing
 
                 ok, res = get_homelab_briefing(to_discord=False)
                 card = res.get("full_terminal_card") if isinstance(res, dict) else str(res)
@@ -886,6 +901,14 @@ def main() -> None:
 
         if get_tracked_flight():
             ensure_flight_auto_updater()
+    except Exception:
+        pass
+
+    # Ensure Ollama CPU ceiling is locked via Docker socket to prevent 100% CPU lockup
+    try:
+        from tools.zimaos import ensure_ollama_cpu_limited
+
+        ensure_ollama_cpu_limited(target_cpus=float(config.llm_num_threads or 4.0))
     except Exception:
         pass
 

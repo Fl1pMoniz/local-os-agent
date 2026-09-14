@@ -759,6 +759,33 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                                 "output": card,
                                 "message": f"Retrieved log tail for '{c_target}'.",
                             }
+                        elif (
+                            p_lower.startswith("limit ")
+                            or p_lower.startswith("cap ")
+                            or p_lower.startswith("containers limit ")
+                        ):
+                            parts = user_prompt.split()
+                            idx = 2 if p_lower.startswith("containers limit ") else 1
+                            c_target = parts[idx] if len(parts) > idx else "ollama"
+                            cpu_val = float(parts[idx + 1]) if len(parts) > (idx + 1) else 4.0
+                            from tools.system import get_hardware_telemetry
+                            from tools.zimaos import manage_containers
+
+                            ok, data = manage_containers("limit", c_target, cpus=cpu_val)
+                            card = (
+                                data.get("full_terminal_card")
+                                if isinstance(data, dict)
+                                else str(data)
+                            )
+                            hw = get_hardware_telemetry()
+                            ui_state.update(hardware_telemetry=hw)
+                            response_data = {
+                                "success": ok,
+                                "command": user_prompt,
+                                "output": card,
+                                "message": f"Container '{c_target}' CPU ceiling locked to {cpu_val:.1f} core(s).",
+                                "telemetry": {"hardware": hw, "active_tab": "pc"},
+                            }
                         elif p_lower in ("ai models", "models", "ollama models", "catalog"):
                             from tools.ai_telemetry import manage_ai_models
 
@@ -1178,6 +1205,14 @@ def start_ui_server(
         if active_flight:
             ui_state.update(tracked_flight=active_flight)
             ensure_flight_auto_updater()
+    except Exception:
+        pass
+
+    # Ensure Ollama container CPU usage is capped to prevent 100% CPU lockup
+    try:
+        from tools.zimaos import ensure_ollama_cpu_limited
+
+        ensure_ollama_cpu_limited(target_cpus=float(config.llm_num_threads or 4.0))
     except Exception:
         pass
 

@@ -33,6 +33,10 @@ services:
       dockerfile: Dockerfile
     container_name: glados-agent
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
     ports:
       - "5000:5000"
     environment:
