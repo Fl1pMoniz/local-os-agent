@@ -66,6 +66,34 @@ class TestZimaOSFeatures(unittest.TestCase):
         self.assertIn("CONTAINER LOG SENTINEL", card)
         self.assertIn("GET /api/tags", card)
 
+    @patch("tools.zimaos._query_docker_socket")
+    def test_manage_containers_limit(self, mock_socket) -> None:
+        """Verifies setting CPU limit on a container sends NanoCpus update."""
+        mock_socket.side_effect = [
+            (200, [{"Id": "ollama99", "Names": ["/ollama"]}]),
+            (200, {"Warnings": None}),
+        ]
+        ok, res = manage_containers("limit", "ollama", cpus=4.0)
+        self.assertTrue(ok)
+        self.assertIsInstance(res, dict)
+        self.assertIn("locked to 4.0 core(s)", res["message"])
+        card = res["full_terminal_card"]
+        self.assertIn("CONTAINER RESOURCE REGULATION PROTOCOL", card)
+        self.assertIn("4.0 Cores", card)
+
+    @patch("tools.zimaos._query_docker_socket")
+    def test_ensure_ollama_cpu_limited(self, mock_socket) -> None:
+        """Verifies ensure_ollama_cpu_limited detects unlimited Ollama and caps it."""
+        from tools.zimaos import ensure_ollama_cpu_limited
+
+        mock_socket.side_effect = [
+            (200, [{"Id": "ollama99", "Names": ["/ollama"]}]),
+            (200, {"HostConfig": {"NanoCpus": 0}}),  # 0 = unlimited
+            (200, {"Warnings": None}),
+        ]
+        success = ensure_ollama_cpu_limited(target_cpus=4.0)
+        self.assertTrue(success)
+
     @patch("requests.get")
     def test_manage_ai_models_list(self, mock_get) -> None:
         """Verifies model catalog queries tags and formats ASCII card."""
@@ -211,6 +239,7 @@ class TestZimaOSFeatures(unittest.TestCase):
         agent = OSAgent()
         with (
             patch.dict(os.environ, {"CONTAINER_MODE": "true"}),
+            patch("requests.post", side_effect=Exception("Simulate native Ollama offline")),
             patch.object(agent.client.chat.completions, "create") as mock_create,
         ):
             mock_resp = MagicMock()
@@ -236,3 +265,37 @@ class TestZimaOSFeatures(unittest.TestCase):
             sys_msg = next((m for m in messages if m["role"] == "system"), None)
             self.assertIsNotNone(sys_msg)
             self.assertEqual(sys_msg["content"], CONTAINER_SYSTEM_PROMPT)
+
+    @patch("requests.post")
+    def test_agent_query_llm_native_ollama_options(self, mock_post) -> None:
+        """Verifies OSAgent query_llm invokes native /api/chat with strict options.num_thread."""
+        from agent import OSAgent
+
+        agent = OSAgent()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "model": "qwen2.5:1.5b",
+            "message": {
+                "role": "assistant",
+                "content": '{"thought": "ok", "response": "Acknowledged.", "actions": []}',
+            },
+            "prompt_eval_count": 220,
+            "eval_count": 30,
+        }
+        mock_post.return_value = mock_resp
+
+        orig_threads = config.llm_num_threads
+        try:
+            config.llm_num_threads = 4
+            resp = agent.query_llm("test prompt")
+            self.assertEqual(resp.response, "Acknowledged.")
+
+            # Verify requests.post was called with native chat payload containing num_thread: 4
+            self.assertTrue(mock_post.called)
+            called_url = mock_post.call_args.args[0]
+            self.assertTrue(called_url.endswith("/api/chat"))
+            called_json = mock_post.call_args.kwargs.get("json", {})
+            self.assertEqual(called_json.get("options", {}).get("num_thread"), 4)
+        finally:
+            config.llm_num_threads = orig_threads

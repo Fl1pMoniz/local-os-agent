@@ -657,8 +657,23 @@ def manage_ai_models(action: str = "list", model: str = "", **kwargs) -> tuple[b
     # 3. BENCHMARK CPU INFERENCE
     elif act in ("benchmark", "bench", "speed", "test"):
         gen_url = f"{base_root}/api/generate"
+        num_threads = config.llm_num_threads
+        if num_threads <= 0:
+            try:
+                cores = psutil.cpu_count(logical=False) or 4
+                num_threads = max(1, cores - 2 if cores >= 6 else cores - 1)
+            except Exception:
+                num_threads = 4
+        bench_data = {
+            "model": config.llm_model,
+            "prompt": "Say Aperture.",
+            "stream": False,
+            "options": {
+                "num_thread": num_threads,
+                "num_predict": 20,
+            },
+        }
         t_start = time.time()
-        bench_data = {"model": config.llm_model, "prompt": "Say Aperture.", "stream": False}
         tok_s = 0.0
         elapsed_s = 0.0
         try:

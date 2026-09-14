@@ -1355,11 +1355,14 @@ def _query_docker_socket(method: str, path: str, body: bytes | None = None) -> t
 
     conn = UnixHTTPConnection("localhost")
     try:
+        headers = {"Host": "localhost", "User-Agent": "Aperture-Science-GLaDOS/3.11"}
+        if body:
+            headers["Content-Type"] = "application/json"
         conn.request(
             method,
             path,
             body=body,
-            headers={"Host": "localhost", "User-Agent": "Aperture-Science-GLaDOS/3.11"},
+            headers=headers,
         )
         resp = conn.getresponse()
         status = resp.status
@@ -1374,6 +1377,51 @@ def _query_docker_socket(method: str, path: str, body: bytes | None = None) -> t
         return 500, str(e)
     finally:
         conn.close()
+
+
+def ensure_ollama_cpu_limited(target_cpus: float = 4.0) -> bool:
+    """
+    Checks if Ollama container is running on the host and automatically caps its CPU ceiling
+    via Docker socket to prevent 100% CPU lockups and thermal throttling on headless servers.
+    """
+    try:
+        status, raw = _query_docker_socket("GET", "/containers/json?all=1")
+        if status != 200 or not isinstance(raw, list):
+            return False
+
+        ollama_id = None
+        exact_name = "ollama"
+        for c in raw:
+            raw_names = [n.lstrip("/").lower() for n in (c.get("Names") or [])]
+            if any("ollama" in n for n in raw_names):
+                ollama_id = c.get("Id")
+                exact_name = raw_names[0] if raw_names else "ollama"
+                break
+
+        if not ollama_id:
+            return False
+
+        # Inspect current CPU limit
+        i_status, i_raw = _query_docker_socket("GET", f"/containers/{ollama_id}/json")
+        if i_status == 200 and isinstance(i_raw, dict):
+            host_cfg = i_raw.get("HostConfig", {})
+            current_nano = host_cfg.get("NanoCpus", 0)
+            target_nano = int(target_cpus * 1_000_000_000)
+            # If unlimited (0) or higher than target_cpus
+            if current_nano == 0 or current_nano > target_nano:
+                u_status, u_raw = _query_docker_socket(
+                    "POST",
+                    f"/containers/{ollama_id}/update",
+                    body=json.dumps({"NanoCpus": target_nano}),
+                )
+                if u_status == 200:
+                    logger.info(
+                        f"Locked Ollama container ('{exact_name}') CPU ceiling to {target_cpus} cores via Docker socket."
+                    )
+                    return True
+    except Exception as e:
+        logger.debug(f"Could not auto-limit Ollama CPU via Docker socket: {e}")
+    return False
 
 
 @register_tool(
@@ -1582,7 +1630,83 @@ def manage_containers(
             "message": f"Retrieved logs for '{exact_name}'.",
         }
 
-    return False, f"Unrecognized container action '{act}'. Use 'list', 'restart', or 'logs'."
+    # 4. CAP / LIMIT CONTAINER CPU USAGE
+    elif act in ("limit", "cap", "cpus", "cpu_limit"):
+        if not target:
+            return False, "Specify a container to limit CPU usage (e.g. 'limit ollama 4')."
+
+        target_cpus = float(kwargs.get("cpus") or kwargs.get("cpu") or lines or 4.0)
+        if target_cpus <= 0:
+            target_cpus = 4.0
+
+        status, raw = _query_docker_socket("GET", "/containers/json?all=1")
+        target_id = None
+        exact_name = target
+
+        if status == 200 and isinstance(raw, list):
+            for c in raw:
+                raw_names = [n.lstrip("/").lower() for n in (c.get("Names") or [])]
+                if target in raw_names or any(target in n for n in raw_names):
+                    target_id = c.get("Id")
+                    exact_name = raw_names[0] if raw_names else target
+                    break
+
+        if target_id:
+            nano_cpus = int(target_cpus * 1_000_000_000)
+            u_status, u_resp = _query_docker_socket(
+                "POST", f"/containers/{target_id}/update", body=json.dumps({"NanoCpus": nano_cpus})
+            )
+            if u_status == 200:
+                border = "+====================================================================+"
+                card = (
+                    f"{border}\n"
+                    f"|   APERTURE SCIENCE CONTAINER RESOURCE REGULATION PROTOCOL          |\n"
+                    f"{border}\n"
+                    f"| Target Container   : {exact_name:<46} |\n"
+                    f"| CPU Ceiling (CFS)  : {f'{target_cpus:.1f} Cores (Max {target_cpus * 100:.0f}% quota)':<46} |\n"
+                    f"| Regulation Engine  : Linux Kernel CFS Cgroup Driver                 |\n"
+                    f"| Host Safety Margin : Reserved Cores for ZimaOS Host Protected      |\n"
+                    f"{border}"
+                )
+                return True, {
+                    "full_terminal_card": card,
+                    "hud_card": card,
+                    "container": exact_name,
+                    "cpus": target_cpus,
+                    "message": f"Container '{exact_name}' CPU ceiling locked to {target_cpus:.1f} core(s).",
+                }
+            return False, f"Failed to limit container '{exact_name}': HTTP {u_status} ({u_resp})"
+
+        import shutil
+        import subprocess
+
+        d_bin = shutil.which("docker")
+        if d_bin:
+            try:
+                res = subprocess.run(
+                    [d_bin, "update", f"--cpus={target_cpus}", target],
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
+                if res.returncode == 0:
+                    return (
+                        True,
+                        f"Container '{target}' CPU ceiling locked to {target_cpus:.1f} core(s) via CLI.",
+                    )
+                return False, f"Docker update failed: {res.stderr.strip()}"
+            except Exception as e:
+                return False, f"Failed to execute docker update: {e}"
+
+        return (
+            False,
+            f"Container '{target}' not found in active Docker manifest. Use 'containers' to inspect running services.",
+        )
+
+    return (
+        False,
+        f"Unrecognized container action '{act}'. Use 'list', 'restart', 'logs', or 'limit'.",
+    )
 
 
 @register_tool(
