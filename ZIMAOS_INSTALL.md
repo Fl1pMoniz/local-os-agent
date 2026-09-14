@@ -1,84 +1,104 @@
 # Installing Aperture GLaDOS on ZimaOS
 
-This guide explains how to install the Aperture Science GLaDOS Agent onto your ZimaOS (or CasaOS) server with one-click app configuration.
+This guide provides step-by-step instructions to install the Aperture Science GLaDOS Agent onto your ZimaOS server (`MonizServer` at `http://192.168.1.123`) using your existing Ollama container.
 
 ---
 
-## Prerequisites
+## 1. Hardware Specs & Model Recommendation
 
-1. **ZimaOS or CasaOS Server** running on your local network (for example, `http://192.168.1.123`).
-2. **Local LLM Runner (Ollama)**:
-   - **Option A (Installed directly on ZimaOS via App Store)**: Ollama runs as a container on the server at `http://host.docker.internal:11434`.
-   - **Option B (Running on your main desktop PC)**: Ollama runs on your LAN workstation at `http://<your-pc-ip>:11434`.
-   - **Recommended Zero-VRAM Models (Runs fast on any standard CPU)**:
-     ```bash
-     ollama pull qwen2.5:1.5b
-     ollama pull llama3.2:1b
-     ```
+Based on the live telemetry inspected directly from your ZimaOS server via GLaDOS:
+- **Server Name**: MonizServer (`http://192.168.1.123`)
+- **CPU**: Intel Core i5-8400 (6 Cores / 6 Threads @ 2.80GHz base, up to 4.00GHz Turbo)
+- **RAM**: 16 GB DDR4 (15.4 GB total, ~10.5 GB available)
+- **GPU**: Intel UHD Graphics 630 (Integrated, zero dedicated VRAM)
+- **Existing Containers**: 25 microservices active (including your `ollama` container)
+
+### Cherry-Picked Model: `qwen2.5:3b` (or `qwen2.5:1.5b`)
+Because your server runs on an Intel Core i5-8400 CPU with integrated graphics and zero dedicated VRAM, the model executes entirely using CPU vector instructions (AVX2):
+- **Primary Recommendation: `qwen2.5:3b`**
+  - **Memory Footprint**: ~2.5 GB RAM (leaves ~8 GB free for Jellyfin, Home Assistant, and Sonarr).
+  - **Inference Speed**: ~20-30 tokens/second on all 6 cores.
+  - **Capability**: Highest accuracy under 4B parameters for structured JSON tool-calling, agent directives, and complex conversational responses.
+- **Speed Alternative: `qwen2.5:1.5b`**
+  - **Memory Footprint**: ~1.4 GB RAM.
+  - **Inference Speed**: ~45-55 tokens/second (near-instantaneous responses).
+  - **Capability**: Superb for rapid media control, hardware checks, and direct commands.
 
 ---
 
-## Method 1: One-Click Import via ZimaOS Dashboard (Recommended)
+## 2. Step 1: Pull the Model into your Ollama Container
 
-1. Open your ZimaOS dashboard in your web browser (`http://<zimaos-ip>`).
-2. Click on the **App Store** icon on your home dashboard.
+Before importing the app, ensure your existing Ollama container has the cherry-picked model downloaded.
+
+### Option A: From your ZimaOS Web Terminal or SSH (Recommended)
+1. In your browser, open your ZimaOS web terminal at `http://192.168.1.123:7681` (or SSH into `root@192.168.1.123`).
+2. Run the command to pull the model directly into your Ollama container:
+   ```bash
+   docker exec -it ollama ollama pull qwen2.5:3b
+   ```
+   *(If you also want the ultra-fast 1.5B model, run: `docker exec -it ollama ollama pull qwen2.5:1.5b`)*
+3. Verify that the model is loaded:
+   ```bash
+   docker exec -it ollama ollama list
+   ```
+
+### Option B: Via HTTP API Call from any Computer on your LAN
+You can trigger the download remotely without opening a terminal by running this in Windows PowerShell:
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://192.168.1.123:11434/api/pull" -ContentType "application/json" -Body '{"name": "qwen2.5:3b"}'
+```
+
+---
+
+## 3. Step 2: Add GLaDOS to your ZimaOS Dashboard
+
+1. Open your ZimaOS dashboard in your web browser:
+   ```
+   http://192.168.1.123
+   ```
+2. Click the **App Store** icon on your home dashboard.
 3. In the top right corner of the App Store window, click **Install a customized app**.
-4. Click the **Import** button (top right of the customized app modal).
-5. Paste the complete contents of `docker-compose.yml` (found in the root of this repository) into the import box, or upload the file directly.
+4. In the customized app setup window, click the **Import** button in the top right corner.
+5. Copy and paste the complete contents of `docker-compose.yml` (from the root of the `feat/docker-zimaos` branch in this repository) into the import text area.
 6. Click **Submit**.
-7. ZimaOS will automatically detect the configuration and populate the app fields:
-   - **Title**: Aperture GLaDOS
-   - **Icon**: Authentic Aperture Science Diaphragm logo
+7. ZimaOS will automatically detect the `x-casaos` metadata and populate the interface:
+   - **App Name**: Aperture GLaDOS
+   - **Icon**: Authentic ASCII Aperture Science Diaphragm badge
    - **Web UI Port**: 5000
-   - **Network**: Bridge with host gateway access
-8. Under **Environment Variables**, verify:
-   - `LLM_BASE_URL`: Set to `http://host.docker.internal:11434/v1` (if Ollama is on the ZimaOS server) or `http://192.168.1.X:11434/v1` (if Ollama is on your desktop PC).
-   - `LLM_MODEL`: `qwen2.5:1.5b` (or your preferred lightweight CPU model).
+   - **Host Gateway**: Configured to connect to your host's services
+8. In the **Environment Variables** section, confirm the defaults:
+   - `LLM_BASE_URL`: `http://host.docker.internal:11434/v1` (routes directly to your host's port 11434 where Ollama is listening).
+   - `LLM_MODEL`: `qwen2.5:3b` (or `qwen2.5:1.5b`).
+   - `ZIMAOS_HOST`: `http://host.docker.internal`
 9. Click **Install**.
-10. Once installation finishes, click the new **Aperture GLaDOS** app tile on your dashboard. Your full-screen Amber CRT terminal will open at `http://<zimaos-ip>:5000`.
+10. ZimaOS will fetch the build files, build the container, and place the **Aperture GLaDOS** tile directly on your dashboard.
 
 ---
 
-## Method 2: Command Line Deployment via SSH
+## 4. Step 3: Accessing the Terminal
 
-If you prefer deploying via terminal SSH onto your ZimaOS server:
-
-1. Connect to your ZimaOS server over SSH:
-   ```bash
-   ssh root@<zimaos-ip>
+1. Click on the **Aperture GLaDOS** icon on your ZimaOS dashboard.
+2. The full-screen Amber CRT terminal interface will open at:
    ```
-
-2. Clone the repository and switch to the docker branch:
-   ```bash
-   git clone https://github.com/Fl1pMoniz/local-os-agent.git
-   cd local-os-agent
-   git checkout feat/docker-zimaos
+   http://192.168.1.123:5000
    ```
-
-3. Launch the container using Docker Compose:
-   ```bash
-   docker compose up -d --build
-   ```
-
-4. Verify that the service is running and healthy:
-   ```bash
-   docker ps
-   curl -I http://127.0.0.1:5000/api/state
-   ```
-
-5. Access the terminal interface from any phone, tablet, or PC on your network at:
-   ```
-   http://<zimaos-ip>:5000
-   ```
+3. Test your connection by entering any directive into the console:
+   - `hw` : View live CPU and memory telemetry.
+   - `server` : Inspect ZimaOS health and running microservices.
+   - `flight AA100` : Track live airspace radar.
+   - `ai stats` : Display AI inference metrics and token latency.
+   - `help` : View the complete directive directory.
 
 ---
 
-## Features Available in Container Mode
+## 5. Troubleshooting & Tips
 
-When running headlessly inside Docker on ZimaOS, the agent automatically enables container mode:
-- **Amber CRT Web Management Console**: Fully accessible over your local network on port 5000.
-- **Hardware & Server Telemetry**: Real-time component temperatures, CPU loads, and memory metrics.
-- **Airspace Radar Tracking**: Live ADS-B aircraft monitoring via callsign queries.
-- **Jellyfin Remote Control**: Media search and playback triggering across your network.
-- **Zero-VRAM Inference**: Lightweight model execution on modest home server CPUs.
-- **Headless Audio Degradation**: Graceful mute of desktop audio devices while maintaining full terminal, tool dispatch, and visual telemetry operations.
+- **Ollama Connection Test**:
+  To confirm that your GLaDOS container can communicate with your Ollama container, run from your server terminal:
+  ```bash
+  docker exec -it glados-agent curl -s http://host.docker.internal:11434/api/tags
+  ```
+  It should return a JSON response containing your downloaded `qwen2.5:3b` model.
+
+- **Changing the Model Later**:
+  Click the three dots (`...`) on the **Aperture GLaDOS** tile on your ZimaOS dashboard, select **Settings**, change `LLM_MODEL` to any model you have pulled in Ollama, and click **Save**.

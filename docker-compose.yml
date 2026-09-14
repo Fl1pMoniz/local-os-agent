@@ -17,9 +17,10 @@ x-casaos:
   description:
     en_us: |
       Aperture Science GLaDOS Autonomous Agent & CRT Management Console.
-      Controls homelab hardware, ADS-B radar aircraft tracking, Jellyfin media playback,
+      Tuned for Intel Core i5-8400 and ZimaOS homelabs.
+      Controls hardware sensors, ADS-B radar aircraft tracking, Jellyfin media playback,
       soundboard acoustics, and provides an authentic Old School Amber CRT Terminal.
-      Supports zero-VRAM CPU models (Qwen 2.5 1.5B/3B, Llama 3.2 1B/3B) via Ollama.
+      Runs zero-VRAM CPU models (Qwen 2.5 3B / 1.5B) directly against your Ollama container.
   port_map: "5000"
   scheme: http
   index: /
@@ -28,7 +29,7 @@ services:
   glados:
     image: glados-agent:latest
     build:
-      context: .
+      context: https://github.com/Fl1pMoniz/local-os-agent.git#feat/docker-zimaos
       dockerfile: Dockerfile
     container_name: glados-agent
     restart: unless-stopped
@@ -40,15 +41,15 @@ services:
       - UI_PORT=5000
       - HEADLESS=true
       - LLM_BASE_URL=http://host.docker.internal:11434/v1
-      - LLM_MODEL=qwen2.5:1.5b
+      - LLM_MODEL=qwen2.5:3b
       - LLM_API_KEY=ollama
       - ZIMAOS_HOST=http://host.docker.internal
       - LOG_LEVEL=INFO
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ./captures:/app/captures
-      - ./logs:/app/logs
+      - /DATA/AppData/glados/captures:/app/captures
+      - /DATA/AppData/glados/logs:/app/logs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:5000/api/state"]
       interval: 30s
@@ -70,10 +71,10 @@ services:
       envs:
         - container: LLM_BASE_URL
           description:
-            en_us: Ollama or local LLM server API endpoint
+            en_us: Ollama container API endpoint (default: http://host.docker.internal:11434/v1)
         - container: LLM_MODEL
           description:
-            en_us: LLM model tag (e.g. qwen2.5:1.5b or llama3.2:1b)
+            en_us: Cherry-picked CPU model tag for Intel i5-8400 (recommended: qwen2.5:3b or qwen2.5:1.5b)
         - container: ZIMAOS_HOST
           description:
             en_us: ZimaOS dashboard host URL
