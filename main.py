@@ -559,6 +559,57 @@ def interactive_repl(agent: OSAgent) -> None:
                 else:
                     print(f"\n[Hardware Telemetry]:\n{telemetry}\n")
                 continue
+            if cmd_lower in ("models", "ai models", "list models", "ai list"):
+                from tools.ai_telemetry import manage_ai_models
+
+                ok, res = manage_ai_models("list")
+                card = res.get("full_terminal_card") if isinstance(res, dict) else str(res)
+                print(f"\n{card}\n")
+                continue
+            if (
+                cmd_lower.startswith("ai switch ")
+                or cmd_lower.startswith("switch model ")
+                or cmd_lower.startswith("switch ")
+            ):
+                parts = user_input.split(maxsplit=2 if cmd_lower.startswith("switch model ") else 1)
+                m_target = parts[-1].strip()
+                from tools.ai_telemetry import manage_ai_models
+
+                ok, res = manage_ai_models("switch", m_target)
+                card = res.get("full_terminal_card") if isinstance(res, dict) else str(res)
+                print(f"\n{card}\n")
+                agent.model = config.llm_model
+                continue
+            if cmd_lower.startswith("ai pull ") or cmd_lower.startswith("pull "):
+                parts = user_input.split(maxsplit=1)
+                m_target = parts[-1].strip()
+                from tools.ai_telemetry import manage_ai_models
+
+                ok, res = manage_ai_models("pull", m_target)
+                card = res.get("full_terminal_card") if isinstance(res, dict) else str(res)
+                print(f"\n{card}\n")
+                continue
+            if cmd_lower in ("ai benchmark", "benchmark", "bench", "test speed"):
+                from tools.ai_telemetry import manage_ai_models
+
+                ok, res = manage_ai_models("benchmark")
+                card = res.get("full_terminal_card") if isinstance(res, dict) else str(res)
+                print(f"\n{card}\n")
+                continue
+            if cmd_lower in ("containers", "docker", "docker ps", "list containers"):
+                from tools.container_sentinel import manage_containers
+
+                ok, res = manage_containers("list")
+                card = res.get("full_terminal_card") if isinstance(res, dict) else str(res)
+                print(f"\n{card}\n")
+                continue
+            if cmd_lower in ("briefing", "morning briefing", "homelab briefing"):
+                from tools.homelab_briefing import get_homelab_briefing
+
+                ok, res = get_homelab_briefing(to_discord=False)
+                card = res.get("full_terminal_card") if isinstance(res, dict) else str(res)
+                print(f"\n{card}\n")
+                continue
             if cmd_lower in ("server ssh", "zima ssh", "ssh", "open ssh", "ssh server"):
                 from tools.zimaos import open_zimaos_ssh
 

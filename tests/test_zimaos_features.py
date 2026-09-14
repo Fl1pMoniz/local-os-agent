@@ -98,15 +98,86 @@ class TestZimaOSFeatures(unittest.TestCase):
         self.assertEqual(len(first_line), 70)
 
     def test_manage_ai_models_switch(self) -> None:
-        """Verifies switching model updates config and returns confirmation."""
+        """Verifies switching model updates config, ai_tracker, and hardware monitor card."""
+        from tools.ai_telemetry import ai_tracker
+        from tools.system import get_hardware_telemetry
+
         orig_model = config.llm_model
         try:
             ok, res = manage_ai_models("switch", "qwen2.5:1.5b")
             self.assertTrue(ok)
             self.assertEqual(config.llm_model, "qwen2.5:1.5b")
+            self.assertEqual(ai_tracker.active_model_name, "qwen2.5:1.5b")
             self.assertIn("reconfigured", res["message"].lower())
+
+            # Verify ai_tracker telemetry reports switched model
+            telemetry = ai_tracker.get_telemetry()
+            self.assertEqual(telemetry["model_name"], "qwen2.5:1.5b")
+            self.assertEqual(telemetry["parameter_size"], "1.5B")
+
+            # Verify hardware monitor full terminal card updates to new model
+            hw = get_hardware_telemetry()
+            self.assertIn("qwen2.5:1.5b", hw["full_terminal_card"])
         finally:
             config.llm_model = orig_model
+            ai_tracker.active_model_name = orig_model
+            ai_tracker.invalidate_cache()
+
+    @patch("requests.get")
+    def test_telemetry_switch_with_resident_ps_model(self, mock_get) -> None:
+        """Verifies telemetry does not get overwritten by old resident model in /api/ps."""
+        from tools.ai_telemetry import ai_tracker
+        from tools.system import get_hardware_telemetry
+
+        def side_effect(url, **kwargs):
+            m_resp = MagicMock()
+            m_resp.status_code = 200
+            if "api/ps" in url:
+                # Old model is still in RAM
+                m_resp.json.return_value = {
+                    "models": [
+                        {
+                            "name": "glados:3b",
+                            "size": 3200000000,
+                            "details": {"parameter_size": "3.2B", "quantization_level": "Q4_K_M"},
+                        }
+                    ]
+                }
+            elif "api/tags" in url:
+                m_resp.json.return_value = {
+                    "models": [
+                        {
+                            "name": "glados:3b",
+                            "size": 3200000000,
+                            "details": {"parameter_size": "3.2B", "quantization_level": "Q4_K_M"},
+                        },
+                        {
+                            "name": "qwen2.5:1.5b",
+                            "size": 986000000,
+                            "details": {"parameter_size": "1.5B", "quantization_level": "Q4_K_M"},
+                        },
+                    ]
+                }
+            return m_resp
+
+        mock_get.side_effect = side_effect
+        orig_model = config.llm_model
+        try:
+            ok, res = manage_ai_models("switch", "qwen2.5:1.5b")
+            self.assertTrue(ok)
+            self.assertEqual(res["model"], "qwen2.5:1.5b")
+
+            telemetry = ai_tracker.get_telemetry()
+            self.assertEqual(telemetry["model_name"], "qwen2.5:1.5b")
+            self.assertEqual(telemetry["parameter_size"], "1.5B")
+
+            hw = get_hardware_telemetry()
+            self.assertIn("qwen2.5:1.5b", hw["full_terminal_card"])
+            self.assertIn("1.5B Q4_K_M", hw["full_terminal_card"])
+        finally:
+            config.llm_model = orig_model
+            ai_tracker.active_model_name = orig_model
+            ai_tracker.invalidate_cache()
 
     @patch("requests.post")
     def test_manage_ai_models_pull(self, mock_post) -> None:
