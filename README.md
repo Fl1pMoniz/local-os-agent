@@ -4,6 +4,9 @@ A local-first desktop automation agent powered by local large language models (O
 
 Designed to run locally on consumer GPUs (e.g., RTX 4070 12GB) alongside resource-heavy tasks like gaming or 3D rendering, maintaining a low memory footprint (under 3.5 GB total VRAM for both LLM and STT).
 
+> [!TIP]
+> **Learning from this project?** Read the [Beginner's Architectural Guide & Code Walkthrough](BEGINNER_GUIDE.md) for in-depth, beginner-friendly explanations of Hexagonal Architecture, Inversion of Control with Injector, Pydantic tool validation, and real-time execution traces.
+
 ---
 
 ## Setup & Installation
