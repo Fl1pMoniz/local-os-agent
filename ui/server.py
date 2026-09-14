@@ -796,6 +796,25 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                                 "output": card,
                                 "message": f"Switched active neural model to '{m_target}'.",
                             }
+                        elif p_lower.startswith("ai pull ") or p_lower.startswith("pull "):
+                            parts = user_prompt.split(maxsplit=2)
+                            m_target = parts[-1].strip()
+                            from tools.ai_telemetry import manage_ai_models
+
+                            ok, data = manage_ai_models("pull", m_target)
+                            card = (
+                                data.get("full_terminal_card")
+                                if isinstance(data, dict)
+                                else str(data)
+                            )
+                            response_data = {
+                                "success": ok,
+                                "command": user_prompt,
+                                "output": card,
+                                "message": data.get("message", f"Pulled {m_target}.")
+                                if isinstance(data, dict)
+                                else str(data),
+                            }
                         elif p_lower in ("ai benchmark", "benchmark", "bench", "test speed"):
                             from tools.ai_telemetry import manage_ai_models
 
