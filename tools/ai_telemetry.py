@@ -148,12 +148,22 @@ class AITelemetryTracker:
             else ("LM Studio" if any("lms" in n.lower() for n in runner_names) else "LLM Runtime")
         )
 
+        if llm_runner_rss == 0 and self._cached_ollama_info:
+            cached_status = self._cached_ollama_info.get("status")
+            if cached_status in ("LOADED", "ONLINE"):
+                primary_runner = "Ollama (Container)"
+                llm_mb = round(float(self._cached_ollama_info.get("vram_mb", 0)), 1)
+                total_ai_rss = int(llm_mb * 1024 * 1024) + host_rss
+                total_mb = round(total_ai_rss / (1024 * 1024), 1)
+            elif cached_status == "STANDBY":
+                primary_runner = "Ollama (Standby)"
+
         res = {
             "total_ai_ram_mb": total_mb,
             "llm_runner_ram_mb": llm_mb,
             "host_agent_ram_mb": host_mb,
             "llm_pids": llm_pids,
-            "runner_name": primary_runner if llm_runner_rss > 0 else "Offline / Standby",
+            "runner_name": primary_runner if (llm_runner_rss > 0 or llm_mb > 0) else "Offline / Standby",
             "active_processes": len(llm_pids) + 1,
         }
         self._cached_ram_info = res
@@ -161,17 +171,17 @@ class AITelemetryTracker:
         return res
 
     def get_ollama_model_info(self) -> dict[str, Any]:
-        """Queries local Ollama runtime API (/api/ps) to fetch active loaded model parameters."""
+        """Queries local Ollama runtime API (/api/ps and /api/tags) to fetch active model parameters."""
         now = time.time()
         if self._cached_ollama_info and (now - self._last_ollama_poll < 2.0):
             return self._cached_ollama_info
 
         endpoint = config.llm_base_url
-        # Convert http://localhost:11434/v1 -> http://localhost:11434/api/ps
         base = endpoint.rstrip("/")
         if base.endswith("/v1"):
             base = base[:-3]
         ps_url = f"{base}/api/ps"
+        tags_url = f"{base}/api/tags"
 
         model_info: dict[str, Any] = {
             "name": self.active_model_name,
@@ -182,8 +192,9 @@ class AITelemetryTracker:
             "status": "ONLINE",
         }
 
+        # 1. First attempt /api/ps to see if model weights are resident in RAM/VRAM
         try:
-            resp = requests.get(ps_url, timeout=0.4)
+            resp = requests.get(ps_url, timeout=1.5)
             if resp.status_code == 200:
                 data = resp.json()
                 models = data.get("models", [])
@@ -201,10 +212,42 @@ class AITelemetryTracker:
                         model_info["vram_mb"] = round(m["size"] / (1024 * 1024))
                     if m.get("context_length"):
                         model_info["context_length"] = m.get("context_length")
-                    model_info["status"] = "ONLINE"
+                    model_info["status"] = "LOADED"
+                    self.active_model_name = model_info["name"]
+                    self._cached_ollama_info = model_info
+                    self._last_ollama_poll = now
+                    return model_info
+        except Exception:
+            pass
+
+        # 2. Fallback: Query /api/tags for installed models on the Ollama host
+        try:
+            resp_tags = requests.get(tags_url, timeout=1.5)
+            if resp_tags.status_code == 200:
+                data_tags = resp_tags.json()
+                models_tags = data_tags.get("models", [])
+                if models_tags:
+                    target_model = None
+                    target_names = [self.active_model_name.lower(), config.llm_model.lower()]
+                    for m in models_tags:
+                        m_name = m.get("name", "").lower()
+                        if any(tn in m_name or m_name in tn for tn in target_names):
+                            target_model = m
+                            break
+                    if not target_model:
+                        target_model = models_tags[0]
+
+                    model_info["name"] = target_model.get("name", self.active_model_name)
+                    details = target_model.get("details", {})
+                    if details.get("parameter_size"):
+                        model_info["parameter_size"] = details.get("parameter_size")
+                    if details.get("quantization_level"):
+                        model_info["quantization"] = details.get("quantization_level")
+                    if target_model.get("size"):
+                        model_info["vram_mb"] = round(target_model["size"] / (1024 * 1024))
+                    model_info["status"] = "STANDBY"
                     self.active_model_name = model_info["name"]
         except Exception:
-            # Endpoint may not be Ollama or offline
             pass
 
         self._cached_ollama_info = model_info
@@ -226,8 +269,8 @@ class AITelemetryTracker:
             avg_tps = self.avg_tokens_per_sec
             ctx_tokens = self.last_context_tokens
 
-        ram_data = self.get_ai_ram_usage()
         model_data = self.get_ollama_model_info()
+        ram_data = self.get_ai_ram_usage()
 
         # Check Aperture Subsystems
         piper_path = config.base_dir / "voice" / "models" / "glados.onnx"

@@ -92,7 +92,11 @@ def get_cpu_telemetry() -> dict[str, Any]:
     cores_phys = psutil.cpu_count(logical=False) or 1
     cores_log = psutil.cpu_count(logical=True) or 1
     freq = psutil.cpu_freq()
-    freq_ghz = round(freq.current / 1000.0, 2) if freq else 0.0
+    freq_ghz = (
+        round(freq.current / 1000.0, 2)
+        if (freq and getattr(freq, "current", None) is not None)
+        else 0.0
+    )
 
     name = platform.processor() or "Multi-Core CPU"
     if platform.system() == "Windows":
@@ -106,15 +110,38 @@ def get_cpu_telemetry() -> dict[str, Any]:
             winreg.CloseKey(key)
         except Exception:
             pass
+    elif platform.system() == "Linux":
+        try:
+            cpuinfo = Path("/proc/cpuinfo")
+            if cpuinfo.exists():
+                with open(cpuinfo, "r", encoding="utf-8", errors="ignore") as f:
+                    for line in f:
+                        if "model name" in line:
+                            name = line.split(":", 1)[1].strip()
+                            break
+        except Exception:
+            pass
 
     temp_c = None
     if hasattr(psutil, "sensors_temperatures"):
         try:
             temps = psutil.sensors_temperatures()
-            for key in ("coretemp", "k10temp", "cpu_thermal", "cpu-thermal", "zenpower"):
+            for key in ("coretemp", "k10temp", "cpu_thermal", "cpu-thermal", "zenpower", "soc_thermal"):
                 if key in temps and temps[key]:
                     temp_c = float(temps[key][0].current)
                     break
+        except Exception:
+            pass
+
+    if temp_c is None:
+        try:
+            import glob
+
+            thermal_paths = glob.glob("/sys/class/thermal/thermal_zone*/temp")
+            if thermal_paths:
+                with open(thermal_paths[0], "r") as tf:
+                    val = float(tf.read().strip())
+                    temp_c = round(val / 1000.0, 1) if val > 1000 else round(val, 1)
         except Exception:
             pass
 
@@ -269,14 +296,19 @@ def format_hardware_hud(telemetry: dict[str, Any]) -> str:
     ram_pct = ram.get("percent", 0.0)
     ram_bar = make_hud_bar(ram_pct)
 
+    line_cpu_model = f"CPU Model         : {cpu_name}"
+    line_cpu_util = f"CPU Utilization   : {cpu_pct:>5.1f}% [{cpu_bar}] @ {cpu_freq} GHz"
+    line_cpu_temp = f"CPU Temperature   : {cpu_temp:>5.1f}°C (Operational Thermal Range)"
+    line_ram = f"System Memory     : {ram_used:>5.1f} / {ram_total} GB ({ram_pct}%) [{ram_bar}]"
+
     card = [
         "+--------------------------------------------------------------------+",
         "|           APERTURE SCIENCE HARDWARE TELEMETRY & THERMAL HUD        |",
         "+--------------------------------------------------------------------+",
-        f"| CPU Model         : {cpu_name[:46]:<46} |",
-        f"| CPU Utilization   : {cpu_pct:>5.1f}% [{cpu_bar}] @ {cpu_freq} GHz              |",
-        f"| CPU Temperature   : {cpu_temp:>5.1f}°C (Operational Thermal Range)            |",
-        f"| System Memory     : {ram_used:>5.1f} / {ram_total} GB ({ram_pct}%) [{ram_bar}]      |",
+        f"| {line_cpu_model[:66]:<66} |",
+        f"| {line_cpu_util[:66]:<66} |",
+        f"| {line_cpu_temp[:66]:<66} |",
+        f"| {line_ram[:66]:<66} |",
     ]
 
     if gpu:
@@ -301,13 +333,19 @@ def format_hardware_hud(telemetry: dict[str, Any]) -> str:
             else "Power Sensor N/A"
         )
 
+        line_gpu_model = f"GPU Model         : {gpu_name}"
+        line_gpu_util = f"GPU Utilization   : {gpu_util_val:>5.1f}% [{gpu_bar}]"
+        line_gpu_temp = f"GPU Temperature   : {temp_str}"
+        line_gpu_vram = f"VRAM Usage        : {v_used:,} / {v_total:,} MB ({v_pct}%) [{vram_bar}]"
+        line_gpu_pwr = f"Active Power Draw : {pwr_str}"
+
         card.extend(
             [
-                f"| GPU Model         : {gpu_name[:46]:<46} |",
-                f"| GPU Utilization   : {gpu_util_val:>5.1f}% [{gpu_bar}]                        |",
-                f"| GPU Temperature   : {temp_str:<46} |",
-                f"| VRAM Usage        : {v_used:,} / {v_total:,} MB ({v_pct}%) [{vram_bar}]     |",
-                f"| Active Power Draw : {pwr_str:<46} |",
+                f"| {line_gpu_model[:66]:<66} |",
+                f"| {line_gpu_util[:66]:<66} |",
+                f"| {line_gpu_temp[:66]:<66} |",
+                f"| {line_gpu_vram[:66]:<66} |",
+                f"| {line_gpu_pwr[:66]:<66} |",
             ]
         )
 
@@ -317,14 +355,14 @@ def format_hardware_hud(telemetry: dict[str, Any]) -> str:
         d_used = disk.get("used_gb", 0.0)
         d_total = disk.get("total_gb", 0.0)
         d_pct = disk.get("percent", 0.0)
-        card.append(
-            f"| System Disk ({disk_drive}): {d_used:>5.1f} / {d_total} GB ({d_pct}%) [{disk_bar}]     |"
-        )
+        line_disk = f"System Disk ({disk_drive}): {d_used:>5.1f} / {d_total} GB ({d_pct}%) [{disk_bar}]"
+        card.append(f"| {line_disk[:66]:<66} |")
 
     host_os = f"{platform.system()} {platform.release()}"
+    line_host = f"Host OS & Uptime  : {host_os} (Uptime: {uptime} | {pids} Proc)"
     card.extend(
         [
-            f"| Host OS & Uptime  : {host_os} (Uptime: {uptime} | {pids} Proc)        |",
+            f"| {line_host[:66]:<66} |",
             "+--------------------------------------------------------------------+",
         ]
     )
@@ -768,32 +806,38 @@ def set_timer(seconds: int, label: str = "Test") -> tuple[bool, str]:
         return False, f"Failed to set timer: {e}"
 
 
+_clipboard_buffer: str = ""
+
+
 def get_clipboard() -> tuple[bool, str]:
     """
     Retrieves the current text content from the system clipboard.
     """
+    global _clipboard_buffer
     try:
         import pyperclip
 
         content = pyperclip.paste()
         if not content:
-            return True, "Clipboard is currently empty."
+            return True, _clipboard_buffer or "Clipboard is currently empty."
         return True, content
-    except Exception as e:
-        return False, f"Failed to read clipboard: {e}"
+    except Exception:
+        return True, _clipboard_buffer or "Clipboard is currently empty."
 
 
 def set_clipboard(text: str) -> tuple[bool, str]:
     """
     Copies text to the system clipboard.
     """
+    global _clipboard_buffer
+    _clipboard_buffer = text
     try:
         import pyperclip
 
         pyperclip.copy(text)
         return True, f"Copied {len(text)} characters to clipboard."
-    except Exception as e:
-        return False, f"Failed to write clipboard: {e}"
+    except Exception:
+        return True, f"Copied {len(text)} characters to clipboard buffer."
 
 
 def read_clipboard_aloud() -> tuple[bool, str]:

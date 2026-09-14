@@ -26,7 +26,7 @@ SCAN_F10 = 0x44
 KEYEVENTF_KEYUP = 0x0002
 KEYEVENTF_SCANCODE = 0x0008
 
-user32 = ctypes.windll.user32
+user32 = getattr(ctypes, "windll", None).user32 if hasattr(ctypes, "windll") else None
 
 # Sarcastic Aperture GLaDOS commentary lines on gameplay clips
 GLADOS_CLIP_QUIPS = [
@@ -41,6 +41,8 @@ GLADOS_CLIP_QUIPS = [
 
 def _get_active_window_title() -> str:
     """Returns the title of the current foreground window."""
+    if not user32:
+        return "Active Application"
     try:
         hwnd = user32.GetForegroundWindow()
         if not hwnd:

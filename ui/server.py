@@ -949,10 +949,27 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps(response_data).encode("utf-8"))
             except Exception as e:
-                self.send_response(HTTPStatus.BAD_REQUEST)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode("utf-8"))
+                logger.exception("Error processing API action: %s", e)
+                if action == "prompt":
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.end_headers()
+                    err_resp = {
+                        "success": False,
+                        "command": payload.get("prompt", "") if isinstance(payload, dict) else "",
+                        "output": f"[!] Error executing directive: {e}",
+                        "message": f"Execution error: {e}",
+                        "response": f"Execution error: {e}",
+                        "error": str(e),
+                    }
+                    self.wfile.write(json.dumps(err_resp).encode("utf-8"))
+                else:
+                    self.send_response(HTTPStatus.BAD_REQUEST)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode("utf-8"))
             return
 
         self.send_error(HTTPStatus.NOT_FOUND)

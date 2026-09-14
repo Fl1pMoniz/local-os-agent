@@ -932,7 +932,14 @@
         });
 
         if (!resp.ok) {
-          printTerminalLine("[!] Error: HTTP " + resp.status + " from GLaDOS server.", "term-err-line");
+          let errDetail = "HTTP " + resp.status;
+          try {
+            const errJson = await resp.json();
+            if (errJson && errJson.error) {
+              errDetail += ": " + errJson.error;
+            }
+          } catch (_) {}
+          printTerminalLine("[!] Error: " + errDetail + " from GLaDOS server.", "term-err-line");
           return;
         }
 

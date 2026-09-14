@@ -116,9 +116,10 @@ def stop_song() -> tuple[bool, str]:
         song_name = _current_song
         _stop_event.set()
         try:
-            winmm = ctypes.windll.winmm
-            winmm.mciSendStringW(f"stop {MCI_ALIAS}", None, 0, 0)
-            winmm.mciSendStringW(f"close {MCI_ALIAS}", None, 0, 0)
+            if hasattr(ctypes, "windll"):
+                winmm = ctypes.windll.winmm
+                winmm.mciSendStringW(f"stop {MCI_ALIAS}", None, 0, 0)
+                winmm.mciSendStringW(f"close {MCI_ALIAS}", None, 0, 0)
         except Exception as e:
             logger.warning(f"Error closing MCI device: {e}")
 
@@ -140,6 +141,9 @@ def _play_song_worker(file_path: Path, song_name: str) -> None:
         from voice.audio_arbiter import GLOBAL_AUDIO_LOCK
 
         with GLOBAL_AUDIO_LOCK:
+            if not hasattr(ctypes, "windll"):
+                logger.debug("MCI song playback unavailable on non-Windows environment.")
+                return
             winmm = ctypes.windll.winmm
             abs_path = str(file_path.resolve())
 
