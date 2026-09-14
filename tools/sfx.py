@@ -106,9 +106,10 @@ def stop_sfx() -> tuple[bool, str]:
         name = _current_sfx
         _stop_event.set()
         try:
-            winmm = ctypes.windll.winmm
-            winmm.mciSendStringW(f"stop {MCI_SFX_ALIAS}", None, 0, 0)
-            winmm.mciSendStringW(f"close {MCI_SFX_ALIAS}", None, 0, 0)
+            if hasattr(ctypes, "windll"):
+                winmm = ctypes.windll.winmm
+                winmm.mciSendStringW(f"stop {MCI_SFX_ALIAS}", None, 0, 0)
+                winmm.mciSendStringW(f"close {MCI_SFX_ALIAS}", None, 0, 0)
         except Exception:
             pass
 
@@ -135,6 +136,9 @@ def _play_sfx_worker(file_path: Path, name: str) -> None:
         from voice.audio_arbiter import GLOBAL_AUDIO_LOCK
 
         with GLOBAL_AUDIO_LOCK:
+            if not hasattr(ctypes, "windll"):
+                logger.debug("MCI SFX playback unavailable on non-Windows environment.")
+                return
             winmm = ctypes.windll.winmm
             abs_path = str(file_path.resolve())
 

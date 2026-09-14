@@ -5,8 +5,16 @@ import time
 from collections.abc import Callable
 
 import numpy as np
-import sounddevice as sd
-import speech_recognition as sr
+
+try:
+    import sounddevice as sd
+except (ImportError, OSError):
+    sd = None
+
+try:
+    import speech_recognition as sr
+except (ImportError, OSError):
+    sr = None
 
 from config import config
 
@@ -77,7 +85,7 @@ class VoiceListener:
 
         self._whisper_model = None
         self._load_whisper()
-        self.recognizer = sr.Recognizer()
+        self.recognizer = sr.Recognizer() if sr else None
 
     def _load_whisper(self) -> None:
         """Loads OpenAI Whisper model locally for private offline transcription."""

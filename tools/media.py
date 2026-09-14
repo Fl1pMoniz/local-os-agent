@@ -174,8 +174,9 @@ def _send_windows_vk(vk_code: int) -> None:
     """Send key down and key up events for a virtual keycode on Windows."""
     import ctypes
 
-    ctypes.windll.user32.keybd_event(vk_code, 0, 0, 0)
-    ctypes.windll.user32.keybd_event(vk_code, 0, KEYEVENTF_KEYUP, 0)
+    if hasattr(ctypes, "windll"):
+        ctypes.windll.user32.keybd_event(vk_code, 0, 0, 0)
+        ctypes.windll.user32.keybd_event(vk_code, 0, KEYEVENTF_KEYUP, 0)
 
 
 def media_control(action: str) -> tuple[bool, str]:

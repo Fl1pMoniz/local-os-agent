@@ -16,7 +16,7 @@ from tools.audio_ducking import audio_ducked
 
 logger = logging.getLogger("local_os_agent.tools.soundboard")
 
-winmm = ctypes.windll.winmm
+winmm = getattr(ctypes, "windll", None).winmm if hasattr(ctypes, "windll") else None
 SOUNDBOARD_DIR = config.audio_cache_dir / "soundboard"
 SOUNDBOARD_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -89,6 +89,8 @@ SOUNDBOARD_ENTRIES: dict[str, dict[str, Any]] = {
 
 def _stop_mci_soundboard():
     """Stops any active soundboard clip playing via MCI."""
+    if not winmm:
+        return
     try:
         winmm.mciSendStringW(f"stop {MCI_SB_ALIAS}", None, 0, 0)
         winmm.mciSendStringW(f"close {MCI_SB_ALIAS}", None, 0, 0)
@@ -120,6 +122,8 @@ def _synthesize_soundboard_clip(entry_key: str, dest_file: pathlib.Path) -> bool
 
 def _play_file_with_ducking(file_path: pathlib.Path):
     """Plays audio file with background audio ducking and global audio lock."""
+    if not winmm:
+        return
     try:
         from voice.tts import tts_engine
 
@@ -133,12 +137,17 @@ def _play_file_with_ducking(file_path: pathlib.Path):
         with GLOBAL_AUDIO_LOCK:
             with audio_ducked(target_fraction=0.15):
                 _stop_mci_soundboard()
-                short_path = ctypes.create_unicode_buffer(1024)
-                ctypes.windll.kernel32.GetShortPathNameW(str(file_path), short_path, 1024)
-                cmd_open = f'open "{short_path.value}" type mpegvideo alias {MCI_SB_ALIAS}'
+                kernel32 = getattr(ctypes, "windll", None).kernel32 if hasattr(ctypes, "windll") else None
+                if kernel32:
+                    short_path = ctypes.create_unicode_buffer(1024)
+                    kernel32.GetShortPathNameW(str(file_path), short_path, 1024)
+                    target_path = short_path.value
+                else:
+                    target_path = str(file_path)
+                cmd_open = f'open "{target_path}" type mpegvideo alias {MCI_SB_ALIAS}'
                 res = winmm.mciSendStringW(cmd_open, None, 0, 0)
                 if res != 0:
-                    cmd_open = f'open "{short_path.value}" alias {MCI_SB_ALIAS}'
+                    cmd_open = f'open "{target_path}" alias {MCI_SB_ALIAS}'
                     winmm.mciSendStringW(cmd_open, None, 0, 0)
 
                 winmm.mciSendStringW(f"play {MCI_SB_ALIAS} wait", None, 0, 0)

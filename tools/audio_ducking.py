@@ -8,7 +8,14 @@ import logging
 import threading
 from typing import Any
 
-from pycaw.pycaw import AudioUtilities, ISimpleAudioVolume
+try:
+    from pycaw.pycaw import AudioUtilities, ISimpleAudioVolume
+
+    _HAS_PYCAW = True
+except ImportError:
+    AudioUtilities = None
+    ISimpleAudioVolume = None
+    _HAS_PYCAW = False
 
 from tools import register_tool
 
@@ -32,7 +39,7 @@ def duck_background_audio(
     saving previous levels for restoration.
     """
     global _is_ducked, _saved_session_volumes
-    if not _ducking_enabled or _is_ducked:
+    if not _HAS_PYCAW or not _ducking_enabled or _is_ducked:
         return
 
     with _ducking_lock:
@@ -60,7 +67,7 @@ def duck_background_audio(
 def restore_background_audio():
     """Restores all ducked audio sessions to their saved volume levels."""
     global _is_ducked, _saved_session_volumes
-    if not _is_ducked:
+    if not _HAS_PYCAW or not _is_ducked:
         return
 
     with _ducking_lock:

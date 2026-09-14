@@ -268,7 +268,10 @@ class TestDefensiveArgumentCoercion(unittest.TestCase):
         ]
         for val, expected_clamp in cases:
             # We don't want to actually change the host volume during unit test, so mock endpoint
-            with patch("tools.audio._get_windows_volume_endpoint") as mock_ep:
+            with (
+                patch("tools.audio._get_windows_volume_endpoint") as mock_ep,
+                patch("platform.system", return_value="Windows"),
+            ):
                 mock_inst = MagicMock()
                 mock_inst.GetMasterVolumeLevelScalar.return_value = expected_clamp / 100.0
                 mock_ep.return_value = mock_inst

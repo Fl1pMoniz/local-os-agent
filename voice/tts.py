@@ -173,6 +173,10 @@ class TextToSpeech:
             with self._lock:
                 self._current_alias = alias
 
+            if not hasattr(ctypes, "windll"):
+                logger.debug(f"Audio playback skipped in headless/non-Windows environment: {file_path}")
+                return
+
             winmm = ctypes.windll.winmm
             abs_path = str(file_path.resolve())
             is_wav = file_path.suffix.lower() == ".wav"
@@ -250,7 +254,7 @@ class TextToSpeech:
     def _speak_offline_sapi(self, text: str) -> None:
         """Offline fallback using Windows native SAPI.SpVoice with a female voice if available."""
         with GLOBAL_AUDIO_LOCK:
-            if self._cancel_event.is_set():
+            if self._cancel_event.is_set() or not hasattr(ctypes, "windll"):
                 return
             try:
                 import comtypes.client
@@ -372,9 +376,10 @@ class TextToSpeech:
         with self._lock:
             if self._current_alias:
                 try:
-                    winmm = ctypes.windll.winmm
-                    winmm.mciSendStringW(f"stop {self._current_alias}", None, 0, 0)
-                    winmm.mciSendStringW(f"close {self._current_alias}", None, 0, 0)
+                    if hasattr(ctypes, "windll"):
+                        winmm = ctypes.windll.winmm
+                        winmm.mciSendStringW(f"stop {self._current_alias}", None, 0, 0)
+                        winmm.mciSendStringW(f"close {self._current_alias}", None, 0, 0)
                 except Exception:
                     pass
                 self._current_alias = None
