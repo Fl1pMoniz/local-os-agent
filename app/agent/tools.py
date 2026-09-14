@@ -20,17 +20,26 @@ class VolumeInput(BaseModel):
 
 
 class RelativeVolumeInput(BaseModel):
-    delta: int = Field(..., description="Relative volume adjustment percentage, positive or negative (e.g. +10, -15).")
+    delta: int = Field(
+        ...,
+        description="Relative volume adjustment percentage, positive or negative (e.g. +10, -15).",
+    )
 
 
 class AppVolumeInput(BaseModel):
-    app_name: str = Field(..., description="Name of the target process or application (e.g. 'spotify', 'discord', 'chrome').")
+    app_name: str = Field(
+        ...,
+        description="Name of the target process or application (e.g. 'spotify', 'discord', 'chrome').",
+    )
     level: int = Field(..., ge=0, le=100, description="Application volume percentage (0 to 100).")
 
 
 class PlayYouTubeInput(BaseModel):
     query: str = Field(..., description="Search terms, song name, or artist to play.")
-    music: bool = Field(default=False, description="Whether to route playback to YouTube Music instead of standard YouTube.")
+    music: bool = Field(
+        default=False,
+        description="Whether to route playback to YouTube Music instead of standard YouTube.",
+    )
 
 
 class MediaControlInput(BaseModel):
@@ -54,13 +63,16 @@ class SingSongInput(BaseModel):
 
 
 class PlaySfxInput(BaseModel):
-    effect_name: Literal["radio", "turret_hello", "turret_target", "turret_lost", "turret_goodnight"] = Field(
-        ..., description="Portal sound effect identifier."
-    )
+    effect_name: Literal[
+        "radio", "turret_hello", "turret_target", "turret_lost", "turret_goodnight"
+    ] = Field(..., description="Portal sound effect identifier.")
 
 
 class OpenWebsiteInput(BaseModel):
-    target: str = Field(..., description="Website URL or recognizable shorthand (e.g. 'youtube', 'github', 'reddit').")
+    target: str = Field(
+        ...,
+        description="Website URL or recognizable shorthand (e.g. 'youtube', 'github', 'reddit').",
+    )
 
 
 class WeatherInput(BaseModel):
@@ -73,16 +85,24 @@ class WikipediaInput(BaseModel):
 
 class SetTimerInput(BaseModel):
     seconds: int = Field(..., gt=0, description="Duration of countdown timer in seconds.")
-    label: str = Field(default="Test Protocol", description="Descriptive label announced when timer fires.")
+    label: str = Field(
+        default="Test Protocol", description="Descriptive label announced when timer fires."
+    )
 
 
 class TrackFlightInput(BaseModel):
-    flight_query: str = Field(..., description="Commercial airline flight number or callsign (e.g. 'DL450', 'AA100').")
-    open_browser: bool = Field(default=True, description="Whether to open FlightRadar24 tracking map in browser.")
+    flight_query: str = Field(
+        ..., description="Commercial airline flight number or callsign (e.g. 'DL450', 'AA100')."
+    )
+    open_browser: bool = Field(
+        default=True, description="Whether to open FlightRadar24 tracking map in browser."
+    )
 
 
 class ZimaLaunchAppInput(BaseModel):
-    app_name: str = Field(..., description="Name of the Docker container or app on ZimaOS to launch.")
+    app_name: str = Field(
+        ..., description="Name of the Docker container or app on ZimaOS to launch."
+    )
 
 
 class ZimaHostInput(BaseModel):
@@ -90,31 +110,45 @@ class ZimaHostInput(BaseModel):
 
 
 class MonitorHardwareInput(BaseModel):
-    live: bool = Field(default=False, description="Whether to launch continuous live monitoring HUD.")
+    live: bool = Field(
+        default=False, description="Whether to launch continuous live monitoring HUD."
+    )
 
 
 class MonitorZimaosInput(BaseModel):
-    live: bool = Field(default=False, description="Whether to launch continuous live ZimaOS monitoring HUD.")
+    live: bool = Field(
+        default=False, description="Whether to launch continuous live ZimaOS monitoring HUD."
+    )
 
 
 class CaptureClipInput(BaseModel):
-    seconds: int = Field(default=30, ge=5, le=120, description="Number of preceding seconds of gameplay to archive.")
+    seconds: int = Field(
+        default=30, ge=5, le=120, description="Number of preceding seconds of gameplay to archive."
+    )
 
 
 class LaunchObsInput(BaseModel):
-    start_buffer: bool = Field(default=True, description="Whether to prime and start the replay buffer upon launch.")
+    start_buffer: bool = Field(
+        default=True, description="Whether to prime and start the replay buffer upon launch."
+    )
 
 
 class ListClipsInput(BaseModel):
-    limit: int = Field(default=5, ge=1, le=50, description="Maximum number of recent highlights to display.")
+    limit: int = Field(
+        default=5, ge=1, le=50, description="Maximum number of recent highlights to display."
+    )
 
 
 class JellyfinPlayInput(BaseModel):
-    query: str = Field(..., description="Movie, series, episode, or music track to stream from Jellyfin.")
+    query: str = Field(
+        ..., description="Movie, series, episode, or music track to stream from Jellyfin."
+    )
 
 
 class AnalyzeScreenInput(BaseModel):
-    prompt: str = Field(..., description="Instruction or diagnostic query for multimodal vision inspection.")
+    prompt: str = Field(
+        ..., description="Instruction or diagnostic query for multimodal vision inspection."
+    )
 
 
 class PlaySoundboardInput(BaseModel):
@@ -122,12 +156,21 @@ class PlaySoundboardInput(BaseModel):
 
 
 class DiscordClipInput(BaseModel):
-    clip_path: str | None = Field(default=None, description="Optional path to specific clip video file.")
-    caption: str | None = Field(default=None, description="Accompanying commentary text for the Discord upload.")
+    clip_path: str | None = Field(
+        default=None, description="Optional path to specific clip video file."
+    )
+    caption: str | None = Field(
+        default=None, description="Accompanying commentary text for the Discord upload."
+    )
 
 
 class LogWaterInput(BaseModel):
-    amount_ml: int = Field(default=250, gt=0, le=5000, description="Volume of water in milliliters logged for test subject.")
+    amount_ml: int = Field(
+        default=250,
+        gt=0,
+        le=5000,
+        description="Volume of water in milliliters logged for test subject.",
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -99,9 +99,7 @@ def format_zimaos_server_card(telemetry: dict[str, Any]) -> str:
     host = telemetry.get("host", "Unknown Host")
     status = telemetry.get("status", "Reachable").upper()
     cpu = f"{telemetry.get('cpu_usage', 0.0)}%"
-    ram = (
-        f"{telemetry.get('ram_used_gb', 0.0):.1f} / {telemetry.get('ram_total_gb', 0.0):.1f} GB"
-    )
+    ram = f"{telemetry.get('ram_used_gb', 0.0):.1f} / {telemetry.get('ram_total_gb', 0.0):.1f} GB"
     storage = f"{telemetry.get('disk_free_gb', 0.0):.1f} GB Free"
     containers = f"{telemetry.get('active_containers', 0)} Active"
 

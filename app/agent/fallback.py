@@ -37,9 +37,7 @@ RE_VOL_DOWN = re.compile(
     r"^(?:volume down|quieter|lower volume|turn it down|abaixa o volume|diminui o volume)$",
     re.IGNORECASE,
 )
-RE_VOL_EXACT = re.compile(
-    r"^(?:set|put)?\s*volume\s*(?:to|at|para)?\s*(\d{1,3})%?$", re.IGNORECASE
-)
+RE_VOL_EXACT = re.compile(r"^(?:set|put)?\s*volume\s*(?:to|at|para)?\s*(\d{1,3})%?$", re.IGNORECASE)
 RE_STATS = re.compile(
     r"^(?:stats|system stats|pc stats|hardware stats|status do sistema|diagnostico)$",
     re.IGNORECASE,

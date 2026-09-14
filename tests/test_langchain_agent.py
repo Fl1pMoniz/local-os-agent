@@ -47,7 +47,9 @@ class TestLangChainAgent(unittest.TestCase):
             ],
         )
 
-        mock_final_msg = AIMessage(content="Master volume adjusted to 75 percent. Sarcasm included.")
+        mock_final_msg = AIMessage(
+            content="Master volume adjusted to 75 percent. Sarcasm included."
+        )
 
         self.agent.llm_with_tools = MagicMock()
         self.agent.llm_with_tools.invoke.return_value = mock_ai_msg
