@@ -768,6 +768,10 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                                 if isinstance(data, dict)
                                 else str(data)
                             )
+                            from tools.system import get_hardware_telemetry
+
+                            hw = get_hardware_telemetry()
+                            ui_state.update(hardware_telemetry=hw, active_telemetry_tab="pc")
                             response_data = {
                                 "success": ok,
                                 "command": user_prompt,
@@ -775,6 +779,7 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                                 "message": data.get("message", "Model catalog retrieved.")
                                 if isinstance(data, dict)
                                 else str(data),
+                                "telemetry": {"hardware": hw, "active_tab": "pc"},
                             }
                         elif (
                             p_lower.startswith("ai switch ")
@@ -783,6 +788,7 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                         ):
                             m_target = user_prompt.split(maxsplit=2)[-1].strip()
                             from tools.ai_telemetry import manage_ai_models
+                            from tools.system import get_hardware_telemetry
 
                             ok, data = manage_ai_models("switch", m_target)
                             card = (
@@ -790,16 +796,20 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                                 if isinstance(data, dict)
                                 else str(data)
                             )
+                            hw = get_hardware_telemetry()
+                            ui_state.update(hardware_telemetry=hw, active_telemetry_tab="pc")
                             response_data = {
                                 "success": ok,
                                 "command": user_prompt,
                                 "output": card,
                                 "message": f"Switched active neural model to '{m_target}'.",
+                                "telemetry": {"hardware": hw, "active_tab": "pc"},
                             }
                         elif p_lower.startswith("ai pull ") or p_lower.startswith("pull "):
                             parts = user_prompt.split(maxsplit=2)
                             m_target = parts[-1].strip()
                             from tools.ai_telemetry import manage_ai_models
+                            from tools.system import get_hardware_telemetry
 
                             ok, data = manage_ai_models("pull", m_target)
                             card = (
@@ -807,6 +817,8 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                                 if isinstance(data, dict)
                                 else str(data)
                             )
+                            hw = get_hardware_telemetry()
+                            ui_state.update(hardware_telemetry=hw, active_telemetry_tab="pc")
                             response_data = {
                                 "success": ok,
                                 "command": user_prompt,
@@ -814,9 +826,11 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                                 "message": data.get("message", f"Pulled {m_target}.")
                                 if isinstance(data, dict)
                                 else str(data),
+                                "telemetry": {"hardware": hw, "active_tab": "pc"},
                             }
                         elif p_lower in ("ai benchmark", "benchmark", "bench", "test speed"):
                             from tools.ai_telemetry import manage_ai_models
+                            from tools.system import get_hardware_telemetry
 
                             ok, data = manage_ai_models("benchmark")
                             card = (
@@ -824,6 +838,8 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                                 if isinstance(data, dict)
                                 else str(data)
                             )
+                            hw = get_hardware_telemetry()
+                            ui_state.update(hardware_telemetry=hw, active_telemetry_tab="pc")
                             response_data = {
                                 "success": ok,
                                 "command": user_prompt,
@@ -831,6 +847,7 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                                 "message": data.get("message", "Benchmark complete.")
                                 if isinstance(data, dict)
                                 else str(data),
+                                "telemetry": {"hardware": hw, "active_tab": "pc"},
                             }
                         elif p_lower in (
                             "briefing",
@@ -1081,6 +1098,10 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                                 elif isinstance(r.data, dict) and "hud_card" in r.data:
                                     lines.append(r.data["hud_card"])
                             output_str = "\n".join(lines) if lines else resp_text
+                            from tools.system import get_hardware_telemetry
+
+                            hw = get_hardware_telemetry()
+                            ui_state.update(hardware_telemetry=hw)
                             response_data = {
                                 "success": True,
                                 "command": user_prompt,
@@ -1089,6 +1110,7 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                                 "response": resp_text,
                                 "glados_voice": config.enable_tts,
                                 "voice_recognition": ui_state.voice_recognition,
+                                "telemetry": {"hardware": hw, "active_tab": "pc"},
                             }
 
                 self.send_response(HTTPStatus.OK)

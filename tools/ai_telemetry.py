@@ -111,6 +111,14 @@ class AITelemetryTracker:
         self._cached_ram_info: dict[str, Any] | None = None
         self._last_ram_poll = 0.0
 
+    def invalidate_cache(self) -> None:
+        """Invalidates all cached model and RAM telemetry so the next poll queries live runtime."""
+        with self._lock:
+            self._cached_ollama_info = None
+            self._last_ollama_poll = 0.0
+            self._cached_ram_info = None
+            self._last_ram_poll = 0.0
+
     def record_inference(
         self,
         prompt_tokens: int,
@@ -152,6 +160,7 @@ class AITelemetryTracker:
 
             if model:
                 self.active_model_name = str(model).strip()
+                config.llm_model = self.active_model_name
 
     def get_ai_ram_usage(self) -> dict[str, Any]:
         """
@@ -244,73 +253,113 @@ class AITelemetryTracker:
         ps_url = f"{base}/api/ps"
         tags_url = f"{base}/api/tags"
 
+        target_name = (config.llm_model or self.active_model_name or "glados:3b").strip()
+
+        def _infer_param_size(name: str) -> str:
+            n = name.lower()
+            if "0.5b" in n:
+                return "0.5B"
+            elif "1.5b" in n:
+                return "1.5B"
+            elif any(k in n for k in ("3b", "3.2b", "3.8b")):
+                return "3.2B"
+            elif "7b" in n:
+                return "7B"
+            elif "8b" in n:
+                return "8B"
+            elif "14b" in n:
+                return "14B"
+            elif "32b" in n:
+                return "32B"
+            elif "70b" in n:
+                return "70B"
+            return "Local"
+
+        def _model_matches(cand: str, target: str) -> bool:
+            c = cand.lower().strip()
+            t = target.lower().strip()
+            if not c or not t:
+                return False
+            if c == t or f"{c}:latest" == t or c == f"{t}:latest":
+                return True
+            if c.startswith(f"{t}:") or t.startswith(f"{c}:"):
+                return True
+            if c in t or t in c:
+                return True
+            return False
+
         model_info: dict[str, Any] = {
-            "name": self.active_model_name,
-            "parameter_size": "3.2B" if "3b" in self.active_model_name.lower() else "Local",
+            "name": target_name,
+            "parameter_size": _infer_param_size(target_name),
             "quantization": "Q4_K_M",
             "vram_mb": 0,
             "context_length": config.llm_num_ctx,
             "status": "ONLINE",
         }
 
-        # 1. First attempt /api/ps to see if model weights are resident in RAM/VRAM
+        # 1. First attempt /api/ps to see if target model weights are resident in RAM/VRAM
         try:
             resp = requests.get(ps_url, timeout=1.5)
             if resp.status_code == 200:
                 data = resp.json()
                 models = data.get("models", [])
-                if models:
-                    m = models[0]
-                    model_info["name"] = m.get("name", self.active_model_name)
-                    details = m.get("details", {})
+                matching_m = None
+                for m in models:
+                    if _model_matches(m.get("name", ""), target_name):
+                        matching_m = m
+                        break
+                if matching_m:
+                    model_info["name"] = matching_m.get("name", target_name)
+                    details = matching_m.get("details", {})
                     if details.get("parameter_size"):
                         model_info["parameter_size"] = details.get("parameter_size")
                     if details.get("quantization_level"):
                         model_info["quantization"] = details.get("quantization_level")
-                    if m.get("size_vram"):
-                        model_info["vram_mb"] = round(m["size_vram"] / (1024 * 1024))
-                    elif m.get("size"):
-                        model_info["vram_mb"] = round(m["size"] / (1024 * 1024))
-                    if m.get("context_length"):
-                        model_info["context_length"] = m.get("context_length")
+                    if matching_m.get("size_vram"):
+                        model_info["vram_mb"] = round(matching_m["size_vram"] / (1024 * 1024))
+                    elif matching_m.get("size"):
+                        model_info["vram_mb"] = round(matching_m["size"] / (1024 * 1024))
+                    if matching_m.get("context_length"):
+                        model_info["context_length"] = matching_m.get("context_length")
                     model_info["status"] = "LOADED"
-                    self.active_model_name = model_info["name"]
+                    self.active_model_name = target_name
                     self._cached_ollama_info = model_info
                     self._last_ollama_poll = now
                     return model_info
         except Exception:
             pass
 
-        # 2. Fallback: Query /api/tags for installed models on the Ollama host
+        # 2. Query /api/tags for installed models on the Ollama host
         try:
             resp_tags = requests.get(tags_url, timeout=1.5)
             if resp_tags.status_code == 200:
                 data_tags = resp_tags.json()
                 models_tags = data_tags.get("models", [])
-                if models_tags:
-                    target_model = None
-                    target_names = [self.active_model_name.lower(), config.llm_model.lower()]
-                    for m in models_tags:
-                        m_name = m.get("name", "").lower()
-                        if any(tn in m_name or m_name in tn for tn in target_names):
-                            target_model = m
-                            break
-                    if not target_model:
-                        target_model = models_tags[0]
-
-                    model_info["name"] = target_model.get("name", self.active_model_name)
-                    details = target_model.get("details", {})
+                matching_tag = None
+                for m in models_tags:
+                    if _model_matches(m.get("name", ""), target_name):
+                        matching_tag = m
+                        break
+                if matching_tag:
+                    model_info["name"] = matching_tag.get("name", target_name)
+                    details = matching_tag.get("details", {})
                     if details.get("parameter_size"):
                         model_info["parameter_size"] = details.get("parameter_size")
                     if details.get("quantization_level"):
                         model_info["quantization"] = details.get("quantization_level")
-                    if target_model.get("size"):
-                        model_info["vram_mb"] = round(target_model["size"] / (1024 * 1024))
+                    if matching_tag.get("size"):
+                        model_info["vram_mb"] = round(matching_tag["size"] / (1024 * 1024))
                     model_info["status"] = "STANDBY"
-                    self.active_model_name = model_info["name"]
+                    self.active_model_name = target_name
+                    self._cached_ollama_info = model_info
+                    self._last_ollama_poll = now
+                    return model_info
         except Exception:
             pass
 
+        model_info["name"] = target_name
+        model_info["status"] = "STANDBY"
+        self.active_model_name = target_name
         self._cached_ollama_info = model_info
         self._last_ollama_poll = now
         return model_info
@@ -575,7 +624,14 @@ def manage_ai_models(action: str = "list", model: str = "", **kwargs) -> tuple[b
             return False, "Specify a model to activate (e.g. 'ai switch qwen2.5:1.5b')."
 
         config.llm_model = target_model
-        ai_tracker.model_name = target_model
+        ai_tracker.active_model_name = target_model
+        ai_tracker.invalidate_cache()
+
+        # Eagerly refresh model info to populate parameters/quant immediately
+        model_data = ai_tracker.get_ollama_model_info()
+        param_sz = model_data.get("parameter_size", "Local")
+        quant = model_data.get("quantization", "Q4_K_M")
+        status = model_data.get("status", "STANDBY")
 
         border = "+====================================================================+"
         card = (
@@ -583,7 +639,8 @@ def manage_ai_models(action: str = "list", model: str = "", **kwargs) -> tuple[b
             f"|   APERTURE SCIENCE NEURAL CORE RECONFIGURATION PROTOCOL            |\n"
             f"{border}\n"
             f"| Active Neural Core : {target_model:<46} |\n"
-            f"| Cognitive Status   : Initialized & Ready for Testing               |\n"
+            f"| Core Architecture  : {f'{param_sz} ({quant})':<46} |\n"
+            f"| Cognitive Status   : {f'Online [{status}]':<46} |\n"
             f"| Base Ollama Node   : {base_root:<46} |\n"
             f"{border}"
         )
@@ -591,6 +648,9 @@ def manage_ai_models(action: str = "list", model: str = "", **kwargs) -> tuple[b
             "full_terminal_card": card,
             "hud_card": card,
             "model": target_model,
+            "parameter_size": param_sz,
+            "quantization": quant,
+            "status": status,
             "message": f"Active neural core reconfigured to '{target_model}'.",
         }
 
