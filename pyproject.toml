@@ -11,6 +11,7 @@ only-include = [
     "tools",
     "voice",
     "ui",
+    "app",
 ]
 
 [project]

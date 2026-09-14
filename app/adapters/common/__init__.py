@@ -1,0 +1,1 @@
+"""Common cross-platform adapters."""
