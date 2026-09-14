@@ -24,6 +24,64 @@ from tools import register_tool
 
 logger = logging.getLogger("local_os_agent.tools.ai_telemetry")
 
+_working_ollama_base_url: str | None = None
+_last_probe_time: float = 0.0
+
+
+def get_working_ollama_base_url() -> str:
+    """Probes and returns the first reachable Ollama base URL across Docker and LAN."""
+    global _working_ollama_base_url, _last_probe_time
+    now = time.time()
+    if _working_ollama_base_url and (now - _last_probe_time < 30.0):
+        return _working_ollama_base_url
+
+    candidates: list[str] = []
+    if config.llm_base_url:
+        candidates.append(config.llm_base_url)
+    candidates.extend(
+        [
+            "http://host.docker.internal:11434/v1",
+            "http://172.17.0.1:11434/v1",
+            "http://192.168.1.123:11434/v1",
+            "http://ollama:11434/v1",
+            "http://localhost:11434/v1",
+        ]
+    )
+
+    try:
+        from tools.zimaos import get_zimaos_host
+        import urllib.parse
+
+        zh = get_zimaos_host()
+        parsed = urllib.parse.urlparse(zh)
+        if parsed.hostname:
+            candidates.append(f"http://{parsed.hostname}:11434/v1")
+    except Exception:
+        pass
+
+    seen: set[str] = set()
+    for cand in candidates:
+        norm = cand.rstrip("/")
+        if norm in seen:
+            continue
+        seen.add(norm)
+        base = norm[:-3] if norm.endswith("/v1") else norm
+        test_url = f"{base}/api/tags"
+        try:
+            r = requests.get(test_url, timeout=0.6)
+            if r.status_code == 200:
+                _working_ollama_base_url = norm
+                _last_probe_time = now
+                config.llm_base_url = norm
+                return norm
+        except Exception:
+            continue
+
+    fallback = config.llm_base_url or "http://host.docker.internal:11434/v1"
+    _working_ollama_base_url = fallback
+    _last_probe_time = now
+    return fallback
+
 
 class AITelemetryTracker:
     """Thread-safe telemetry engine tracking real-time LLM performance and memory."""
@@ -163,7 +221,9 @@ class AITelemetryTracker:
             "llm_runner_ram_mb": llm_mb,
             "host_agent_ram_mb": host_mb,
             "llm_pids": llm_pids,
-            "runner_name": primary_runner if (llm_runner_rss > 0 or llm_mb > 0) else "Offline / Standby",
+            "runner_name": primary_runner
+            if (llm_runner_rss > 0 or llm_mb > 0)
+            else "Offline / Standby",
             "active_processes": len(llm_pids) + 1,
         }
         self._cached_ram_info = res
@@ -176,7 +236,7 @@ class AITelemetryTracker:
         if self._cached_ollama_info and (now - self._last_ollama_poll < 2.0):
             return self._cached_ollama_info
 
-        endpoint = config.llm_base_url
+        endpoint = get_working_ollama_base_url()
         base = endpoint.rstrip("/")
         if base.endswith("/v1"):
             base = base[:-3]

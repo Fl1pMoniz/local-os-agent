@@ -199,7 +199,9 @@ class OSAgent:
         enable_voice: bool | None = None,
         confirmation_callback: Callable[[str, str, dict[str, Any]], bool] | None = None,
     ):
-        self.base_url = base_url or config.llm_base_url
+        from tools.ai_telemetry import get_working_ollama_base_url
+
+        self.base_url = base_url or get_working_ollama_base_url()
         self.api_key = api_key or config.llm_api_key
         self.model = model or config.llm_model
         self.enable_voice = enable_voice if enable_voice is not None else config.enable_tts
@@ -282,6 +284,12 @@ class OSAgent:
             logger.warning(
                 f"LLM query failed or produced invalid JSON ({e}). Falling back to deterministic resolver."
             )
+            try:
+                import tools.ai_telemetry as ait
+
+                ait._working_ollama_base_url = None
+            except Exception:
+                pass
             plan = AgentResponse(
                 thought="Executing Aperture Science deterministic rule engine.",
                 response="Command acknowledged. Executing protocol.",

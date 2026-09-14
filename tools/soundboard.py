@@ -137,7 +137,9 @@ def _play_file_with_ducking(file_path: pathlib.Path):
         with GLOBAL_AUDIO_LOCK:
             with audio_ducked(target_fraction=0.15):
                 _stop_mci_soundboard()
-                kernel32 = getattr(ctypes, "windll", None).kernel32 if hasattr(ctypes, "windll") else None
+                kernel32 = (
+                    getattr(ctypes, "windll", None).kernel32 if hasattr(ctypes, "windll") else None
+                )
                 if kernel32:
                     short_path = ctypes.create_unicode_buffer(1024)
                     kernel32.GetShortPathNameW(str(file_path), short_path, 1024)

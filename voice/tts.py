@@ -174,7 +174,9 @@ class TextToSpeech:
                 self._current_alias = alias
 
             if not hasattr(ctypes, "windll"):
-                logger.debug(f"Audio playback skipped in headless/non-Windows environment: {file_path}")
+                logger.debug(
+                    f"Audio playback skipped in headless/non-Windows environment: {file_path}"
+                )
                 return
 
             winmm = ctypes.windll.winmm

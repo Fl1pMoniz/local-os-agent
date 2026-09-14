@@ -969,7 +969,9 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                     self.send_header("Content-Type", "application/json")
                     self.send_header("Access-Control-Allow-Origin", "*")
                     self.end_headers()
-                    self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode("utf-8"))
+                    self.wfile.write(
+                        json.dumps({"success": False, "error": str(e)}).encode("utf-8")
+                    )
             return
 
         self.send_error(HTTPStatus.NOT_FOUND)
