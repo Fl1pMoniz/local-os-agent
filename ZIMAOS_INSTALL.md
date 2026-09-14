@@ -50,16 +50,40 @@ Invoke-RestMethod -Method Post -Uri "http://192.168.1.123:11434/api/pull" -Conte
 
 ---
 
-## 3. Step 2: Add GLaDOS to your ZimaOS Dashboard
+## 3. Step 2: Running GLaDOS on ZimaOS
 
-1. Open your ZimaOS dashboard in your web browser:
+> [!NOTE] Why the ZimaOS Custom App GUI reports "Failed to pull image: repository does not exist"
+> ZimaOS / CasaOS's App Store GUI installer strictly expects images to already be published to a public container registry (such as Docker Hub or GitHub Container Registry). It does not build Dockerfiles from Git repositories inside the browser.
+> 
+> Choose **Method A** for an immediate, 1-minute launch directly on your server, or **Method B** if you prefer using the App Store interface once the GitHub image build completes.
+
+### Method A: Direct Server Launch via Terminal / SSH (Recommended & Instant)
+
+This builds and launches GLaDOS natively on your server's Intel Core i5-8400 CPU using your existing Ollama container.
+
+1. In your browser, open your ZimaOS web terminal at `http://192.168.1.123:7681` (or SSH via `ssh root@192.168.1.123`).
+2. Run this single command to clone the branch and build the container:
+   ```bash
+   git clone -b feat/docker-zimaos https://github.com/Fl1pMoniz/local-os-agent.git /DATA/AppData/glados && cd /DATA/AppData/glados && docker compose up -d --build
    ```
-   http://192.168.1.123
-   ```
-2. Click the **App Store** icon on your home dashboard.
-3. In the top right corner of the App Store window, click **Install a customized app**.
-4. In the customized app setup window, click the **Import** button in the top right corner.
-5. Paste the following clean Compose configuration into the import text area:
+3. Docker will build the image and launch the `glados-agent` container on port `5000`.
+4. Now add the **Aperture GLaDOS** tile to your ZimaOS dashboard:
+   - On the ZimaOS home screen, click the **+** (Add) button in the top right.
+   - Click **Add external link/APP**.
+   - Fill in:
+     - **App Name**: `Aperture GLaDOS`
+     - **URL**: `http://192.168.1.123:5000`
+     - **Icon URL**: `https://raw.githubusercontent.com/Fl1pMoniz/local-os-agent/main/ui/assets/glados.png`
+   - Click **Save**.
+5. The **Aperture GLaDOS** tile with the authentic Aperture Science logo will now be permanently accessible from your ZimaOS home screen!
+
+---
+
+### Method B: ZimaOS Custom App Import (GitHub Container Registry)
+
+Once the automated GitHub Actions workflow publishes the container image to GitHub Container Registry (`ghcr.io`), you can import this Compose configuration directly in the ZimaOS App Store without any terminal commands:
+
+1. In your open ZimaOS **Install customized app** window (or click `Manage` -> delete the failed tile -> `Install customized app` -> `Import`), paste:
 
 ```yaml
 name: glados-agent
@@ -91,9 +115,9 @@ x-casaos:
 
 services:
   glados:
-    image: glados-agent:latest
+    image: ghcr.io/fl1pmoniz/local-os-agent:latest
     build:
-      context: https://github.com/Fl1pMoniz/local-os-agent.git#feat/docker-zimaos
+      context: .
       dockerfile: Dockerfile
     container_name: glados-agent
     restart: unless-stopped
@@ -144,7 +168,8 @@ services:
             en_us: "ZimaOS dashboard host URL"
 ```
 
-6. Click **Submit**.
+2. Click **Submit**.
+3. Click **Install**.
 7. ZimaOS will automatically detect the `x-casaos` metadata and populate the interface:
    - **App Name**: Aperture GLaDOS
    - **Icon**: Authentic ASCII Aperture Science Diaphragm badge

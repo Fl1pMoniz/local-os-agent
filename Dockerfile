@@ -22,13 +22,16 @@ ENV PYTHONUNBUFFERED=1 \
     UV_LINK_MODE=copy
 
 # Copy dependency specifications first for optimal Docker layer caching
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock README.md ./
 
-# Install python dependencies (Linux environment automatically ignores win32 wheels)
-RUN uv sync --no-dev --all-extras --frozen
+# Install python dependencies without installing the project root yet
+RUN uv sync --no-dev --frozen --no-install-project
 
 # Copy application source tree
 COPY . .
+
+# Sync project root package into virtualenv
+RUN uv sync --no-dev --frozen
 
 # Expose Web UI terminal port
 EXPOSE 5000

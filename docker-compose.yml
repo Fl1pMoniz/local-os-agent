@@ -27,9 +27,9 @@ x-casaos:
 
 services:
   glados:
-    image: glados-agent:latest
+    image: ghcr.io/fl1pmoniz/local-os-agent:latest
     build:
-      context: https://github.com/Fl1pMoniz/local-os-agent.git#feat/docker-zimaos
+      context: .
       dockerfile: Dockerfile
     container_name: glados-agent
     restart: unless-stopped
