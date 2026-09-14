@@ -279,13 +279,13 @@
     /* Main Terminal Workspace: 3 Seamless Text Columns (No Dividing Lines) */
     .term-workspace {
       display: grid;
-      grid-template-columns: minmax(0, 1.25fr) minmax(230px, auto) minmax(300px, 1.15fr);
+      grid-template-columns: minmax(0, 1.15fr) auto minmax(min-content, 1.35fr);
       flex: 1;
       min-height: 0;
       background: transparent;
       overflow: hidden;
-      gap: 16px;
-      padding: 4px 16px 6px 16px;
+      gap: 12px;
+      padding: 4px 12px 6px 12px;
     }
 
     @media (max-width: 900px) {
@@ -438,6 +438,8 @@
     .term-matrix-pane {
       background: transparent;
       border: none !important;
+      width: max-content;
+      max-width: 290px;
     }
 
     .matrix-scroll-area {
@@ -479,6 +481,7 @@
     .term-telemetry-pane {
       background: transparent;
       border: none !important;
+      min-width: 0;
     }
 
     .telemetry-tab-ascii {
@@ -525,7 +528,8 @@
     .telemetry-scroll-area {
       flex: 1;
       overflow-y: auto;
-      overflow-x: hidden;
+      overflow-x: auto;
+      scrollbar-width: thin;
       padding: 2px 0;
       display: flex;
       flex-direction: column;
@@ -535,14 +539,15 @@
 
     .exact-terminal-ascii {
       font-family: var(--font-cmd);
-      font-size: var(--term-font-base);
-      line-height: 1.25;
+      font-size: clamp(8.2px, 0.70vw, 11.5px);
+      line-height: 1.24;
       color: var(--cmd-text);
       white-space: pre;
       user-select: text;
       margin: 0 auto;
       width: fit-content;
       max-width: 100%;
+      box-sizing: border-box;
       background: transparent;
     }
 
@@ -585,14 +590,16 @@
     .term-status-footer {
       display: flex;
       align-items: center;
-      gap: 14px;
-      padding: 4px 16px;
+      gap: 12px;
+      padding: 4px 12px;
       background: transparent;
       border: none !important;
       font-size: var(--term-font-dim);
       color: var(--cmd-dim);
       flex-shrink: 0;
       user-select: none;
+      overflow: hidden;
+      white-space: nowrap;
     }
 
     .status-item {
@@ -687,14 +694,14 @@
       <section class="term-pane term-matrix-pane">
         <div class="pane-title-ascii">
           <span>[DIRECTIVE MATRIX]</span>
-          <span style="color: var(--cmd-dim); font-size: var(--term-font-dim);">[A-Z]</span>
+          <span id="matrix-mode-tag" class="cmd-link" onclick="toggleMatrixMode()" title="Click to toggle Server / Desktop matrix">[SRV]</span>
         </div>
 
         <div class="matrix-scroll-area">
-          <pre class="commands-ascii">
+          <pre class="commands-ascii" id="commands-matrix">
 +================================+
 |   APERTURE DIRECTIVE MATRIX    |
-| [A-Z] SYSTEM COMMAND DIRECTORY |
+| [SRV] SERVER COMMAND DIRECTORY |
 +================================+
 +--------------------------------+
 | [SYS] TELEMETRY &amp; HARDWARE     |
@@ -705,29 +712,25 @@
 | <span class="cmd-link" onclick="executeCommand('server ssh')">server ssh</span>    : Remote Shell   |
 | <span class="cmd-link" onclick="executeCommand('flight AA100')">flight &lt;cs&gt;</span>   : ADS-B Radar    |
 +--------------------------------+
-| [MED] MEDIA &amp; ACOUSTICS        |
+| [SRV] DOCKER &amp; HOMELAB         |
++--------------------------------+
+| <span class="cmd-link" onclick="executeCommand('containers')">containers</span>    : Container PS   |
+| <span class="cmd-link" onclick="executeCommand('restart jellyfin')">restart &lt;app&gt;</span> : Reanimate App  |
+| <span class="cmd-link" onclick="executeCommand('logs ollama')">logs &lt;app&gt;</span>    : Container Logs |
+| <span class="cmd-link" onclick="executeCommand('briefing')">briefing</span>      : Daily Pulse    |
++--------------------------------+
+| [AI] NEURAL WEIGHTS &amp; CORE     |
++--------------------------------+
+| <span class="cmd-link" onclick="executeCommand('models')">models</span>        : Model Catalog  |
+| <span class="cmd-link" onclick="executeCommand('ai switch qwen2.5:1.5b')">switch &lt;mod&gt;</span>  : Switch Weights |
+| <span class="cmd-link" onclick="executeCommand('benchmark')">benchmark</span>     : CPU tok/s Test |
++--------------------------------+
+| [MED] MEDIA &amp; ENVIRONMENT      |
 +--------------------------------+
 | <span class="cmd-link" onclick="executeCommand('jellyfin')">jellyfin &lt;q&gt;</span>  : Stream Media   |
 | <span class="cmd-link" onclick="executeCommand('now playing')">now playing</span>   : Live Media HUD |
-| <span class="cmd-link" onclick="executeCommand('radio')">radio</span>         : Portal Radio   |
-| <span class="cmd-link" onclick="executeCommand('turret')">turret</span>        : Turret SFX     |
-| <span class="cmd-link" onclick="executeCommand('lemons')">lemons</span>        : Cave Johnson   |
-| <span class="cmd-link" onclick="executeCommand('sing still alive')">still alive</span>   : GLaDOS Song    |
-| <span class="cmd-link" onclick="executeCommand('stop')">stop</span>          : Halt Audio     |
-+--------------------------------+
-| [CAP] RECORDING &amp; VISION       |
-+--------------------------------+
-| <span class="cmd-link" onclick="executeCommand('clip that')">clip that</span>     : 30s Game Clip  |
-| <span class="cmd-link" onclick="executeCommand('clips')">clips</span>         : List Highlights|
-| <span class="cmd-link" onclick="executeCommand('look')">look</span>          : Screen Vision  |
-| <span class="cmd-link" onclick="executeCommand('roast me')">roast me</span>      : Subject Roast  |
-+--------------------------------+
-| [BIO] SUBJECT COMPLIANCE       |
-+--------------------------------+
+| <span class="cmd-link" onclick="executeCommand('weather')">weather</span>       : Atmospherics   |
 | <span class="cmd-link" onclick="executeCommand('wellness')">wellness</span>      : Biometric HUD  |
-| <span class="cmd-link" onclick="executeCommand('water')">water</span>         : Log Hydration  |
-| <span class="cmd-link" onclick="executeCommand('quip')">quip</span>          : Chamber Quip   |
-| <span class="cmd-link" onclick="executeCommand('lock pc')">lock pc</span>       : Secure Console |
 | <span class="cmd-link" onclick="executeCommand('cls')">cls</span>           : Clear Screen   |
 +================================+
 [Click any directive to execute]</pre>
@@ -829,6 +832,100 @@
     let telemetryCache = null;
     let commandHistory = [];
     let historyIdx = -1;
+
+    const SERVER_MATRIX_HTML = `+================================+
+|   APERTURE DIRECTIVE MATRIX    |
+| [SRV] SERVER COMMAND DIRECTORY |
++================================+
++--------------------------------+
+| [SYS] TELEMETRY &amp; HARDWARE     |
++--------------------------------+
+| <span class="cmd-link" onclick="executeCommand('hw')">hw</span>            : Host Telemetry |
+| <span class="cmd-link" onclick="executeCommand('ai stats')">ai stats</span>      : GLaDOS AI HUD  |
+| <span class="cmd-link" onclick="executeCommand('server')">server</span>        : ZimaOS Status  |
+| <span class="cmd-link" onclick="executeCommand('server ssh')">server ssh</span>    : Remote Shell   |
+| <span class="cmd-link" onclick="executeCommand('flight AA100')">flight &lt;cs&gt;</span>   : ADS-B Radar    |
++--------------------------------+
+| [SRV] DOCKER &amp; HOMELAB         |
++--------------------------------+
+| <span class="cmd-link" onclick="executeCommand('containers')">containers</span>    : Container PS   |
+| <span class="cmd-link" onclick="executeCommand('restart jellyfin')">restart &lt;app&gt;</span> : Reanimate App  |
+| <span class="cmd-link" onclick="executeCommand('logs ollama')">logs &lt;app&gt;</span>    : Container Logs |
+| <span class="cmd-link" onclick="executeCommand('briefing')">briefing</span>      : Daily Pulse    |
++--------------------------------+
+| [AI] NEURAL WEIGHTS &amp; CORE     |
++--------------------------------+
+| <span class="cmd-link" onclick="executeCommand('models')">models</span>        : Model Catalog  |
+| <span class="cmd-link" onclick="executeCommand('ai switch qwen2.5:1.5b')">switch &lt;mod&gt;</span>  : Switch Weights |
+| <span class="cmd-link" onclick="executeCommand('benchmark')">benchmark</span>     : CPU tok/s Test |
++--------------------------------+
+| [MED] MEDIA &amp; ENVIRONMENT      |
++--------------------------------+
+| <span class="cmd-link" onclick="executeCommand('jellyfin')">jellyfin &lt;q&gt;</span>  : Stream Media   |
+| <span class="cmd-link" onclick="executeCommand('now playing')">now playing</span>   : Live Media HUD |
+| <span class="cmd-link" onclick="executeCommand('weather')">weather</span>       : Atmospherics   |
+| <span class="cmd-link" onclick="executeCommand('wellness')">wellness</span>      : Biometric HUD  |
+| <span class="cmd-link" onclick="executeCommand('cls')">cls</span>           : Clear Screen   |
++================================+
+[Click any directive to execute]`;
+
+    const DESKTOP_MATRIX_HTML = `+================================+
+|   APERTURE DIRECTIVE MATRIX    |
+| [A-Z] DESKTOP DIRECTORY        |
++================================+
++--------------------------------+
+| [SYS] TELEMETRY &amp; HARDWARE     |
++--------------------------------+
+| <span class="cmd-link" onclick="executeCommand('hw')">hw</span>            : PC Diagnostics |
+| <span class="cmd-link" onclick="executeCommand('ai stats')">ai stats</span>      : GLaDOS AI HUD  |
+| <span class="cmd-link" onclick="executeCommand('server')">server</span>        : ZimaOS Status  |
+| <span class="cmd-link" onclick="executeCommand('server ssh')">server ssh</span>    : Remote Shell   |
+| <span class="cmd-link" onclick="executeCommand('flight AA100')">flight &lt;cs&gt;</span>   : ADS-B Radar    |
++--------------------------------+
+| [MED] MEDIA &amp; ACOUSTICS        |
++--------------------------------+
+| <span class="cmd-link" onclick="executeCommand('jellyfin')">jellyfin &lt;q&gt;</span>  : Stream Media   |
+| <span class="cmd-link" onclick="executeCommand('now playing')">now playing</span>   : Live Media HUD |
+| <span class="cmd-link" onclick="executeCommand('radio')">radio</span>         : Portal Radio   |
+| <span class="cmd-link" onclick="executeCommand('turret')">turret</span>        : Turret SFX     |
+| <span class="cmd-link" onclick="executeCommand('lemons')">lemons</span>        : Cave Johnson   |
+| <span class="cmd-link" onclick="executeCommand('sing still alive')">still alive</span>   : GLaDOS Song    |
+| <span class="cmd-link" onclick="executeCommand('stop')">stop</span>          : Halt Audio     |
++--------------------------------+
+| [CAP] RECORDING &amp; VISION       |
++--------------------------------+
+| <span class="cmd-link" onclick="executeCommand('clip that')">clip that</span>     : 30s Game Clip  |
+| <span class="cmd-link" onclick="executeCommand('clips')">clips</span>         : List Highlights|
+| <span class="cmd-link" onclick="executeCommand('look')">look</span>          : Screen Vision  |
+| <span class="cmd-link" onclick="executeCommand('roast me')">roast me</span>      : Subject Roast  |
++--------------------------------+
+| [BIO] SUBJECT COMPLIANCE       |
++--------------------------------+
+| <span class="cmd-link" onclick="executeCommand('wellness')">wellness</span>      : Biometric HUD  |
+| <span class="cmd-link" onclick="executeCommand('water')">water</span>         : Log Hydration  |
+| <span class="cmd-link" onclick="executeCommand('quip')">quip</span>          : Chamber Quip   |
+| <span class="cmd-link" onclick="executeCommand('lock pc')">lock pc</span>       : Secure Console |
+| <span class="cmd-link" onclick="executeCommand('cls')">cls</span>           : Clear Screen   |
++================================+
+[Click any directive to execute]`;
+
+    let currentMatrixMode = "server";
+    function toggleMatrixMode() {
+      currentMatrixMode = currentMatrixMode === "server" ? "desktop" : "server";
+      renderMatrix();
+    }
+    function renderMatrix() {
+      const elPre = document.getElementById("commands-matrix");
+      const elTag = document.getElementById("matrix-mode-tag");
+      if (!elPre) return;
+      if (currentMatrixMode === "server") {
+        elPre.innerHTML = SERVER_MATRIX_HTML;
+        if (elTag) elTag.textContent = "[SRV]";
+      } else {
+        elPre.innerHTML = DESKTOP_MATRIX_HTML;
+        if (elTag) elTag.textContent = "[DSK]";
+      }
+    }
 
     // DOM References
     const elCmdInput = document.getElementById("cmd-input");
@@ -1216,6 +1313,11 @@
           }
           if (data.voice_recognition !== undefined) setVoiceRecognitionState(data.voice_recognition);
           if (data.glados_voice !== undefined) setGladosVoiceState(data.glados_voice);
+          if (data.container_mode !== undefined && !window._matrixInitialized) {
+            window._matrixInitialized = true;
+            currentMatrixMode = data.container_mode ? "server" : "desktop";
+            renderMatrix();
+          }
           renderTelemetryCards();
           if (elFooterSync) elFooterSync.textContent = "[SENSORS: SYNCED]";
         }

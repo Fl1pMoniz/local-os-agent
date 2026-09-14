@@ -49,8 +49,9 @@ def get_working_ollama_base_url() -> str:
     )
 
     try:
-        from tools.zimaos import get_zimaos_host
         import urllib.parse
+
+        from tools.zimaos import get_zimaos_host
 
         zh = get_zimaos_host()
         parsed = urllib.parse.urlparse(zh)
@@ -475,3 +476,163 @@ def get_glados_ai_stats() -> dict[str, Any]:
         "terminal_card": card_str,
         "message": f"GLaDOS AI Engine {data['model_name']} ({data['parameter_size']}) nominal. Generation rate: {data['tokens_per_sec']} tok/s.",
     }
+
+
+@register_tool(
+    name="manage_ai_models",
+    description="Manages local Ollama neural model weights: lists installed models, switches active model on the fly, or benchmarks CPU inference.",
+    sensitive=False,
+)
+def manage_ai_models(action: str = "list", model: str = "", **kwargs) -> tuple[bool, Any]:
+    """Neural Core & Ollama model catalog and live switcher."""
+    act = (action or "list").strip().lower()
+    target_model = (model or "").strip()
+
+    base_v1 = get_working_ollama_base_url()
+    base_root = base_v1[:-3] if base_v1.endswith("/v1") else base_v1
+
+    # 1. LIST MODELS
+    if act in ("list", "models", "catalog", "installed"):
+        tags_url = f"{base_root}/api/tags"
+        models_list = []
+        try:
+            r = requests.get(tags_url, timeout=3.0)
+            if r.status_code == 200:
+                raw_models = r.json().get("models", [])
+                for m in raw_models:
+                    m_name = m.get("name", "unknown")
+                    sz_bytes = m.get("size", 0)
+                    sz_str = (
+                        f"{sz_bytes / (1024**3):.1f} GB"
+                        if sz_bytes >= 1024**3
+                        else f"{sz_bytes / (1024**2):.0f} MB"
+                    )
+                    det = m.get("details", {})
+                    quant = det.get("quantization_level", "N/A")
+                    is_active = (
+                        m_name == config.llm_model
+                        or m_name.startswith(f"{config.llm_model}:")
+                        or f"{m_name}:latest" == config.llm_model
+                    )
+                    status_tag = "[* ACTIVE CORE]" if is_active else "[STANDBY]"
+                    models_list.append(
+                        {
+                            "name": m_name,
+                            "size": sz_str,
+                            "quant": quant,
+                            "status": status_tag,
+                            "is_active": is_active,
+                        }
+                    )
+        except Exception as e:
+            logger.debug(f"Failed to query Ollama models: {e}")
+
+        border = "+====================================================================+"
+        sep = "+--------------------------------------------------------------------+"
+        header_row = "| MODEL TAG            SIZE       QUANT       STATUS                 |"
+
+        card_lines = [
+            border,
+            "|        APERTURE SCIENCE NEURAL CORE & OLLAMA MODEL CATALOG         |",
+            f"| [* ENGINE: OLLAMA] Base: {base_root[:28]:<28} Active: {config.llm_model[:12]:<12} |",
+            border,
+            header_row,
+            sep,
+        ]
+
+        if not models_list:
+            card_lines.append(
+                f"| Active Model: {config.llm_model:<20} (Ollama /api/tags unreachable)      |"
+            )
+        else:
+            for item in models_list:
+                tag_col = item["name"][:20].ljust(20)
+                sz_col = item["size"][:10].ljust(10)
+                q_col = item["quant"][:11].ljust(11)
+                st_col = item["status"][:22].ljust(22)
+                card_lines.append(f"| {tag_col} {sz_col} {q_col} {st_col} |")
+
+        card_lines.extend(
+            [
+                sep,
+                "| [Use 'ai switch <model>' to reconfigure active neural core weights] |",
+                border,
+            ]
+        )
+        card_str = "\n".join(card_lines)
+
+        return True, {
+            "full_terminal_card": card_str,
+            "hud_card": card_str,
+            "models": models_list,
+            "active_model": config.llm_model,
+            "message": f"{len(models_list)} neural model(s) available in local Ollama repository.",
+        }
+
+    # 2. SWITCH ACTIVE MODEL
+    elif act in ("switch", "select", "set", "use"):
+        if not target_model:
+            return False, "Specify a model to activate (e.g. 'ai switch qwen2.5:1.5b')."
+
+        config.llm_model = target_model
+        ai_tracker.model_name = target_model
+
+        border = "+====================================================================+"
+        card = (
+            f"{border}\n"
+            f"|   APERTURE SCIENCE NEURAL CORE RECONFIGURATION PROTOCOL            |\n"
+            f"{border}\n"
+            f"| Active Neural Core : {target_model:<46} |\n"
+            f"| Cognitive Status   : Initialized & Ready for Testing               |\n"
+            f"| Base Ollama Node   : {base_root:<46} |\n"
+            f"{border}"
+        )
+        return True, {
+            "full_terminal_card": card,
+            "hud_card": card,
+            "model": target_model,
+            "message": f"Active neural core reconfigured to '{target_model}'.",
+        }
+
+    # 3. BENCHMARK CPU INFERENCE
+    elif act in ("benchmark", "bench", "speed", "test"):
+        gen_url = f"{base_root}/api/generate"
+        t_start = time.time()
+        bench_data = {"model": config.llm_model, "prompt": "Say Aperture.", "stream": False}
+        tok_s = 0.0
+        elapsed_s = 0.0
+        try:
+            r = requests.post(gen_url, json=bench_data, timeout=15.0)
+            elapsed_s = time.time() - t_start
+            if r.status_code == 200:
+                resp_j = r.json()
+                eval_count = resp_j.get("eval_count", 5)
+                eval_dur_ns = resp_j.get("eval_duration", 1_000_000_000)
+                tok_s = (eval_count / (eval_dur_ns / 1e9)) if eval_dur_ns > 0 else 0.0
+        except Exception as e:
+            logger.debug(f"Benchmark error: {e}")
+            elapsed_s = time.time() - t_start
+
+        border = "+====================================================================+"
+        card = (
+            f"{border}\n"
+            f"|         APERTURE SCIENCE CPU NEURAL BENCHMARK RESULTS              |\n"
+            f"{border}\n"
+            f"| Evaluated Model    : {config.llm_model:<46} |\n"
+            f"| CPU Generation Rate: {tok_s:>5.1f} tokens/second                             |\n"
+            f"| Roundtrip Latency  : {elapsed_s * 1000:>5.0f} ms                                       |\n"
+            f"| Execution Platform : Intel Core i5-8400 (Headless CPU Inference)    |\n"
+            f"{border}"
+        )
+        return True, {
+            "full_terminal_card": card,
+            "hud_card": card,
+            "tokens_per_sec": tok_s,
+            "latency_ms": elapsed_s * 1000,
+            "message": f"Benchmark complete: {tok_s:.1f} tok/s ({elapsed_s * 1000:.0f} ms latency).",
+        }
+
+    return (
+        False,
+        f"Unrecognized model action '{act}'. Use 'list', 'switch <model>', or 'benchmark'.",
+    )

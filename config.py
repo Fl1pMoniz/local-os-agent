@@ -12,11 +12,20 @@ class AgentConfig:
     llm_api_key: str = os.getenv("LLM_API_KEY", "ollama")  # Ollama accepts any non-empty string
     llm_model: str = os.getenv("LLM_MODEL", "glados:3b")
     llm_temperature: float = float(os.getenv("LLM_TEMPERATURE", "0.2"))
-    llm_timeout: float = float(os.getenv("LLM_TIMEOUT", "45.0"))
+    llm_timeout: float = float(os.getenv("LLM_TIMEOUT", "60.0"))
     llm_num_ctx: int = int(
         os.getenv("LLM_NUM_CTX", "2048")
     )  # Limit KV cache to 2k tokens (< 200MB VRAM)
     llm_max_tokens: int = int(os.getenv("LLM_MAX_TOKENS", "120"))  # Enforce concise responses
+    llm_num_threads: int = int(
+        os.getenv("LLM_NUM_THREADS", "0")
+    )  # 0 = auto-calculate based on cores
+    headless: bool = os.getenv("HEADLESS", "false").lower() in ("true", "1", "yes")
+    container_mode: bool = (
+        os.getenv("CONTAINER_MODE", "false").lower() in ("true", "1", "yes")
+        or os.path.exists("/.dockerenv")
+        or os.getenv("DOCKER_CONTAINER", "false").lower() in ("true", "1", "yes")
+    )
 
     # Project Directories
     base_dir: Path = Path(__file__).resolve().parent

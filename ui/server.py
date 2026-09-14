@@ -217,6 +217,7 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             state_data = ui_state.get_state()
+            state_data["container_mode"] = config.container_mode
             self.wfile.write(json.dumps(state_data).encode("utf-8"))
             return
 
@@ -242,6 +243,7 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                     "active_tab": ui_state.active_telemetry_tab,
                     "voice_recognition": ui_state.voice_recognition,
                     "glados_voice": config.enable_tts,
+                    "container_mode": config.container_mode,
                     "terminal_events": list(ui_state.terminal_events),
                 }
             except Exception as e:
@@ -709,6 +711,133 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                                 "message": msg,
                                 "telemetry": {"zimaos": zima},
                             }
+                        elif p_lower in ("containers", "ps", "docker ps", "docker", "services"):
+                            from tools.zimaos import manage_containers
+
+                            ok, data = manage_containers("list")
+                            card = (
+                                data.get("full_terminal_card")
+                                if isinstance(data, dict)
+                                else str(data)
+                            )
+                            response_data = {
+                                "success": ok,
+                                "command": user_prompt,
+                                "output": card,
+                                "message": data.get("message", "Docker container sentinel active.")
+                                if isinstance(data, dict)
+                                else str(data),
+                            }
+                        elif p_lower.startswith("restart "):
+                            c_target = user_prompt.split(maxsplit=1)[-1].strip()
+                            from tools.zimaos import manage_containers
+
+                            ok, msg = manage_containers("restart", c_target)
+                            response_data = {
+                                "success": ok,
+                                "command": user_prompt,
+                                "output": f"[+] {msg}" if ok else f"[-] {msg}",
+                                "message": str(msg),
+                            }
+                        elif p_lower.startswith("logs ") or p_lower.startswith("log "):
+                            parts = user_prompt.split()
+                            c_target = parts[1] if len(parts) > 1 else ""
+                            tail_cnt = (
+                                int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 20
+                            )
+                            from tools.zimaos import manage_containers
+
+                            ok, data = manage_containers("logs", c_target, lines=tail_cnt)
+                            card = (
+                                data.get("full_terminal_card")
+                                if isinstance(data, dict)
+                                else str(data)
+                            )
+                            response_data = {
+                                "success": ok,
+                                "command": user_prompt,
+                                "output": card,
+                                "message": f"Retrieved log tail for '{c_target}'.",
+                            }
+                        elif p_lower in ("ai models", "models", "ollama models", "catalog"):
+                            from tools.ai_telemetry import manage_ai_models
+
+                            ok, data = manage_ai_models("list")
+                            card = (
+                                data.get("full_terminal_card")
+                                if isinstance(data, dict)
+                                else str(data)
+                            )
+                            response_data = {
+                                "success": ok,
+                                "command": user_prompt,
+                                "output": card,
+                                "message": data.get("message", "Model catalog retrieved.")
+                                if isinstance(data, dict)
+                                else str(data),
+                            }
+                        elif (
+                            p_lower.startswith("ai switch ")
+                            or p_lower.startswith("switch model ")
+                            or p_lower.startswith("switch ")
+                        ):
+                            m_target = user_prompt.split(maxsplit=2)[-1].strip()
+                            from tools.ai_telemetry import manage_ai_models
+
+                            ok, data = manage_ai_models("switch", m_target)
+                            card = (
+                                data.get("full_terminal_card")
+                                if isinstance(data, dict)
+                                else str(data)
+                            )
+                            response_data = {
+                                "success": ok,
+                                "command": user_prompt,
+                                "output": card,
+                                "message": f"Switched active neural model to '{m_target}'.",
+                            }
+                        elif p_lower in ("ai benchmark", "benchmark", "bench", "test speed"):
+                            from tools.ai_telemetry import manage_ai_models
+
+                            ok, data = manage_ai_models("benchmark")
+                            card = (
+                                data.get("full_terminal_card")
+                                if isinstance(data, dict)
+                                else str(data)
+                            )
+                            response_data = {
+                                "success": ok,
+                                "command": user_prompt,
+                                "output": card,
+                                "message": data.get("message", "Benchmark complete.")
+                                if isinstance(data, dict)
+                                else str(data),
+                            }
+                        elif p_lower in (
+                            "briefing",
+                            "daily briefing",
+                            "report",
+                            "daily report",
+                            "pulse",
+                            "briefing discord",
+                        ):
+                            to_disc = "discord" in p_lower
+                            from tools.zimaos import get_homelab_briefing
+
+                            ok, data = get_homelab_briefing(to_discord=to_disc)
+                            card = (
+                                data.get("full_terminal_card")
+                                if isinstance(data, dict)
+                                else str(data)
+                            )
+                            response_data = {
+                                "success": ok,
+                                "command": user_prompt,
+                                "output": card,
+                                "message": data.get("message", "Homelab daily briefing compiled.")
+                                if isinstance(data, dict)
+                                else str(data),
+                            }
                         elif (
                             p_lower.startswith("flight ")
                             or p_lower.startswith("track ")
@@ -984,13 +1113,21 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
         self.end_headers()
 
 
-def start_ui_server(port: int = PORT, open_browser: bool = False) -> ThreadingHTTPServer:
+def start_ui_server(
+    port: int = PORT, open_browser: bool = False, host: str | None = None
+) -> ThreadingHTTPServer:
     """Starts the GLaDOS UI server in a daemon background thread."""
-    server = ThreadingHTTPServer(("127.0.0.1", port), GLaDOSRequestHandler)
+    bind_host = (
+        host
+        or os.getenv("UI_HOST")
+        or ("0.0.0.0" if os.getenv("CONTAINER_MODE") == "true" else "127.0.0.1")
+    )
+    server = ThreadingHTTPServer((bind_host, port), GLaDOSRequestHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    url = f"http://127.0.0.1:{port}"
-    logger.info(f"GLaDOS Visual UI active at {url}")
+    display_host = "127.0.0.1" if bind_host == "0.0.0.0" else bind_host
+    url = f"http://{display_host}:{port}"
+    logger.info(f"GLaDOS Visual UI active at {url} (bound to {bind_host}:{port})")
 
     # Synchronize any existing flight tracking into ui_state and start auto-updater
     try:
@@ -1029,13 +1166,25 @@ def start_ui_server(port: int = PORT, open_browser: bool = False) -> ThreadingHT
     return server
 
 
-if __name__ == "__main__":
-    import time
+def run_ui_app() -> None:
+    """Blocking runner for the GLaDOS Web UI, ideal for container or foreground server execution."""
+    bind_host = os.getenv("UI_HOST") or (
+        "0.0.0.0" if os.getenv("CONTAINER_MODE") == "true" else "127.0.0.1"
+    )
+    port = int(os.getenv("UI_PORT") or os.getenv("PORT") or PORT)
+    headless = os.getenv("HEADLESS", "false").lower() in ("true", "1", "yes")
 
-    print(f"Starting Aperture Science GLaDOS UI on http://127.0.0.1:{PORT}...")
-    start_ui_server(PORT, open_browser=True)
+    server = start_ui_server(port=port, open_browser=not headless, host=bind_host)
+    print(f"Aperture Science GLaDOS UI running on http://{bind_host}:{port} (Headless: {headless})")
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        print("\nShutting down UI server.")
+        print("\nShutting down UI server gracefully.")
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+if __name__ == "__main__":
+    run_ui_app()
