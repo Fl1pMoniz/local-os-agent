@@ -126,7 +126,14 @@ def get_cpu_telemetry() -> dict[str, Any]:
     if hasattr(psutil, "sensors_temperatures"):
         try:
             temps = psutil.sensors_temperatures()
-            for key in ("coretemp", "k10temp", "cpu_thermal", "cpu-thermal", "zenpower", "soc_thermal"):
+            for key in (
+                "coretemp",
+                "k10temp",
+                "cpu_thermal",
+                "cpu-thermal",
+                "zenpower",
+                "soc_thermal",
+            ):
                 if key in temps and temps[key]:
                     temp_c = float(temps[key][0].current)
                     break
@@ -355,7 +362,9 @@ def format_hardware_hud(telemetry: dict[str, Any]) -> str:
         d_used = disk.get("used_gb", 0.0)
         d_total = disk.get("total_gb", 0.0)
         d_pct = disk.get("percent", 0.0)
-        line_disk = f"System Disk ({disk_drive}): {d_used:>5.1f} / {d_total} GB ({d_pct}%) [{disk_bar}]"
+        line_disk = (
+            f"System Disk ({disk_drive}): {d_used:>5.1f} / {d_total} GB ({d_pct}%) [{disk_bar}]"
+        )
         card.append(f"| {line_disk[:66]:<66} |")
 
     host_os = f"{platform.system()} {platform.release()}"
