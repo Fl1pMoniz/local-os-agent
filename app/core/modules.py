@@ -20,7 +20,9 @@ from app.adapters.mock.mock_clipper import MockClipperAdapter
 from app.adapters.mock.mock_system import MockSystemAdapter
 from app.adapters.mock.null_audio import NullAudioAdapter
 from app.adapters.mock.null_vision import NullVisionAdapter
+from app.agent.langchain_agent import LangChainOSAgent
 from app.core.config import AppSettings, settings
+from app.ports.agent import IntentAgentPort
 from app.ports.audio import AudioPlaybackPort, AudioPort
 from app.ports.clipper import ClipperPort
 from app.ports.flight import AirspaceRadarPort
@@ -49,9 +51,10 @@ class PlatformModule(Module):
         binder.bind(AppSettings, to=self.settings, scope=singleton)
         binder.bind(InstanceLockPort, to=FileInstanceLock, scope=singleton)
 
-        # 2. Remote homelab and airspace radar integrations
+        # 2. Remote homelab, airspace radar, and conversational agent integrations
         binder.bind(RemoteServerPort, to=ZimaOsHttpAdapter, scope=singleton)
         binder.bind(AirspaceRadarPort, to=FlightRadarAdapter, scope=singleton)
+        binder.bind(IntentAgentPort, to=LangChainOSAgent, scope=singleton)
 
         # 3. Headless server mode overrides (e.g. CI runner, headless container, or explicit flag)
         if self.settings.headless_mode or self.settings.audio_backend == "null":
