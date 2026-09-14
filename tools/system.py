@@ -19,6 +19,25 @@ from config import config
 logger = logging.getLogger("local_os_agent.tools.system")
 
 
+def is_container_or_server() -> bool:
+    """Detects whether code is executing within a Docker container, headless server, or ZimaOS."""
+    if os.getenv("CONTAINER_MODE", "").lower() in ("true", "1", "yes"):
+        return True
+    if os.getenv("HEADLESS", "").lower() in ("true", "1", "yes"):
+        return True
+    if os.getenv("IS_ZIMAOS", "").lower() in ("true", "1", "yes"):
+        return True
+    if os.path.exists("/.dockerenv") or os.path.exists("/run/.containerenv"):
+        return True
+    if (
+        platform.system() != "Windows"
+        and not os.getenv("DISPLAY")
+        and not os.getenv("WAYLAND_DISPLAY")
+    ):
+        return True
+    return False
+
+
 def launch_app(app_name: str) -> tuple[bool, str]:
     """
     Opens a standard native application or user-specified program via subprocess.
@@ -542,6 +561,8 @@ def minimize_all_windows() -> tuple[bool, str]:
     """
     Minimizes active windows to show the desktop.
     """
+    if is_container_or_server():
+        return True, "Headless/server environment: window minimization omitted (no active display)."
     try:
         if platform.system() == "Windows":
             # Using Shell.Application COM interface for clean MinimizeAll
@@ -562,8 +583,9 @@ def minimize_all_windows() -> tuple[bool, str]:
 
 # --- Contextual Safety Gatekeeper Tools ---
 
-# Critical Windows system processes that must never be terminated
+# Critical system processes that must never be terminated across Windows, Linux, and ZimaOS
 PROTECTED_PROCESSES = {
+    # Windows core processes
     "system",
     "system idle process",
     "smss.exe",
@@ -572,6 +594,22 @@ PROTECTED_PROCESSES = {
     "services.exe",
     "lsass.exe",
     "svchost.exe",
+    # Linux, Docker, and ZimaOS server daemons
+    "systemd",
+    "init",
+    "dockerd",
+    "docker",
+    "containerd",
+    "ollama",
+    "python",
+    "python3",
+    "uv",
+    "casaos",
+    "zimaos",
+    "casaos-gateway",
+    "casaos-user-service",
+    "homeassistant",
+    "jellyfin",
 }
 
 
@@ -585,17 +623,17 @@ def kill_process(name_or_pid: str | int) -> tuple[bool, str]:
 
         if isinstance(name_or_pid, int) or (isinstance(name_or_pid, str) and name_or_pid.isdigit()):
             target_pid = int(name_or_pid)
-            if target_pid in (0, 4):
+            if target_pid in (0, 1, 4):
                 return (
                     False,
-                    "Aperture Science safety override: System kernel process (PID 0/4) cannot be terminated.",
+                    "Aperture Science safety override: System kernel / init process (PID <= 4) cannot be terminated.",
                 )
         else:
             target_name = str(name_or_pid).lower().strip()
             if target_name in PROTECTED_PROCESSES or f"{target_name}.exe" in PROTECTED_PROCESSES:
                 return (
                     False,
-                    f"Aperture Science safety override: '{target_name}' is a critical system process and cannot be terminated.",
+                    f"Aperture Science safety override: '{target_name}' is a critical system service and cannot be terminated.",
                 )
 
         killed = []
@@ -626,6 +664,11 @@ def shutdown(delay_seconds: int = 60) -> tuple[bool, str]:
     """
     Initiates system shutdown after specified delay. SENSITIVE: requires confirmation.
     """
+    if is_container_or_server():
+        return (
+            False,
+            "Aperture Science safety override: Server shutdown is strictly inhibited in container/server mode.",
+        )
     try:
         delay = max(0, int(delay_seconds))
         if platform.system() == "Windows":
@@ -644,6 +687,11 @@ def sleep_pc() -> tuple[bool, str]:
     """
     Puts the computer into sleep mode. SENSITIVE: requires confirmation.
     """
+    if is_container_or_server():
+        return (
+            False,
+            "Aperture Science safety override: System suspend is strictly inhibited in container/server mode to preserve background services.",
+        )
     try:
         if platform.system() == "Windows":
             subprocess.run(["rundll32.exe", "powrprof.dll,SetSuspendState", "0,1,0"], check=True)
@@ -656,8 +704,13 @@ def sleep_pc() -> tuple[bool, str]:
 
 def lock_workstation() -> tuple[bool, str]:
     """
-    Locks the Windows workstation immediately.
+    Locks the workstation immediately.
     """
+    if is_container_or_server():
+        return (
+            True,
+            "Headless/server environment: workstation locking safely bypassed to maintain continuous operation.",
+        )
     try:
         if platform.system() == "Windows":
             import ctypes

@@ -13,11 +13,32 @@ from app.ports.system import SystemPowerPort, TrashPort
 logger = logging.getLogger("glados.adapters.linux.system")
 
 
+def is_container_or_server() -> bool:
+    """Detects whether code is executing within a Docker container, headless server, or ZimaOS."""
+    if os.getenv("CONTAINER_MODE", "").lower() in ("true", "1", "yes"):
+        return True
+    if os.getenv("HEADLESS", "").lower() in ("true", "1", "yes"):
+        return True
+    if os.getenv("IS_ZIMAOS", "").lower() in ("true", "1", "yes"):
+        return True
+    if os.path.exists("/.dockerenv") or os.path.exists("/run/.containerenv"):
+        return True
+    if not os.getenv("DISPLAY") and not os.getenv("WAYLAND_DISPLAY"):
+        return True
+    return False
+
+
 class LinuxSystemAdapter(SystemPowerPort, TrashPort):
     """Linux system power states, desktop session locking, and trash purge."""
 
     def lock_workstation(self) -> bool:
         """Locks the active desktop session via loginctl or xdg-screensaver."""
+        if is_container_or_server():
+            logger.info(
+                "LinuxSystemAdapter: lock_workstation safely bypassed in headless/server environment."
+            )
+            return True
+
         if shutil.which("loginctl"):
             try:
                 subprocess.run(["loginctl", "lock-session"], check=True, timeout=2.0)
@@ -36,6 +57,9 @@ class LinuxSystemAdapter(SystemPowerPort, TrashPort):
 
     def shutdown(self, delay_seconds: int = 0) -> bool:
         """Initiates system shutdown via systemctl."""
+        if is_container_or_server():
+            logger.warning("LinuxSystemAdapter: shutdown rejected in headless/server environment.")
+            return False
         try:
             if delay_seconds > 0 and shutil.which("shutdown"):
                 mins = max(1, delay_seconds // 60)
@@ -49,6 +73,9 @@ class LinuxSystemAdapter(SystemPowerPort, TrashPort):
 
     def restart(self, delay_seconds: int = 0) -> bool:
         """Initiates system restart via systemctl."""
+        if is_container_or_server():
+            logger.warning("LinuxSystemAdapter: restart rejected in headless/server environment.")
+            return False
         try:
             subprocess.run(["systemctl", "reboot"], check=True)
             return True
@@ -58,6 +85,11 @@ class LinuxSystemAdapter(SystemPowerPort, TrashPort):
 
     def sleep(self) -> bool:
         """Suspends system state via systemctl."""
+        if is_container_or_server():
+            logger.warning(
+                "LinuxSystemAdapter: sleep/suspend rejected in headless/server environment."
+            )
+            return False
         try:
             subprocess.run(["systemctl", "suspend"], check=True)
             return True
