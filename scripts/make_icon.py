@@ -4,6 +4,7 @@ Uses retro IBM BIOS font with 1:2 aspect correction to render a perfect 1:1 circ
 """
 
 from pathlib import Path
+
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent

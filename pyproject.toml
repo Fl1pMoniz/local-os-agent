@@ -77,7 +77,7 @@ dev = [
 # Universal console command entrypoints for any operating system terminal
 [project.scripts]
 glados = "main:cli_entrypoint"
-glados-web = "ui.server:start_ui_server"
+glados-web = "ui.server:run_ui_app"
 
 # Ruff linter and formatter configuration (fast Rust replacement for Black, Flake8, isort)
 [tool.ruff]

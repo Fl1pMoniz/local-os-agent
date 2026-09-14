@@ -965,13 +965,21 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
         self.end_headers()
 
 
-def start_ui_server(port: int = PORT, open_browser: bool = False) -> ThreadingHTTPServer:
+def start_ui_server(
+    port: int = PORT, open_browser: bool = False, host: str | None = None
+) -> ThreadingHTTPServer:
     """Starts the GLaDOS UI server in a daemon background thread."""
-    server = ThreadingHTTPServer(("127.0.0.1", port), GLaDOSRequestHandler)
+    bind_host = (
+        host
+        or os.getenv("UI_HOST")
+        or ("0.0.0.0" if os.getenv("CONTAINER_MODE") == "true" else "127.0.0.1")
+    )
+    server = ThreadingHTTPServer((bind_host, port), GLaDOSRequestHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    url = f"http://127.0.0.1:{port}"
-    logger.info(f"GLaDOS Visual UI active at {url}")
+    display_host = "127.0.0.1" if bind_host == "0.0.0.0" else bind_host
+    url = f"http://{display_host}:{port}"
+    logger.info(f"GLaDOS Visual UI active at {url} (bound to {bind_host}:{port})")
 
     # Synchronize any existing flight tracking into ui_state and start auto-updater
     try:
@@ -1010,13 +1018,25 @@ def start_ui_server(port: int = PORT, open_browser: bool = False) -> ThreadingHT
     return server
 
 
-if __name__ == "__main__":
-    import time
+def run_ui_app() -> None:
+    """Blocking runner for the GLaDOS Web UI, ideal for container or foreground server execution."""
+    bind_host = os.getenv("UI_HOST") or (
+        "0.0.0.0" if os.getenv("CONTAINER_MODE") == "true" else "127.0.0.1"
+    )
+    port = int(os.getenv("UI_PORT") or os.getenv("PORT") or PORT)
+    headless = os.getenv("HEADLESS", "false").lower() in ("true", "1", "yes")
 
-    print(f"Starting Aperture Science GLaDOS UI on http://127.0.0.1:{PORT}...")
-    start_ui_server(PORT, open_browser=True)
+    server = start_ui_server(port=port, open_browser=not headless, host=bind_host)
+    print(f"Aperture Science GLaDOS UI running on http://{bind_host}:{port} (Headless: {headless})")
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        print("\nShutting down UI server.")
+        print("\nShutting down UI server gracefully.")
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+if __name__ == "__main__":
+    run_ui_app()
