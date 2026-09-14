@@ -4,10 +4,9 @@ FROM python:3.11-slim-bookworm
 # Install Astral uv package manager binary
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# Install system dependencies: curl (healthchecks), ffmpeg (audio/video), procps
+# Install system dependencies: curl (healthchecks) and procps (process monitoring)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    ffmpeg \
     procps \
     && rm -rf /var/lib/apt/lists/*
 
