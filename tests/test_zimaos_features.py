@@ -108,6 +108,18 @@ class TestZimaOSFeatures(unittest.TestCase):
         finally:
             config.llm_model = orig_model
 
+    @patch("requests.post")
+    def test_manage_ai_models_pull(self, mock_post) -> None:
+        """Verifies pulling model sends request to Ollama pull endpoint."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_post.return_value = mock_resp
+
+        ok, res = manage_ai_models("pull", "qwen2.5:1.5b")
+        self.assertTrue(ok)
+        self.assertIn("WEIGHT INGESTION COMPLETE", res["full_terminal_card"])
+        self.assertIn("qwen2.5:1.5b", res["message"])
+
     def test_get_homelab_briefing(self) -> None:
         """Verifies daily briefing generates a valid 70-column ASCII report."""
         ok, res = get_homelab_briefing(to_discord=False)

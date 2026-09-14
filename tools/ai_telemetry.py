@@ -632,7 +632,36 @@ def manage_ai_models(action: str = "list", model: str = "", **kwargs) -> tuple[b
             "message": f"Benchmark complete: {tok_s:.1f} tok/s ({elapsed_s * 1000:.0f} ms latency).",
         }
 
+    # 4. PULL MODEL WEIGHTS
+    elif act in ("pull", "download", "fetch"):
+        if not target_model:
+            return False, "Specify a model tag to pull (e.g. 'ai pull qwen2.5:1.5b')."
+
+        pull_url = f"{base_root}/api/pull"
+        try:
+            r = requests.post(pull_url, json={"name": target_model, "stream": False}, timeout=600.0)
+            if r.status_code == 200:
+                border = "+====================================================================+"
+                card = (
+                    f"{border}\n"
+                    f"|   APERTURE NEURAL REPOSITORY - WEIGHT INGESTION COMPLETE           |\n"
+                    f"{border}\n"
+                    f"| Acquired Model     : {target_model:<46} |\n"
+                    f"| Storage Status     : Downloaded into Ollama model storage          |\n"
+                    f"| Activation Command : Execute 'ai switch {target_model}' to activate         |\n"
+                    f"{border}"
+                )
+                return True, {
+                    "full_terminal_card": card,
+                    "hud_card": card,
+                    "model": target_model,
+                    "message": f"Successfully pulled '{target_model}'. Execute 'ai switch {target_model}' to activate.",
+                }
+            return False, f"Ollama model pull failed (HTTP {r.status_code}): {r.text[:100]}"
+        except Exception as e:
+            return False, f"Failed to pull '{target_model}': {e}"
+
     return (
         False,
-        f"Unrecognized model action '{act}'. Use 'list', 'switch <model>', or 'benchmark'.",
+        f"Unrecognized model action '{act}'. Use 'list', 'pull <model>', 'switch <model>', or 'benchmark'.",
     )
