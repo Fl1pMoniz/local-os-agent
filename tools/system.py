@@ -114,7 +114,7 @@ def get_cpu_telemetry() -> dict[str, Any]:
         try:
             cpuinfo = Path("/proc/cpuinfo")
             if cpuinfo.exists():
-                with open(cpuinfo, "r", encoding="utf-8", errors="ignore") as f:
+                with open(cpuinfo, encoding="utf-8", errors="ignore") as f:
                     for line in f:
                         if "model name" in line:
                             name = line.split(":", 1)[1].strip()
@@ -146,7 +146,7 @@ def get_cpu_telemetry() -> dict[str, Any]:
 
             thermal_paths = glob.glob("/sys/class/thermal/thermal_zone*/temp")
             if thermal_paths:
-                with open(thermal_paths[0], "r") as tf:
+                with open(thermal_paths[0]) as tf:
                     val = float(tf.read().strip())
                     temp_c = round(val / 1000.0, 1) if val > 1000 else round(val, 1)
         except Exception:

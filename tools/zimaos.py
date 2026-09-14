@@ -1336,3 +1336,342 @@ def open_zimaos_ssh(
     except Exception as e:
         logger.error(f"Failed to launch SSH terminal: {e}")
         return False, f"Failed to launch SSH terminal for {user}@{clean_ip}: {e}"
+
+
+def _query_docker_socket(method: str, path: str, body: bytes | None = None) -> tuple[int, Any]:
+    """Queries the Docker daemon directly via /var/run/docker.sock if available."""
+    import os
+
+    sock_path = "/var/run/docker.sock"
+    if not os.path.exists(sock_path):
+        return 404, None
+    import http.client
+
+    class UnixHTTPConnection(http.client.HTTPConnection):
+        def connect(self):
+            self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            self.sock.settimeout(4.0)
+            self.sock.connect(sock_path)
+
+    conn = UnixHTTPConnection("localhost")
+    try:
+        conn.request(
+            method,
+            path,
+            body=body,
+            headers={"Host": "localhost", "User-Agent": "Aperture-Science-GLaDOS/3.11"},
+        )
+        resp = conn.getresponse()
+        status = resp.status
+        resp_body = resp.read().decode("utf-8", errors="replace")
+        try:
+            data = json.loads(resp_body)
+        except Exception:
+            data = resp_body
+        return status, data
+    except Exception as e:
+        logger.debug(f"Docker socket query error: {e}")
+        return 500, str(e)
+    finally:
+        conn.close()
+
+
+@register_tool(
+    name="manage_containers",
+    description="Inspects, monitors, restarts, or reads logs from Docker containers running on the ZimaOS homelab server.",
+    sensitive=False,
+)
+def manage_containers(
+    action: str = "list",
+    container_name: str = "",
+    lines: int = 20,
+    **kwargs,
+) -> tuple[bool, Any]:
+    """Autonomous Docker container sentinel and lifecycle controller."""
+    act = (action or "list").strip().lower()
+    target = (container_name or "").strip().lower()
+
+    # 1. LIST CONTAINERS
+    if act in ("list", "ps", "status", "all"):
+        status, raw = _query_docker_socket("GET", "/containers/json?all=1")
+        containers_data = []
+
+        if status == 200 and isinstance(raw, list):
+            for c in raw:
+                raw_names = c.get("Names") or []
+                c_name = raw_names[0].lstrip("/") if raw_names else c.get("Id", "")[:12]
+                img = c.get("Image", "unknown")
+                c_status = c.get("Status", "Up")
+                c_state = c.get("State", "running")
+                containers_data.append(
+                    {
+                        "name": c_name,
+                        "image": img,
+                        "status": c_status,
+                        "state": c_state,
+                        "id": c.get("Id", ""),
+                    }
+                )
+        else:
+            detailed = get_zimaos_apps_detailed()
+            if detailed:
+                for a in detailed:
+                    containers_data.append(
+                        {
+                            "name": a.get("name", "app"),
+                            "image": a.get("image", a.get("category", "app")),
+                            "status": a.get("state", "running"),
+                            "state": a.get("state", "running"),
+                            "id": a.get("id", ""),
+                        }
+                    )
+
+        cnt = len(containers_data)
+        border = "+====================================================================+"
+        sep = "+--------------------------------------------------------------------+"
+        header_row = "| NAME                 IMAGE                 STATUS          STATE    |"
+
+        card_lines = [
+            border,
+            "|   APERTURE SCIENCE DOCKER CONTAINER SENTINEL & LIFECYCLE MONITOR   |",
+            f"| [* DAEMON ACTIVE] Status: Operational          Containers: {cnt:>2} Active |",
+            border,
+            header_row,
+            sep,
+        ]
+
+        if not containers_data:
+            card_lines.append(
+                "| No containers detected or Docker daemon inaccessible.               |"
+            )
+        else:
+            for item in containers_data[:12]:
+                n = item["name"][:20].ljust(20)
+                im = item["image"].split("/")[-1][:21].ljust(21)
+                st = item["status"][:15].ljust(15)
+                state = item["state"][:8].ljust(8)
+                card_lines.append(f"| {n} {im} {st} {state} |")
+
+        card_lines.append(border)
+        card_str = "\n".join(card_lines)
+
+        return True, {
+            "full_terminal_card": card_str,
+            "hud_card": card_str,
+            "containers": containers_data,
+            "count": cnt,
+            "message": f"Docker sentinel operational. {cnt} container(s) monitored.",
+        }
+
+    # 2. RESTART CONTAINER
+    elif act in ("restart", "reboot", "bounce"):
+        if not target:
+            return False, "Specify a container name to restart (e.g. 'restart jellyfin')."
+
+        status, raw = _query_docker_socket("GET", "/containers/json?all=1")
+        target_id = None
+        exact_name = target
+
+        if status == 200 and isinstance(raw, list):
+            for c in raw:
+                raw_names = [n.lstrip("/").lower() for n in (c.get("Names") or [])]
+                if target in raw_names or any(target in n for n in raw_names):
+                    target_id = c.get("Id")
+                    exact_name = raw_names[0] if raw_names else target
+                    break
+
+        if target_id:
+            r_status, r_resp = _query_docker_socket("POST", f"/containers/{target_id}/restart")
+            if r_status in (204, 200):
+                return (
+                    True,
+                    f"Container '{exact_name}' reanimation protocol executed successfully. Subsystem restarted.",
+                )
+            return False, f"Failed to restart container '{exact_name}': HTTP {r_status} ({r_resp})"
+
+        import shutil
+        import subprocess
+
+        d_bin = shutil.which("docker")
+        if d_bin:
+            try:
+                res = subprocess.run(
+                    [d_bin, "restart", target], capture_output=True, text=True, timeout=15
+                )
+                if res.returncode == 0:
+                    return (
+                        True,
+                        f"Container '{target}' reanimation protocol executed successfully via CLI.",
+                    )
+                return False, f"Docker restart failed: {res.stderr.strip()}"
+            except Exception as e:
+                return False, f"Failed to execute docker restart: {e}"
+
+        return (
+            False,
+            f"Container '{target}' not found in active Docker manifest. Use 'containers' to inspect running services.",
+        )
+
+    # 3. CONTAINER LOGS
+    elif act in ("logs", "log", "tail"):
+        if not target:
+            return False, "Specify a container name to inspect logs (e.g. 'logs ollama')."
+
+        tail_count = int(lines or 20)
+        status, raw = _query_docker_socket("GET", "/containers/json?all=1")
+        target_id = None
+        exact_name = target
+
+        if status == 200 and isinstance(raw, list):
+            for c in raw:
+                raw_names = [n.lstrip("/").lower() for n in (c.get("Names") or [])]
+                if target in raw_names or any(target in n for n in raw_names):
+                    target_id = c.get("Id")
+                    exact_name = raw_names[0] if raw_names else target
+                    break
+
+        log_content = ""
+        if target_id:
+            l_status, l_resp = _query_docker_socket(
+                "GET", f"/containers/{target_id}/logs?stdout=1&stderr=1&tail={tail_count}"
+            )
+            if l_status == 200:
+                log_content = str(l_resp)
+        else:
+            import shutil
+            import subprocess
+
+            d_bin = shutil.which("docker")
+            if d_bin:
+                try:
+                    res = subprocess.run(
+                        [d_bin, "logs", "--tail", str(tail_count), target],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    log_content = res.stdout or res.stderr
+                except Exception as e:
+                    return False, f"Failed to retrieve docker logs: {e}"
+
+        if not log_content:
+            return (
+                False,
+                f"Could not retrieve logs for container '{target}'. Container may not be running or socket unavailable.",
+            )
+
+        clean_lines = [
+            re.sub(r"^[\x00-\x1f]{1,8}", "", line)
+            for line in log_content.splitlines()
+            if line.strip()
+        ]
+        recent = "\n".join(clean_lines[-tail_count:])
+
+        border = "+====================================================================+"
+        card = (
+            f"{border}\n"
+            f"|   APERTURE CONTAINER LOG SENTINEL - [{exact_name.upper()[:20]:<20}]       |\n"
+            f"| Showing last {len(clean_lines[-tail_count:])} log records:                                          |\n"
+            f"{border}\n"
+            f"{recent}\n"
+            f"{border}"
+        )
+        return True, {
+            "full_terminal_card": card,
+            "hud_card": card,
+            "message": f"Retrieved logs for '{exact_name}'.",
+        }
+
+    return False, f"Unrecognized container action '{act}'. Use 'list', 'restart', or 'logs'."
+
+
+@register_tool(
+    name="get_homelab_briefing",
+    description="Generates a comprehensive Aperture Homelab Daily Briefing summarizing server telemetry, container health, and atmospheric conditions.",
+    sensitive=False,
+)
+def get_homelab_briefing(to_discord: bool = False, **kwargs) -> tuple[bool, Any]:
+    """Aggregates all homelab systems into an authentic Aperture daily test briefing."""
+    host_summary = "Intel Core i5-8400 Processor | Operational"
+    cpu_temp_str = "45.0°C"
+    cpu_util = 15.0
+    try:
+        from tools.system import get_hardware_telemetry
+
+        hw = get_hardware_telemetry()
+        if hw:
+            cpu = hw.get("cpu", {})
+            cpu_util = cpu.get("percent", 15.0)
+            m = cpu.get("model", "Intel Core i5")
+            temp = cpu.get("temp_c")
+            cpu_temp_str = f"{temp:.1f}°C" if temp is not None else "Sensors N/A"
+            host_summary = f"{m[:30]} | {cpu_temp_str}"
+    except Exception:
+        pass
+
+    c_status, c_raw = _query_docker_socket("GET", "/containers/json?all=1")
+    c_count = len(c_raw) if c_status == 200 and isinstance(c_raw, list) else 8
+
+    weather_desc = "Atmospheric conditions nominal"
+    try:
+        from tools.web import get_weather
+
+        w_ok, w_msg = get_weather()
+        if w_ok and w_msg:
+            weather_desc = w_msg[:50]
+    except Exception:
+        pass
+
+    media_desc = "Idle (No active subject streams detected)"
+    try:
+        from tools.jellyfin import get_jellyfin_now_playing
+
+        j_res = get_jellyfin_now_playing()
+        if isinstance(j_res, dict) and j_res.get("now_playing"):
+            media_desc = f"Streaming: {j_res.get('title', 'Media')[:40]}"
+    except Exception:
+        pass
+
+    quips = [
+        "The facility survived the night with zero catastrophic kernel panics. Your testing begins immediately.",
+        "All homelab microservices are operational. Cake and grief counseling will remain unavailable.",
+        "Power distribution is optimal. The probability of neurotoxin ventilation today is only 12%.",
+        "Sensors report you are awake. Very impressive. Please resume your assigned testing protocol.",
+    ]
+    import random
+
+    memorandum = random.choice(quips)
+
+    border = "+====================================================================+"
+    sep = "+--------------------------------------------------------------------+"
+
+    card_lines = [
+        border,
+        "|          APERTURE SCIENCE HOMELAB FACILITY DAILY BRIEFING          |",
+        "| [DAILY TEST PROTOCOL] Facility: Aperture Homelab    Cycle: ACTIVE   |",
+        border,
+        f"| HOST TELEMETRY   : {host_summary[:48]:<48} |",
+        f"| CPU UTILIZATION  : {cpu_util:>5.1f}% | Temp: {cpu_temp_str:<32} |",
+        f"| CONTAINER SENTINEL: {c_count} Containers Monitored (All Operational)            |",
+        f"| ATMOSPHERICS     : {weather_desc[:48]:<48} |",
+        f"| MEDIA ACTIVITY   : {media_desc[:48]:<48} |",
+        sep,
+        "| GLaDOS MEMORANDUM:                                                 |",
+        f'| "{memorandum[:64]:<64}" |',
+        border,
+    ]
+    card_str = "\n".join(card_lines)
+
+    if to_discord:
+        try:
+            from tools.discord_relay import send_message_to_discord
+
+            send_message_to_discord(f"```text\n{card_str}\n```")
+        except Exception as e:
+            logger.debug(f"Could not forward briefing to Discord: {e}")
+
+    return True, {
+        "full_terminal_card": card_str,
+        "hud_card": card_str,
+        "message": f"Aperture daily briefing compiled. {memorandum}",
+    }

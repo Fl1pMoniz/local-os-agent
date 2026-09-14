@@ -217,6 +217,7 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             state_data = ui_state.get_state()
+            state_data["container_mode"] = config.container_mode
             self.wfile.write(json.dumps(state_data).encode("utf-8"))
             return
 
@@ -242,6 +243,7 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                     "active_tab": ui_state.active_telemetry_tab,
                     "voice_recognition": ui_state.voice_recognition,
                     "glados_voice": config.enable_tts,
+                    "container_mode": config.container_mode,
                     "terminal_events": list(ui_state.terminal_events),
                 }
             except Exception as e:
@@ -708,6 +710,133 @@ class GLaDOSRequestHandler(SimpleHTTPRequestHandler):
                                 "output": msg,
                                 "message": msg,
                                 "telemetry": {"zimaos": zima},
+                            }
+                        elif p_lower in ("containers", "ps", "docker ps", "docker", "services"):
+                            from tools.zimaos import manage_containers
+
+                            ok, data = manage_containers("list")
+                            card = (
+                                data.get("full_terminal_card")
+                                if isinstance(data, dict)
+                                else str(data)
+                            )
+                            response_data = {
+                                "success": ok,
+                                "command": user_prompt,
+                                "output": card,
+                                "message": data.get("message", "Docker container sentinel active.")
+                                if isinstance(data, dict)
+                                else str(data),
+                            }
+                        elif p_lower.startswith("restart "):
+                            c_target = user_prompt.split(maxsplit=1)[-1].strip()
+                            from tools.zimaos import manage_containers
+
+                            ok, msg = manage_containers("restart", c_target)
+                            response_data = {
+                                "success": ok,
+                                "command": user_prompt,
+                                "output": f"[+] {msg}" if ok else f"[-] {msg}",
+                                "message": str(msg),
+                            }
+                        elif p_lower.startswith("logs ") or p_lower.startswith("log "):
+                            parts = user_prompt.split()
+                            c_target = parts[1] if len(parts) > 1 else ""
+                            tail_cnt = (
+                                int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 20
+                            )
+                            from tools.zimaos import manage_containers
+
+                            ok, data = manage_containers("logs", c_target, lines=tail_cnt)
+                            card = (
+                                data.get("full_terminal_card")
+                                if isinstance(data, dict)
+                                else str(data)
+                            )
+                            response_data = {
+                                "success": ok,
+                                "command": user_prompt,
+                                "output": card,
+                                "message": f"Retrieved log tail for '{c_target}'.",
+                            }
+                        elif p_lower in ("ai models", "models", "ollama models", "catalog"):
+                            from tools.ai_telemetry import manage_ai_models
+
+                            ok, data = manage_ai_models("list")
+                            card = (
+                                data.get("full_terminal_card")
+                                if isinstance(data, dict)
+                                else str(data)
+                            )
+                            response_data = {
+                                "success": ok,
+                                "command": user_prompt,
+                                "output": card,
+                                "message": data.get("message", "Model catalog retrieved.")
+                                if isinstance(data, dict)
+                                else str(data),
+                            }
+                        elif (
+                            p_lower.startswith("ai switch ")
+                            or p_lower.startswith("switch model ")
+                            or p_lower.startswith("switch ")
+                        ):
+                            m_target = user_prompt.split(maxsplit=2)[-1].strip()
+                            from tools.ai_telemetry import manage_ai_models
+
+                            ok, data = manage_ai_models("switch", m_target)
+                            card = (
+                                data.get("full_terminal_card")
+                                if isinstance(data, dict)
+                                else str(data)
+                            )
+                            response_data = {
+                                "success": ok,
+                                "command": user_prompt,
+                                "output": card,
+                                "message": f"Switched active neural model to '{m_target}'.",
+                            }
+                        elif p_lower in ("ai benchmark", "benchmark", "bench", "test speed"):
+                            from tools.ai_telemetry import manage_ai_models
+
+                            ok, data = manage_ai_models("benchmark")
+                            card = (
+                                data.get("full_terminal_card")
+                                if isinstance(data, dict)
+                                else str(data)
+                            )
+                            response_data = {
+                                "success": ok,
+                                "command": user_prompt,
+                                "output": card,
+                                "message": data.get("message", "Benchmark complete.")
+                                if isinstance(data, dict)
+                                else str(data),
+                            }
+                        elif p_lower in (
+                            "briefing",
+                            "daily briefing",
+                            "report",
+                            "daily report",
+                            "pulse",
+                            "briefing discord",
+                        ):
+                            to_disc = "discord" in p_lower
+                            from tools.zimaos import get_homelab_briefing
+
+                            ok, data = get_homelab_briefing(to_discord=to_disc)
+                            card = (
+                                data.get("full_terminal_card")
+                                if isinstance(data, dict)
+                                else str(data)
+                            )
+                            response_data = {
+                                "success": ok,
+                                "command": user_prompt,
+                                "output": card,
+                                "message": data.get("message", "Homelab daily briefing compiled.")
+                                if isinstance(data, dict)
+                                else str(data),
                             }
                         elif (
                             p_lower.startswith("flight ")

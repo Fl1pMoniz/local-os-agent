@@ -43,6 +43,8 @@ services:
       - LLM_BASE_URL=http://host.docker.internal:11434/v1
       - LLM_MODEL=qwen2.5:3b
       - LLM_API_KEY=ollama
+      - LLM_NUM_THREADS=4
+      - LLM_TIMEOUT=60.0
       - ZIMAOS_HOST=http://host.docker.internal
       - LOG_LEVEL=INFO
     extra_hosts:
@@ -50,6 +52,7 @@ services:
     volumes:
       - /DATA/AppData/glados/captures:/app/captures
       - /DATA/AppData/glados/logs:/app/logs
+      - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:5000/api/state"]
       interval: 30s

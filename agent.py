@@ -3,6 +3,7 @@
 import ast
 import json
 import logging
+import os
 import re
 import time
 from collections.abc import Callable
@@ -11,7 +12,13 @@ from typing import Any
 from openai import OpenAI
 
 from config import config
-from schemas import SYSTEM_PROMPT, AgentResponse, ToolAction, ToolExecutionResult
+from schemas import (
+    CONTAINER_SYSTEM_PROMPT,
+    SYSTEM_PROMPT,
+    AgentResponse,
+    ToolAction,
+    ToolExecutionResult,
+)
 from tools import execute_tool, get_tool
 
 logger = logging.getLogger("local_os_agent.agent")
@@ -235,18 +242,39 @@ class OSAgent:
         # Multi-turn conversational memory: keep last 4-6 turns to maintain context and conserve tokens
         history_turns = 4 if config.cli_mode else 6
         recent_history = self.history[-history_turns:]
+        # Select prompt tuned for headless/container mode to avoid evaluating 3000 tokens on CPU
+        is_container = (
+            config.container_mode
+            or config.headless
+            or os.getenv("CONTAINER_MODE", "false").lower() in ("true", "1")
+        )
+        sys_prompt = CONTAINER_SYSTEM_PROMPT if is_container else SYSTEM_PROMPT
+
         messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": sys_prompt},
             *recent_history,
             {"role": "user", "content": user_prompt},
         ]
 
         logger.debug(f"Sending request to LLM ({self.model}) at {self.base_url}")
-        # Optimized options to cap KV cache VRAM footprint to < 300MB
+
+        # Compute dynamic CPU thread cap: keep at least 2 cores free for host/ZimaOS
+        num_threads = config.llm_num_threads
+        if num_threads <= 0:
+            try:
+                import psutil
+
+                cores = psutil.cpu_count(logical=False) or 4
+                num_threads = max(1, cores - 2 if cores >= 6 else cores - 1)
+            except Exception:
+                num_threads = 4
+
+        # Optimized options to cap KV cache VRAM footprint and CPU threads
         extra_options = {
             "options": {
                 "num_ctx": config.llm_num_ctx,
                 "num_predict": config.llm_max_tokens,
+                "num_thread": num_threads,
             }
         }
 
